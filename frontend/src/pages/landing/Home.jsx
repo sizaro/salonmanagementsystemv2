@@ -21,7 +21,7 @@ export default function Home() {
       {/* Hero Section */}
       <header className="bg-gradient-to-r from-blue-700 to-blue-500 text-white text-center py-24">
         <h1 className="md:text-5xl font-bold mb-4 text-3xl">
-          Welcome to Salehish Beauty Parlour & Spa
+          Welcome Beauty Parlour & Spa
         </h1>
         <h3 className="md:text-3xl font-bold mb-2 text-2xl">
           The Core of Beauty Parlour
@@ -86,7 +86,7 @@ export default function Home() {
         <div className="max-w-4xl mx-auto px-6">
           <h2 className="text-3xl font-bold mb-4 text-gray-800">About Us</h2>
           <p className="text-gray-600 mb-6">
-            At Salehish Beauty Parlour & Spa, we combine passion, precision, and creativity to bring out your best look.
+            At Beauty Parlour & Spa, we combine passion, precision, and creativity to bring out your best look.
             Whether it’s a simple trim or a premium treatment, our professional team ensures you leave looking
             and feeling amazing.
           </p>

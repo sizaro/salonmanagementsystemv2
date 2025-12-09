@@ -14,7 +14,7 @@ export default function About() {
 const staticBaseUrl =
   import.meta.env.MODE === "development"
     ? "http://localhost:5500"
-    : "https://salonmanagementsystem.onrender.com";
+    : "https://salonmanagementsystemv2.onrender.com";
 
 
 
@@ -47,7 +47,7 @@ useEffect(()=>{
       {/* Hero Section */}
       <header className="bg-gradient-to-r from-blue-700 to-blue-500 text-white py-20 text-center">
         <h1 className="md:text-5xl text-2xl font-bold mb-4">
-          About Salehish Beauty Parlour & Spa
+          About Beauty Parlour & Spa
         </h1>
         <p className="max-w-2xl mx-auto text-lg">
           Where skill meets passion — founded and led by{" "}
@@ -79,7 +79,7 @@ useEffect(()=>{
         <section className="text-center">
           <h2 className="text-3xl font-bold text-gray-800 mb-4">Our Story</h2>
           <p className="text-gray-700 max-w-3xl mx-auto leading-relaxed mb-6">
-            Salehish Beauty Salon was established in 2020 as a modern, inclusive, and innovative grooming space.
+            Beauty Salon was established in 2020 as a modern, inclusive, and innovative grooming space.
             Our goal is to blend artistry and professionalism, providing our clients with the highest level of
             satisfaction in every service — from haircuts, nails to skincare. We believe that beauty is not just how you
             look, but how you feel when you leave our salon.
