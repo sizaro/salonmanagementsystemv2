@@ -303,8 +303,8 @@ export default function OwnerDashboard() {
 
   return (
     <>
-      <div className="space-y-10">
-        <div className="space-y-10">
+      <div className="space-y-1 md:space-y-10">
+        <div className="space-y-1 md:space-y-10">
           {salonStatus === "closed" ? (
             <Button className="bg-green-400 hover:bg-green-300" onClick={() => handleSalonSession("open")}>
               Open Salon
