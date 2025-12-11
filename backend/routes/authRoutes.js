@@ -1,6 +1,8 @@
 // routes/authRoutes.js
 import express from "express";
 import passport from "passport";
+import {forgotPasswordController, resetPasswordController  } from "../controllers/authController.js"
+
 
 const router = express.Router();
 
@@ -27,5 +29,10 @@ router.post("/logout", (req, res) => {
     res.json({ message: "Logged out successfully" });
   });
 });
+
+// forgot password
+
+router.post("/forgot-password", forgotPasswordController);
+router.put("/reset-password", resetPasswordController);
 
 export default router;

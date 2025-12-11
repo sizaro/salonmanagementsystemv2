@@ -6,6 +6,8 @@ import About from "./pages/landing/About.jsx";
 import Services from "./pages/landing/Services.jsx";
 import Contact from "./pages/landing/Contact.jsx";
 
+import ResetPassword from "./pages/landing/ResetPassword.jsx";
+
 import OwnerLayout from "./components/layout/OwnerLayout.jsx";
 import ManagerLayout from "./components/layout/ManagerLayout.jsx";
 import EmployeeLayout from "./components/layout/EmployeeLayout.jsx";
@@ -20,6 +22,9 @@ function App() {
         <Route path="/about" element={<About />} />
         <Route path="/services" element={<Services />} />
         <Route path="/contact" element={<Contact />} />
+        {/* Reset Password (public) */}
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
+        
 
         {/* Owner Routes */}
         <Route

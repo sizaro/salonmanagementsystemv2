@@ -1,8 +1,12 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { io } from "socket.io-client";
+
+
 
 const DataContext = createContext();
+
 
 export const DataProvider = ({ children }) => {
   const [services, setServices] = useState([]);
@@ -20,10 +24,24 @@ export const DataProvider = ({ children }) => {
   const [serviceDefinitions, setServiceDefinitions] = useState([]);
   const [serviceRoles, setServiceRoles] = useState([]);
   const [serviceMaterials, setServiceMaterials] = useState([]);
+const [transactions, setTransactions] = useState([]);
+
+const pendingAppointments = useMemo(() => {
+  return transactions.filter(s => s.status === "pending");
+}, [transactions]);
+
+
+const pendingCount = pendingAppointments.length;
+
 
   const navigate = useNavigate();
 
   const API_URL = import.meta.env.VITE_API_URL || "/api";
+
+  const socket = io(API_URL.replace("/api", ""), {
+  transports: ["websocket"],
+  secure: true
+});
 
   // ---------- Fetch All ----------
   const fetchAllData = async () => {
@@ -645,6 +663,18 @@ const fetchServiceTransactions = async () => {
   }
 };
 
+const fetchServiceTransactionsApp = async () => {
+  try {
+    const res = await axios.get(`${API_URL}/services/service_transactions`);
+    setTransactions(res.data.data);
+    console.log("service transactions in the data context", res.data.data)
+    return res.data.data;
+  } catch (err) {
+    console.error("Error fetching service transactions:", err);
+    throw err;
+  }
+};
+
 // ---------- FETCH SINGLE ----------
 const fetchServiceTransactionById = async (id) => {
   try {
@@ -696,6 +726,7 @@ const deleteServiceTransaction = async (id) => {
     } catch (err) {
       setUser(null);
       console.error("Auth check failed:", err);
+      navigate("/");
     }
   };
 
@@ -709,6 +740,36 @@ const deleteServiceTransaction = async (id) => {
       navigate("/");
     }
   };
+
+
+  // inside DataProvider
+
+const forgotPassword = async (email) => {
+  try {
+    setLoading(true);
+    const res = await axios.post(`${API_URL}/auth/forgot-password`, { email });
+    setLoading(false);
+    return { success: true, message: res.data.message };
+  } catch (err) {
+    setLoading(false);
+    console.error("Error sending password reset email:", err);
+    return { success: false, message: err.response?.data?.message || "Server error" };
+  }
+};
+
+
+const resetPassword = async (payload) => {
+  try {
+    setLoading(true);
+    const res = await axios.post(`${API_URL}/auth/reset-password`, payload);
+    setLoading(false);
+    return { success: true, message: res.data.message };
+  } catch (err) {
+    setLoading(false);
+    console.error("Error resetting password:", err);
+    return { success: false, message: err.response?.data?.message || "Server error" };
+  }
+};
 
   // ---------- Send Form ----------
   const sendFormData = async (formIdentifier, formData) => {
@@ -792,6 +853,25 @@ useEffect(() => {
   useEffect(()=>{
     checkAuth();
   }, [])
+
+  useEffect(()=>{
+    fetchServiceTransactionsApp();
+  }, [])
+
+
+
+  useEffect(() => {
+  // Listen for new appointments
+  socket.on("appointment_created", (payload) => {
+    console.log("Appointment received via socket:", payload);
+    fetchServiceTransactionsApp();
+  });
+
+  return () => {
+    socket.off("appointment_created");
+  };
+}, []);
+
   // ---------- Export ----------
   return (
     <DataContext.Provider
@@ -812,6 +892,8 @@ useEffect(() => {
         serviceDefinitions,
         serviceRoles,
         serviceMaterials,
+        pendingAppointments,
+        pendingCount,
         fetchServiceRoles,
         fetchServiceMaterials,
         fetchSections,
@@ -826,6 +908,7 @@ useEffect(() => {
         fetchServiceRoles,
         createServiceTransaction,
         fetchServiceTransactions,
+        fetchServiceTransactionsApp,
         fetchServiceTransactionById,
         updateServiceTransactionById,
         updateServiceTransactionAppointment,
@@ -868,6 +951,8 @@ useEffect(() => {
         createTagFee,
         updateTagFee,
         deleteTagFee,
+        forgotPassword,
+        resetPassword
       }}
     >
       {children}

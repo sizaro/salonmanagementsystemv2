@@ -11,6 +11,8 @@ import LateFeeForm from "../../components/LateFeeForm.jsx";
 import CancelReasonForm from "../../components/CancelReasonForm.jsx";
 import Button from "../../components/Button";
 import { useData } from "../../context/DataContext.jsx";
+import io from "socket.io-client";
+
 
 export default function OwnerDashboard() {
   const [modalType, setModalType] = useState(null);
@@ -58,7 +60,10 @@ export default function OwnerDashboard() {
     fetchServiceMaterials,
     fetchServiceRoles,
     createServiceTransaction,
-    fetchServiceTransactions
+    fetchServiceTransactions,
+    fetchServiceTransactionsApp,
+    pendingCount,
+    pendingAppointments
   } = useData();
 
 
@@ -179,11 +184,13 @@ export default function OwnerDashboard() {
   };
 
   const appointmentsByStatus = {
-    pending: (servicesWithMaterials || []).filter((s) => s.status === "pending"),
+    pending:(pendingAppointments || []),
     confirmed: (servicesWithMaterials || []).filter((s) => s.status === "confirmed"),
     completed: (servicesWithMaterials || []).filter((s) => s.status === "completed"),
     cancelled: (servicesWithMaterials || []).filter((s) => s.status === "cancelled"),
   };
+
+  console.log("pending appointments in", pendingAppointments)
 
   useEffect(() => {
     if (sessions && sessions.length > 0) setSalonStatus(sessions[0].status);
@@ -210,14 +217,21 @@ export default function OwnerDashboard() {
   };
 
   const handleAppointmentStatus = async (serviceId, newStatus, cancel_reason = null) => {
-    try {
-      const service = await fetchServiceTransactionById(serviceId);
-      if (!service) return;
-      await updateServiceTransactionAppointment(serviceId, { ...service, status: newStatus, cancel_reason });
-    } catch (err) {
-      console.error("Failed to update service status", err);
-    }
-  };
+  try {
+    const service = await fetchServiceTransactionById(serviceId);
+    if (!service) return;
+
+    await updateServiceTransactionAppointment(serviceId, { ...service, status: newStatus, cancel_reason });
+
+    setActiveTab(newStatus);
+
+    fetchServiceTransactions();
+    fetchServiceTransactionsApp();
+  } catch (err) {
+    console.error("Failed to update service status", err);
+  }
+};
+
 
   const handleStatusUpdatet = async (serviceId, newStatus) => {
     try {

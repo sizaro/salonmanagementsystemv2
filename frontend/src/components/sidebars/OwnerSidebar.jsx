@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import SidebarFooter from '../common/SidebarFooter';
+import { useData } from '../../context/DataContext';
 
 export default function OwnerSidebar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef();
   const location = useLocation();
+  const { pendingCount, fetchServiceTransactions } = useData();
+
 
   const isActive = (path) => location.pathname === path;
   const linkClass = (path) =>
@@ -23,19 +26,61 @@ export default function OwnerSidebar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuOpen]);
 
+  useEffect(()=>{
+    fetchServiceTransactions();
+  }, [])
+
   return (
     <>
       {/* Top Mobile Header */}
       <div className="md:hidden bg-gray-900 p-4 flex justify-between items-center text-white fixed top-0 left-0 right-0 z-50">
         <span className="font-bold text-lg">Salon Management</span>
+        <div className="relative">
+  <Link to="/owner/dashboard" className={linkClass('/owner/dashboard')}>
+    pending:
+
+    {/* Pending Badge */}
+    {pendingCount > 0 && (
+      <span className="top-1/2 -translate-y-1/2 bg-red-600 text-white text-xs px-2 py-0.5 rounded-full">
+        {pendingCount}
+      </span>
+    )}
+  </Link>
+</div>
+
         <button onClick={() => setMenuOpen(true)} className="text-2xl focus:outline-none">☰</button>
       </div>
+      <li className="relative">
+  <Link to="/owner/dashboard" className={linkClass('/owner/dashboard')}>
+    pending:
+
+    {/* 🔥 Pending Badge */}
+    {pendingCount > 0 && (
+      <span className="absolute right-3 top-1/2 -translate-y-1/2 bg-red-600 text-white text-xs px-2 py-0.5 list-none rounded-full">
+        {pendingCount}
+      </span>
+    )}
+  </Link>
+</li>
+
 
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 h-screen bg-gray-900 text-white fixed top-0 left-0 flex-col shadow-lg pt-16">
         <div className="px-6 font-bold text-xl mb-4">Salon Management</div>
         <div className="flex-1 overflow-y-auto px-2">
           <ul className="space-y-1 text-sm">
+            <li className="relative">
+            <Link to="/owner/dashboard" className={linkClass('/owner/dashboard')}>
+              pending:
+
+              {/*Pending Badge */}
+              {pendingCount > 0 && (
+                <span className="top-1/2 -translate-y-1/2 bg-red-600 text-white text-xs px-2 py-0.5 rounded-full">
+                  {pendingCount}
+                </span>
+              )}
+            </Link>
+          </li>
             <li><Link to="/owner/dashboard" className={linkClass('/owner/dashboard')}>Dashboard</Link></li>
             <li><Link to="/owner/income-report" className={linkClass('/owner/income-report')}>Income Reports</Link></li>
             <li><Link to="/owner/expenses-report" className={linkClass('/owner/expenses-report')}>Expenses Reports</Link></li>

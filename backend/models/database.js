@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 const envFile =
   process.env.NODE_ENV === "production"
     ? ".env.production"
-    : ".env.development"; // use local dev docker db
+    : ".env.development";
 
 dotenv.config({ path: envFile });
 
