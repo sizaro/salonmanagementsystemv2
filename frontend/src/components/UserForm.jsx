@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-const UserForm = ({ user, onSubmit, onClose, role = "customer" }) => {
+const UserForm = ({ user, onSubmit, onClose, role = "" }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState("");
 
@@ -14,7 +14,7 @@ const UserForm = ({ user, onSubmit, onClose, role = "customer" }) => {
     contact: "",
     next_of_kin: "",
     next_of_kin_contact: "",
-    role: role || "customer",
+    role: "",
     specialty: "",
     status: "active",
     bio: "",
@@ -36,7 +36,7 @@ const UserForm = ({ user, onSubmit, onClose, role = "customer" }) => {
         contact: user.contact || "",
         next_of_kin: user.next_of_kin || "",
         next_of_kin_contact: user.next_of_kin_contact || "",
-        role: user.role || role,
+        role: user.role || "",
         specialty: user.specialty || "",
         status: user.status || "active",
         bio: user.bio || "",
@@ -107,7 +107,7 @@ const UserForm = ({ user, onSubmit, onClose, role = "customer" }) => {
       </div>
 
       {/* BASIC NAMES */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">First Name</label>
           <input
@@ -268,6 +268,17 @@ const UserForm = ({ user, onSubmit, onClose, role = "customer" }) => {
               className="mt-1 block w-full border rounded-md p-2"
             />
           </div>
+          <div>
+              <label className="block text-sm font-medium text-gray-700">Role</label>
+              <input
+                type="text"
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                placeholder="e.g., manager or employee"
+                className="mt-1 block w-full border rounded-md p-2"
+              />
+            </div>
         </>
       )}
 
