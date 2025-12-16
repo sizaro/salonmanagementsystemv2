@@ -36,9 +36,10 @@ const pendingCount = pendingAppointments.length;
 
   const navigate = useNavigate();
 
-  const API_URL = import.meta.env.VITE_API_URL || "https://salonmanagementsystemv2.onrender.com";
+  const SOCKET_API_URL = import.meta.env.VITE_API_URL || "https://salonmanagementsystemv2.onrender.com";
+  const API_URL = import.meta.env.VITE_API_URL || "/api";
 
-  const socket = io(API_URL.replace("/api", ""), {
+  const socket = io(SOCKET_API_URL.replace("/api", ""), {
     withCredentials: true,
   transports: ["websocket"],
   secure: true
@@ -244,7 +245,9 @@ const pendingCount = pendingAppointments.length;
 
   const deleteUser = async (id) => {
     try {
-      await axios.delete(`${API_URL}/users/${id}`);
+      await axios.delete(`${API_URL}/users/${id}`, {
+  withCredentials: true,
+});
       await fetchUsers();
     } catch (err) {
       console.error(`error deleting user`, err);
