@@ -1,14 +1,31 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import dailyModel from "../models/dailyModel.js";
+
+/**
+ * Resolve salon_id safely:
+ * 1. Logged-in user
+ * 2. Request-scoped salon (future-proof)
+ * 3. DEFAULT_SALON_ID from env
+ */
+const resolveSalonId = (req) => {
+  return (
+    req.user?.salon_id ||
+    req.salon_id ||
+    Number(process.env.DEFAULT_SALON_ID)
+  );
+};
 
 export async function getDailyReport(req, res) {
   try {
     const { date } = req.query;
     if (!date) return res.status(400).json({ error: "Missing date" });
 
-    // 🔐 salon_id MUST come from authenticated user
-    const salon_id = req.user?.salon_id;
-    if (!salon_id)
-      return res.status(401).json({ error: "Salon context missing" });
+    const salon_id = resolveSalonId(req);
+    if (!salon_id) {
+      return res.status(400).json({ error: "Salon context missing" });
+    }
 
     const [
       services,
@@ -31,12 +48,12 @@ export async function getDailyReport(req, res) {
     console.log("✅ Daily Report Generated:", {
       date,
       salon_id,
-      servicesCount: services,
-      expensesCount: expenses,
-      advancesCount: advances,
-      clockingsCount: clockings,
-      tagFeesCount: tagFees,
-      lateFeesCount: lateFees
+      servicesCount: services?.length,
+      expensesCount: expenses?.length,
+      advancesCount: advances?.length,
+      clockingsCount: clockings?.length,
+      tagFeesCount: tagFees?.length,
+      lateFeesCount: lateFees?.length
     });
 
     res.json({
@@ -54,6 +71,7 @@ export async function getDailyReport(req, res) {
     res.status(500).json({ error: "Internal Server Error" });
   }
 }
+
 
 
 

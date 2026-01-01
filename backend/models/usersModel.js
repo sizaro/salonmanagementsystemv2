@@ -168,6 +168,7 @@ export const DeleteUserById = async (id, salon_id) => {
  * Find user by email (for a specific salon)
  */
 export const findUserByEmail = async (email, salon_id) => {
+  console.log("🔹 findUserByEmail called:", { email, salon_id });
   const query = "SELECT * FROM users WHERE email = $1 AND salon_id = $2";
   const result = await db.query(query, [email, salon_id]);
   return result.rows[0];

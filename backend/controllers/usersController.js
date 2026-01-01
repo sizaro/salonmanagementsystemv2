@@ -14,7 +14,8 @@ import {
  */
 export const getAllUsers = async (req, res) => {
   try {
-    const salon_id = req.user.salon_id;
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+
     const users = await fetchAllUsers(salon_id);
     res.status(200).json(users);
   } catch (err) {
@@ -29,9 +30,11 @@ export const getAllUsers = async (req, res) => {
 export const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    const salon_id = req.user.salon_id;
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+
     const user = await fetchUserById(id, salon_id);
     if (!user) return res.status(404).json({ error: "User not found" });
+
     res.status(200).json(user);
   } catch (err) {
     console.error("Error fetching user by ID:", err);
@@ -44,7 +47,8 @@ export const getUserById = async (req, res) => {
  */
 export const createUser = async (req, res) => {
   try {
-    const salon_id = req.user.salon_id;
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+
     const {
       first_name,
       middle_name,
@@ -61,12 +65,15 @@ export const createUser = async (req, res) => {
       bio,
     } = req.body;
 
-    if (!password) return res.status(400).json({ error: "Password is required" });
+    if (!password) {
+      return res.status(400).json({ error: "Password is required" });
+    }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(password, await bcrypt.genSalt(10));
 
-    const image_url = req.file ? `/uploads/images/${req.file.filename}` : null;
+    const image_url = req.file
+      ? `/uploads/images/${req.file.filename}`
+      : null;
 
     const newUser = await saveUser({
       salon_id,
@@ -101,8 +108,9 @@ export const createUser = async (req, res) => {
  */
 export const updateUserById = async (req, res) => {
   try {
-    const salon_id = req.user.salon_id;
     const { id } = req.params;
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+
     const {
       first_name,
       middle_name,
@@ -119,12 +127,16 @@ export const updateUserById = async (req, res) => {
       bio,
     } = req.body;
 
-    if (!id) return res.status(400).json({ error: "Missing user ID" });
+    if (!id) {
+      return res.status(400).json({ error: "Missing user ID" });
+    }
 
     const existingUser = await fetchUserById(id, salon_id);
-    if (!existingUser) return res.status(404).json({ error: "User not found" });
+    if (!existingUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
-    let updatedData = {
+    const updatedData = {
       id,
       salon_id,
       first_name,
@@ -141,19 +153,21 @@ export const updateUserById = async (req, res) => {
       bio,
     };
 
-    // ✅ Hash password only if provided and not already hashed
+    // ✅ Hash password only if needed
     if (password) {
       const isHashed =
         typeof password === "string" &&
         password.startsWith("$2") &&
         password.length === 60;
 
-      updatedData.password = isHashed ? password : await bcrypt.hash(password, await bcrypt.genSalt(10));
+      updatedData.password = isHashed
+        ? password
+        : await bcrypt.hash(password, await bcrypt.genSalt(10));
     }
 
     // ✅ Handle image upload and delete old image
     if (req.file && req.file.filename) {
-      if (existingUser.image_url && existingUser.image_url !== "") {
+      if (existingUser.image_url) {
         const oldPath = path.join(process.cwd(), existingUser.image_url);
         if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
       }
@@ -178,10 +192,12 @@ export const updateUserById = async (req, res) => {
 export const deleteUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    const salon_id = req.user.salon_id;
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
 
     const existingUser = await fetchUserById(id, salon_id);
-    if (!existingUser) return res.status(404).json({ error: "User not found" });
+    if (!existingUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
     // Delete image from disk if exists
     if (existingUser.image_url) {
@@ -205,6 +221,7 @@ export default {
   updateUserById,
   deleteUserById,
 };
+
 
 
 

@@ -6,14 +6,25 @@ import {forgotPasswordController, resetPasswordController  } from "../controller
 
 const router = express.Router();
 
-// Login with Passport local strategy
-router.post("/login", passport.authenticate("local"), (req, res) => {
+router.post("/login", (req, res, next) => {
+  console.log("🔹 /login route hit, body BEFORE passport:", req.body);
+  next(); // pass to passport
+}, passport.authenticate("local"), (req, res) => {
+  console.log("🔹 /login successful, req.user:", req.user);
+  console.log("🔹 req.session after login:", req.session);
   const { id, first_name, last_name, email, role } = req.user;
   res.json({ user: { id, first_name, last_name, email, role } });
 });
 
+
+
 // Check if user is authenticated
+
 router.get("/check", (req, res) => {
+  console.log("🔹 /check route hit, req.session:", req.session);
+  console.log("🔹 req.isAuthenticated():", req.isAuthenticated());
+  console.log("🔹 req.user:", req.user);
+
   if (req.isAuthenticated()) {
     const { id, first_name, last_name, email, role } = req.user;
     res.json({ user: { id, first_name, last_name, email, role } });
@@ -21,6 +32,7 @@ router.get("/check", (req, res) => {
     res.status(401).json({ message: "Not authenticated" });
   }
 });
+
 
 // Logout
 router.post("/logout", (req, res) => {

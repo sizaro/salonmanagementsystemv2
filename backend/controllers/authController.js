@@ -13,9 +13,24 @@ import {
   updateUserPasswordById
 } from "../models/authModels.js";
 
-// LOGIN
+/**
+ * Resolve salon_id safely:
+ * 1. Logged-in user
+ * 2. Request-scoped salon (future-proof)
+ * 3. DEFAULT_SALON_ID from env
+ */
+const resolveSalonId = (req) => {
+  return (
+    req.user?.salon_id ||
+    req.salon_id ||
+    Number(process.env.DEFAULT_SALON_ID)
+  );
+};
+
+// ---------------- LOGIN ----------------
 export const login = (req, res, next) => {
   passport.authenticate("local", (err, user, info) => {
+    console.log("authed user in auth controller", user)
     if (err) return next(err);
     if (!user) return res.status(400).json({ message: info.message });
 
@@ -27,7 +42,7 @@ export const login = (req, res, next) => {
   })(req, res, next);
 };
 
-// LOGOUT
+// ---------------- LOGOUT ----------------
 export const logoutUser = (req, res) => {
   req.logout((err) => {
     if (err) return res.status(500).json({ error: "Logout failed" });
@@ -35,7 +50,7 @@ export const logoutUser = (req, res) => {
   });
 };
 
-// CHECK AUTH
+// ---------------- CHECK AUTH ----------------
 export const checkAuth = (req, res) => {
   if (!req.isAuthenticated())
     return res.status(401).json({ message: "Not authenticated" });
@@ -44,35 +59,36 @@ export const checkAuth = (req, res) => {
   res.json({ user: userSafe });
 };
 
-// Role-protect backend routes
+// ---------------- ROLE PROTECTION ----------------
 export const ensureRole = (role) => (req, res, next) => {
   if (req.isAuthenticated() && req.user.role === role) return next();
   return res.status(401).json({ message: "Unauthorized" });
 };
 
-// -------- FORGOT PASSWORD --------
+// ---------------- FORGOT PASSWORD ----------------
 export const forgotPasswordController = async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: "Email is required" });
 
-  try {
-    // 1️⃣ Find user by email including salon_id
-    const user = await findUserByEmail(email);
-    if (!user) return res.status(404).json({ message: "No user with that email" });
+  const salon_id = resolveSalonId(req);
 
-    const salon_id = user.salon_id; // enforce salon_id
+  try {
+    // 1️⃣ Find user by email + salon_id
+    const user = await findUserByEmail(email, salon_id);
+    if (!user)
+      return res.status(404).json({ message: "No user with that email" });
 
     // 2️⃣ Generate reset token
     const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hour
+    const expiresAt = new Date(Date.now() + 3600 * 1000);
 
-    // 3️⃣ Save reset token with salon_id
+    // 3️⃣ Save reset token (WITH salon_id)
     await createPasswordReset(user.id, token, expiresAt, salon_id);
 
-    // 4️⃣ Send email
+    // 4️⃣ Email transport
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT,
+      port: Number(process.env.SMTP_PORT),
       secure: false,
       auth: {
         user: process.env.SMTP_USER,
@@ -82,52 +98,54 @@ export const forgotPasswordController = async (req, res) => {
 
     const resetLink = `${process.env.FRONTEND_URL}/reset-password/${token}`;
 
-    const mailOptions = {
+    await transporter.sendMail({
       from: process.env.SMTP_FROM,
       to: user.email,
       subject: "Password Reset Request",
       html: `
-        <h2>Salon Management System</h2><br><br>   
+        <h2>Salon Management System</h2>
         <p>Hello ${user.first_name || ""},</p>
-        <p>You requested a password reset. Click below to reset your password:</p>
+        <p>You requested a password reset.</p>
         <a href="${resetLink}">${resetLink}</a>
         <p>This link expires in 1 hour.</p>
-        <p>If you did not request this, ignore this email.</p>
       `,
-    };
+    });
 
-    await transporter.sendMail(mailOptions);
-
-    res.status(200).json({ message: "Password reset link sent to your email" });
+    res.status(200).json({ message: "Password reset link sent" });
   } catch (err) {
     console.error("Forgot password error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// -------- RESET PASSWORD --------
+// ---------------- RESET PASSWORD ----------------
 export const resetPasswordController = async (req, res) => {
   const { token, newPassword } = req.body;
   if (!token || !newPassword)
     return res.status(400).json({ message: "Token and new password required" });
 
   try {
-    // 1️⃣ Find token in DB including salon_id
+    // 1️⃣ Get reset entry (already includes salon_id)
     const resetEntry = await getPasswordResetByToken(token);
     if (!resetEntry)
       return res.status(400).json({ message: "Invalid or expired token" });
 
-    const salon_id = resetEntry.salon_id; // enforce salon_id
+    const salon_id = resetEntry.salon_id;
 
-    // 2️⃣ Update user's password
+    // 2️⃣ Hash & update password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
-    await updateUserPasswordById(resetEntry.user_id, hashedPassword, salon_id);
 
-    // 3️⃣ Delete the reset token after use
+    await updateUserPasswordById(
+      resetEntry.user_id,
+      hashedPassword,
+      salon_id
+    );
+
+    // 3️⃣ Delete token
     await deletePasswordResetById(resetEntry.id, salon_id);
 
-    res.status(200).json({ message: "Password has been reset successfully" });
+    res.status(200).json({ message: "Password reset successful" });
   } catch (err) {
     console.error("Reset password error:", err);
     res.status(500).json({ message: "Server error" });
@@ -140,9 +158,8 @@ export default {
   checkAuth,
   ensureRole,
   forgotPasswordController,
-  resetPasswordController
+  resetPasswordController,
 };
-
 
 
 

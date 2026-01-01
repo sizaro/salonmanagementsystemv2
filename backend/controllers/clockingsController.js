@@ -1,13 +1,31 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import {
   saveClocking,
   updateClockingModel,
   fetchAllClockings
 } from "../models/clockingsModel.js";
 
+/**
+ * Resolve salon_id safely:
+ * 1. Authenticated user
+ * 2. Request-scoped salon (future)
+ * 3. DEFAULT_SALON_ID from env
+ */
+const resolveSalonId = (req) => {
+  return (
+    req.user?.salon_id ||
+    req.salon_id ||
+    Number(process.env.DEFAULT_SALON_ID)
+  );
+};
+
+// ---------------- CREATE CLOCKING ----------------
 export const createClocking = async (req, res) => {
   try {
     const { employee_id } = req.body;
-    const salon_id = req.user?.salon_id;
+    const salon_id = resolveSalonId(req);
 
     if (!salon_id) {
       return res.status(400).json({ message: "Missing salon context" });
@@ -18,7 +36,6 @@ export const createClocking = async (req, res) => {
       salon_id
     });
 
-    // Call the model to save in DB
     await saveClocking({
       employee_id,
       salon_id
@@ -33,10 +50,11 @@ export const createClocking = async (req, res) => {
   }
 };
 
+// ---------------- UPDATE CLOCKING ----------------
 export const updateClocking = async (req, res) => {
   try {
     const { employee_id } = req.body;
-    const salon_id = req.user?.salon_id;
+    const salon_id = resolveSalonId(req);
 
     if (!salon_id) {
       return res.status(400).json({ message: "Missing salon context" });
@@ -61,9 +79,10 @@ export const updateClocking = async (req, res) => {
   }
 };
 
+// ---------------- GET ALL CLOCKINGS ----------------
 export const getAllClocking = async (req, res) => {
   try {
-    const salon_id = req.user?.salon_id;
+    const salon_id = resolveSalonId(req);
 
     if (!salon_id) {
       return res.status(400).json({ message: "Missing salon context" });
@@ -79,6 +98,7 @@ export const getAllClocking = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch clockings" });
   }
 };
+
 
 
 

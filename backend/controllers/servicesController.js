@@ -1,5 +1,8 @@
 import fs from "fs";
 import path from "path";
+import dotenv from "dotenv";
+dotenv.config();
+
 import {
   fetchServiceDefinitionsModel,
   fetchServiceDefinitionByIdModel,
@@ -24,7 +27,7 @@ import {
 // GET ALL SERVICE DEFINITIONS
 export const getServiceDefinitions = async (req, res) => {
   try {
-    const salon_id = req.user.salon_id;
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
     const services = await fetchServiceDefinitionsModel(salon_id);
     res.json({ success: true, data: services });
   } catch (err) {
@@ -37,9 +40,13 @@ export const getServiceDefinitions = async (req, res) => {
 export const getServiceDefinitionById = async (req, res) => {
   try {
     const { id } = req.params;
-    const salon_id = req.user.salon_id;
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+
     const service = await fetchServiceDefinitionByIdModel(id, salon_id);
-    if (!service) return res.status(404).json({ success: false, message: "Service not found" });
+    if (!service) {
+      return res.status(404).json({ success: false, message: "Service not found" });
+    }
+
     res.json({ success: true, data: service });
   } catch (err) {
     console.error(err);
@@ -50,17 +57,15 @@ export const getServiceDefinitionById = async (req, res) => {
 // CREATE SERVICE DEFINITION
 export const createServiceDefinition = async (req, res) => {
   try {
-    const salon_id = req.user.salon_id;
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+
     const {
       service_name,
       service_amount,
       salon_amount,
       section_id,
-      description,
+      description
     } = req.body;
-
-    console.log("FILE:", req.file);
-    console.log("BODY:", req.body);
 
     const parseMaybeJSON = (value) => {
       if (!value) return [];
@@ -100,7 +105,7 @@ export const createServiceDefinition = async (req, res) => {
 export const updateServiceDefinition = async (req, res) => {
   try {
     const { id } = req.params;
-    const salon_id = req.user.salon_id;
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
 
     const {
       service_name,
@@ -109,26 +114,21 @@ export const updateServiceDefinition = async (req, res) => {
       section_id,
       description,
       roles = [],
-      materials = [],
+      materials = []
     } = req.body;
-
-    if (!id) {
-      return res.status(400).json({ success: false, message: "Missing service ID" });
-    }
 
     const existingService = await fetchServiceDefinitionByIdModel(id, salon_id);
     if (!existingService) {
       return res.status(404).json({ success: false, message: "Service not found" });
     }
 
-    let service_image = existingService.image_url;
+    let service_image = existingService.service_image;
 
-    if (req.file && req.file.filename) {
+    if (req.file?.filename) {
       if (existingService.service_image) {
         const oldPath = path.join(process.cwd(), existingService.service_image);
         if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
       }
-
       service_image = `/uploads/images/${req.file.filename}`;
     }
 
@@ -145,7 +145,6 @@ export const updateServiceDefinition = async (req, res) => {
     };
 
     const updatedService = await updateServiceDefinitionModel(id, data, salon_id);
-
     res.json({ success: true, data: updatedService });
   } catch (err) {
     console.error("Error updating service definition:", err);
@@ -157,9 +156,13 @@ export const updateServiceDefinition = async (req, res) => {
 export const deleteServiceDefinition = async (req, res) => {
   try {
     const { id } = req.params;
-    const salon_id = req.user.salon_id;
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+
     const deleted = await deleteServiceDefinitionModel(id, salon_id);
-    if (!deleted) return res.status(404).json({ success: false, message: "Service not found" });
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: "Service not found" });
+    }
+
     res.json({ success: true, message: "Service deleted successfully" });
   } catch (err) {
     console.error(err);
@@ -168,13 +171,91 @@ export const deleteServiceDefinition = async (req, res) => {
 };
 
 // =========================================================
-// SERVICE TRANSACTIONS CONTROLLER
+// SERVICE TRANSACTIONS
 // =========================================================
 
-// CREATE SERVICE TRANSACTION
 export const createServiceTransaction = async (req, res) => {
-  const salon_id = req.user.salon_id;
   try {
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+
+    const data = {
+      ...req.body,
+      salon_id
+    };
+
+    const transaction = await saveServiceTransaction(data);
+
+    const io = req.app.get("io") || global.io;
+    if (io && data.status === "pending") {
+      io.emit("appointment_created", { id: transaction.id, data: transaction });
+    }
+
+    res.json({ success: true, data: transaction });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Failed to create service transaction" });
+  }
+};
+
+export const getAllServiceTransactions = async (req, res) => {
+  try {
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+    const transactions = await fetchAllServiceTransactions(salon_id);
+    res.json({ success: true, data: transactions });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Failed to fetch service transactions" });
+  }
+};
+
+export const getServiceTransactionById = async (req, res) => {
+  try {
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+    const transaction = await fetchServiceTransactionById(req.params.id, salon_id);
+
+    if (!transaction) {
+      return res.status(404).json({ success: false, message: "Transaction not found" });
+    }
+
+    res.json({ success: true, data: transaction });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Failed to fetch transaction" });
+  }
+};
+
+// =========================================================
+// ROLES & MATERIALS
+// =========================================================
+
+export const getServiceRoles = async (req, res) => {
+  try {
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+    const roles = await fetchServiceRolesModel(salon_id);
+    res.json({ success: true, data: roles });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Failed to fetch service roles" });
+  }
+};
+
+export const getServiceMaterials = async (req, res) => {
+  try {
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+    const materials = await fetchServiceMaterialsModel(salon_id);
+    res.json({ success: true, data: materials });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Failed to fetch service materials" });
+  }
+};
+
+
+export const updateServiceTransaction = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+
     const {
       service_definition_id,
       created_by,
@@ -186,7 +267,7 @@ export const createServiceTransaction = async (req, res) => {
       performers = []
     } = req.body;
 
-    const data = {
+    const updates = {
       service_definition_id,
       created_by,
       appointment_date,
@@ -198,148 +279,99 @@ export const createServiceTransaction = async (req, res) => {
       salon_id
     };
 
-    const transaction = await saveServiceTransaction(data);
-
-    // 🔥 SOCKET IO EMITS
-    const io = req.app.get("io") || global.io;
-
-    if (io) {
-      const isAppointment =
-        appointment_date !== null &&
-        appointment_time !== null &&
-        status !== null &&
-        status == "pending";
-
-      if (isAppointment) {
-        io.emit("appointment_created", {
-          id: transaction.id,
-          data: transaction,
-        });
-        console.log("📢 Emitted appointment_created");
-      }
-    }
-
-    res.json({ success: true, data: transaction });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      success: false,
-      message: "Failed to create service transaction",
-    });
-  }
-};
-
-// GET ALL SERVICE TRANSACTIONS
-export const getAllServiceTransactions = async (req, res) => {
-  try {
-    const salon_id = req.user.salon_id;
-    const transactions = await fetchAllServiceTransactions(salon_id);
-    res.json({ success: true, data:transactions });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Failed to fetch service transactions" });
-  }
-};
-
-// GET SINGLE SERVICE TRANSACTION
-export const getServiceTransactionById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const salon_id = req.user.salon_id;
-    const transaction = await fetchServiceTransactionById(id, salon_id);
-    if (!transaction) return res.status(404).json({ success: false, message: "Transaction not found" });
-    res.json({ success: true, data: transaction });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Failed to fetch transaction" });
-  }
-};
-
-// UPDATE SERVICE TRANSACTION
-export const updateServiceTransaction = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const salon_id = req.user.salon_id;
-    const { service_definition_id, created_by, appointment_date, appointment_time, customer_id, customer_note, status, performers = [] } = req.body;
-    const updates = { service_definition_id, created_by, appointment_date, appointment_time, customer_id, customer_note, status, performers, salon_id };
     const updated = await updateServiceTransactionModel(id, updates, salon_id);
     res.json({ success: true, data: updated });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: "Failed to update transaction" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to update transaction"
+    });
   }
 };
 
-// APPOINTMENT UPDATE
+
 export const updateServiceTransactionAppointment = async (req, res) => {
   try {
     const { id } = req.params;
-    const salon_id = req.user.salon_id;
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+
     const { status, cancel_reason } = req.body;
-    const updates = { status, cancel_reason, id, salon_id };
-    const updated = await updateServiceTransactionAppointmentModel(id, updates, salon_id);
+
+    const updates = {
+      status,
+      cancel_reason,
+      id,
+      salon_id
+    };
+
+    const updated = await updateServiceTransactionAppointmentModel(
+      id,
+      updates,
+      salon_id
+    );
+
     res.json({ success: true, data: updated });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: "Failed to update transaction" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to update transaction"
+    });
   }
 };
 
-// UPDATE SERVICE TRANSACTION TIME ONLY
 export const updateServiceTransactiont = async (req, res) => {
   try {
     const { id } = req.params;
-    const salon_id = req.user.salon_id;
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+
     const { newTime } = req.body;
-    const updated = await updateServiceTransactionModelt(id, newTime, salon_id);
+
+    const updated = await updateServiceTransactionModelt(
+      id,
+      newTime,
+      salon_id
+    );
+
     res.json({ success: true, data: updated });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: "Failed to update transaction time" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to update transaction time"
+    });
   }
 };
 
-// DELETE SERVICE TRANSACTION
 export const deleteServiceTransaction = async (req, res) => {
   try {
     const { id } = req.params;
-    const salon_id = req.user.salon_id;
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+
     const deleted = await DeleteServiceTransaction(id, salon_id);
-    if (!deleted) return res.status(404).json({ success: false, message: "Transaction not found" });
-    res.json({ success: true, message: "Transaction deleted successfully" });
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Transaction not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Transaction deleted successfully"
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: "Failed to delete transaction" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete transaction"
+    });
   }
 };
 
-// =========================================================
-// SERVICE ROLES
-// =========================================================
-export const getServiceRoles = async (req, res) => {
-  try {
-    const salon_id = req.user.salon_id;
-    const roles = await fetchServiceRolesModel(salon_id);
-    res.json({ success: true, data: roles });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Failed to fetch service roles" });
-  }
-};
 
-// =========================================================
-// SERVICE MATERIALS
-// =========================================================
-export const getServiceMaterials = async (req, res) => {
-  try {
-    const salon_id = req.user.salon_id;
-    const materials = await fetchServiceMaterialsModel(salon_id);
-    res.json({ success: true, data: materials });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Failed to fetch service materials" });
-  }
-};
 
 
 

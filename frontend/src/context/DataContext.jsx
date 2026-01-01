@@ -17,7 +17,7 @@ export const DataProvider = ({ children }) => {
   const [lateFees, setLateFees] = useState([]);
   const [tagFees, setTagFees] = useState([]);
   const [sessions, setSessions] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [sections, setSections] = useState([]);
@@ -49,8 +49,12 @@ const pendingCount = pendingAppointments.length;
   const fetchAllData = async () => {
     try {
       const [clockingsRes, servicesRes] = await Promise.all([
-        axios.get(`${API_URL}/clockings`),
-        axios.get(`${API_URL}/services/service_transactions`),
+        axios.get(`${API_URL}/clockings`, {
+  withCredentials: true,
+}),
+        axios.get(`${API_URL}/services/service_transactions`, {
+  withCredentials: true,
+}),
       ]);
       setClockings(clockingsRes.data);
       setServices(servicesRes.data);
@@ -63,7 +67,9 @@ const pendingCount = pendingAppointments.length;
   // ---------- Fetch Sessions ----------
   const fetchSessions = async () => {
     try {
-      const res = await axios.get(`${API_URL}/sessions`);
+      const res = await axios.get(`${API_URL}/sessions`, {
+  withCredentials: true,
+});
       setSessions(res.data);
     } catch (err) {
       console.error("Error fetching sessions:", err);
@@ -79,7 +85,9 @@ const pendingCount = pendingAppointments.length;
       const formatDate = (d) => new Date(d).toISOString().split("T")[0];
       const res = await axios.get(`${API_URL}/reports/daily`, {
         params: { date: formatDate(date) },
-      });
+      }, {
+  withCredentials: true,
+});
       const data = res.data;
 
       setServices(data.services);
@@ -104,7 +112,9 @@ const pendingCount = pendingAppointments.length;
       const formatDate = (date) => date.toISOString().split("T")[0];
       const res = await axios.get(`${API_URL}/reports/weekly`, {
         params: { startDate: formatDate(start), endDate: formatDate(end) },
-      });
+      }, {
+  withCredentials: true,
+});
             console.log("data in weekly context", res.lateFeeData)
       const data = res.data;
       setServices(data.services);
@@ -125,7 +135,9 @@ const pendingCount = pendingAppointments.length;
     try {
       const res = await axios.get(`${API_URL}/reports/monthly`, {
         params: { year, month },
-      });
+      }, {
+  withCredentials: true,
+});
       const data = res.data;
       setServices(data.services);
       setExpenses(data.expenses);
@@ -142,7 +154,9 @@ const pendingCount = pendingAppointments.length;
 
   const fetchYearlyData = async (year) => {
     try {
-      const res = await axios.get(`${API_URL}/reports/yearly`, { params: { year } });
+      const res = await axios.get(`${API_URL}/reports/yearly`, { params: { year } }, {
+  withCredentials: true,
+});
       const data = res.data;
       setServices(data.services);
       setExpenses(data.expenses);
@@ -729,6 +743,7 @@ const deleteServiceTransaction = async (id) => {
 
   // ---------- Auth ----------
   const loginUser = async (credentials) => {
+    console.log("🔹 Sending login request with:", { credentials });
     try {
       const res = await axios.post(`${API_URL}/auth/login`, credentials, {
         withCredentials: true,
@@ -749,16 +764,19 @@ const deleteServiceTransaction = async (id) => {
   };
 
   const checkAuth = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/auth/check`, {
-        withCredentials: true,
-      });
-      console.log("user in auth check in context", user)
-      setUser(res.data.user);
-    } catch (err) {
-      setUser(null);
-    }
-  };
+  try {
+    const res = await axios.get(`${API_URL}/auth/check`, {
+      withCredentials: true,
+    });
+    console.log("🔹 auth check response:", res.data);
+    setUser(res.data.user);
+  } catch (err) {
+    setUser(null);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const logoutUser = async () => {
     try {
@@ -882,6 +900,10 @@ useEffect(() => {
 
   useEffect(()=>{
     fetchServiceTransactionsApp();
+  }, [])
+
+   useEffect(()=>{
+    checkAuth();
   }, [])
 
 
