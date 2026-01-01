@@ -14,7 +14,7 @@ export default function About() {
 const staticBaseUrl =
   import.meta.env.MODE === "development"
     ? "http://localhost:5500"
-    : "https://salonmanagementsystemv2.onrender.com";
+    : "https://salonmanagementsystemv2-ru0i.onrender.com/";
 
 
 

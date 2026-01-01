@@ -11,7 +11,8 @@ import {
  */
 export const getAllExpenses = async (req, res) => {
   try {
-    const expenses = await fetchAllExpenses();
+    const salon_id = req.user.salon_id;
+    const expenses = await fetchAllExpenses(salon_id);
     res.status(200).json(expenses);
   } catch (err) {
     console.error('Error fetching expenses:', err);
@@ -25,7 +26,8 @@ export const getAllExpenses = async (req, res) => {
 export const getExpenseById = async (req, res) => {
   try {
     const { id } = req.params;
-    const expense = await fetchExpenseById(id);
+    const salon_id = req.user.salon_id;
+    const expense = await fetchExpenseById(id, salon_id);
     if (!expense) {
       return res.status(404).json({ error: "Expense not found" });
     }
@@ -42,10 +44,11 @@ export const getExpenseById = async (req, res) => {
 export const createExpense = async (req, res) => {
   try {
     const { name, amount, description } = req.body;
+    const salon_id = req.user.salon_id;
 
-    console.log("Received new expense data:", req.body);
+    console.log("Received new expense data:", req.body, "salon_id:", salon_id);
 
-    const newExpense = await saveExpense({ name, amount,description });
+    const newExpense = await saveExpense({ name, amount, description, salon_id });
 
     res.status(201).json({ message: "Expense created successfully", data: newExpense });
   } catch (err) {
@@ -60,10 +63,11 @@ export const createExpense = async (req, res) => {
 export const updateExpenseById = async (req, res) => {
   try {
     const { id, name, amount, description, created_at } = req.body;
+    const salon_id = req.user.salon_id;
 
     if (!id) return res.status(400).json({ error: "Missing expense ID" });
 
-    const updatedExpense = await UpdateExpenseById({ id, name, amount, description, created_at });
+    const updatedExpense = await UpdateExpenseById({ id, name, amount, description, created_at, salon_id });
 
     if (!updatedExpense) {
       return res.status(404).json({ error: "Expense not found or not updated" });
@@ -82,8 +86,11 @@ export const updateExpenseById = async (req, res) => {
 export const deleteExpenseById = async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await DeleteExpenseById(id);
+    const salon_id = req.user.salon_id;
+
+    const deleted = await DeleteExpenseById(id, salon_id);
     if (!deleted) return res.status(404).json({ error: "Expense not found" });
+
     res.status(200).json({ message: "Expense deleted successfully" });
   } catch (err) {
     console.error("Error deleting expense:", err);
@@ -98,3 +105,108 @@ export default {
   updateExpenseById,
   deleteExpenseById
 };
+
+
+
+
+
+// import { 
+//   saveExpense, 
+//   fetchAllExpenses, 
+//   fetchExpenseById, 
+//   UpdateExpenseById, 
+//   DeleteExpenseById 
+// } from "../models/expensesModel.js";
+
+// /**
+//  * Get all expenses
+//  */
+// export const getAllExpenses = async (req, res) => {
+//   try {
+//     const expenses = await fetchAllExpenses();
+//     res.status(200).json(expenses);
+//   } catch (err) {
+//     console.error('Error fetching expenses:', err);
+//     res.status(500).json({ error: 'Failed to fetch expenses' });
+//   }
+// };
+
+// /**
+//  * Get expense by ID
+//  */
+// export const getExpenseById = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const expense = await fetchExpenseById(id);
+//     if (!expense) {
+//       return res.status(404).json({ error: "Expense not found" });
+//     }
+//     res.status(200).json(expense);
+//   } catch (err) {
+//     console.error("Error fetching expense by ID:", err);
+//     res.status(500).json({ error: "Failed to fetch expense" });
+//   }
+// };
+
+// /**
+//  * Create new expense
+//  */
+// export const createExpense = async (req, res) => {
+//   try {
+//     const { name, amount, description } = req.body;
+
+//     console.log("Received new expense data:", req.body);
+
+//     const newExpense = await saveExpense({ name, amount,description });
+
+//     res.status(201).json({ message: "Expense created successfully", data: newExpense });
+//   } catch (err) {
+//     console.error("Error creating expense:", err);
+//     res.status(500).json({ error: "Failed to create expense" });
+//   }
+// };
+
+// /**
+//  * Update expense by ID
+//  */
+// export const updateExpenseById = async (req, res) => {
+//   try {
+//     const { id, name, amount, description, created_at } = req.body;
+
+//     if (!id) return res.status(400).json({ error: "Missing expense ID" });
+
+//     const updatedExpense = await UpdateExpenseById({ id, name, amount, description, created_at });
+
+//     if (!updatedExpense) {
+//       return res.status(404).json({ error: "Expense not found or not updated" });
+//     }
+
+//     res.status(200).json({ message: "Expense updated successfully", data: updatedExpense });
+//   } catch (err) {
+//     console.error("Error updating expense:", err);
+//     res.status(500).json({ error: "Failed to update expense" });
+//   }
+// };
+
+// /**
+//  * Delete expense by ID
+//  */
+// export const deleteExpenseById = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const deleted = await DeleteExpenseById(id);
+//     if (!deleted) return res.status(404).json({ error: "Expense not found" });
+//     res.status(200).json({ message: "Expense deleted successfully" });
+//   } catch (err) {
+//     console.error("Error deleting expense:", err);
+//     res.status(500).json({ error: "Failed to delete expense" });
+//   }
+// };
+
+// export default {
+//   getAllExpenses,
+//   getExpenseById,
+//   createExpense,
+//   updateExpenseById,
+//   deleteExpenseById
+// };

@@ -27,10 +27,17 @@ export default function CustomerAppointments() {
   }, [servicesWithMaterials, user]);
 
   const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-UG", { timeZone: "Africa/Kampala" });
-  };
+  console.log("date in the page for customer", dateString);
+  if (!dateString) return "N/A";
+
+  const [year, month, day] = dateString.split("-").map(Number);
+
+  const date = new Date(year, month - 1, day);
+  console.log("date in the customer page", date)
+
+  return date.toLocaleDateString("en-UG");
+};
+
 
   const formatTime12h = (time24) => {
     if (!time24) return "N/A";

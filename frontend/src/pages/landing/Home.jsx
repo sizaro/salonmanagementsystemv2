@@ -8,7 +8,7 @@ export default function Home() {
   const staticBaseUrl =
   import.meta.env.MODE === "development"
     ? "http://localhost:5500"
-    : "https://salonmanagementsystemv2.onrender.com";
+    : "https://salonmanagementsystemv2-ru0i.onrender.com";
   const { serviceDefinitions = [], fetchServiceDefinitions } = useData();
 
   useEffect(() => {

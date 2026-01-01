@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://salonmanagementsystemv2.onrender.com/api/:path*"
+      "destination": "https://salonmanagementsystemv2-ru0i.onrender.com/api/:path*"
     },
     {
       "source": "/uploads/images/:path*",
-      "destination": "https://salonmanagementsystemv2.onrender.com/uploads/:path*"
+      "destination": "https://salonmanagementsystemv2-ru0i.onrender.com/uploads/:path*"
     },
     {
       "source": "/(.*)",

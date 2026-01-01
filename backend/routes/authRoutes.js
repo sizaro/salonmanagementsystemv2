@@ -33,6 +33,6 @@ router.post("/logout", (req, res) => {
 // forgot password
 
 router.post("/forgot-password", forgotPasswordController);
-router.put("/reset-password", resetPasswordController);
+router.post("/reset-password", resetPasswordController);
 
 export default router;

@@ -17,7 +17,7 @@ export const DataProvider = ({ children }) => {
   const [lateFees, setLateFees] = useState([]);
   const [tagFees, setTagFees] = useState([]);
   const [sessions, setSessions] = useState([]);
-  const [loading, setLoading] = useState(false); // Only used for fetchUsers
+  const [loading, setLoading] = useState(false);
   const [user, setUser] = useState(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [sections, setSections] = useState([]);
@@ -36,7 +36,7 @@ const pendingCount = pendingAppointments.length;
 
   const navigate = useNavigate();
 
-  const SOCKET_API_URL = import.meta.env.VITE_API_URL || "https://salonmanagementsystemv2.onrender.com";
+  const SOCKET_API_URL = import.meta.env.VITE_API_URL || "https://salonmanagementsystemv2-ru0i.onrender.com";
   const API_URL = import.meta.env.VITE_API_URL || "/api";
 
   const socket = io(SOCKET_API_URL.replace("/api", ""), {
@@ -645,8 +645,8 @@ const fetchServiceMaterials = async () => {
 // ---------- CREATE ----------
 const createServiceTransaction = async (payload) => {
   try {
-    const res = await axios.post(`${API_URL}/services/service_transactions`, payload);
-    await fetchServiceTransactions(); // refresh list
+    const res = await axios.post(`${API_URL}/services/service_transactions`, payload, { withCredentials: true });
+    await fetchServiceTransactions();
     return res.data;
   } catch (err) {
     console.error("Error creating service transaction:", err);
@@ -734,6 +734,7 @@ const deleteServiceTransaction = async (id) => {
         withCredentials: true,
       });
       const { user } = res.data;
+      console.log("user in logged in context", user)
       setUser(user);
 
       if (!user) {
@@ -752,11 +753,10 @@ const deleteServiceTransaction = async (id) => {
       const res = await axios.get(`${API_URL}/auth/check`, {
         withCredentials: true,
       });
+      console.log("user in auth check in context", user)
       setUser(res.data.user);
     } catch (err) {
       setUser(null);
-      console.error("Auth check failed:", err);
-      navigate("/");
     }
   };
 
@@ -879,10 +879,6 @@ useEffect(() => {
 
 }, []);
 
-
-  useEffect(()=>{
-    checkAuth();
-  }, [])
 
   useEffect(()=>{
     fetchServiceTransactionsApp();

@@ -8,7 +8,7 @@ import ExpensesReport from "../../pages/owner/OwnerExpensesReport.jsx";
 import EmployeeReport from "../../pages/owner/OwnerEmployeeReport.jsx";
 import Employees from "../../pages/owner/OwnerEmployees.jsx";
 import Advances from "../../pages/owner/OwnerAdvances.jsx";
-import StaffPerformance from "../../pages/owner/OwnerStaffReport.jsx"; // Fixed import
+import StaffPerformance from "../../pages/owner/OwnerStaffReport.jsx";
 import LateFeesReport from "../../pages/owner/OwnerLateFeesReport.jsx";
 import TagFeesReport from "../../pages/owner/OwnerTagFeesReport.jsx";
 

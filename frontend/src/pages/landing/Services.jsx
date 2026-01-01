@@ -7,7 +7,7 @@ export default function Services() {
     const staticBaseUrl =
   import.meta.env.MODE === "development"
     ? "http://localhost:5500"
-    : "https://salonmanagementsystemv2.onrender.com";
+    : "https://salonmanagementsystemv2-ru0i.onrender.com/";
   // Service Data
   const { serviceDefinitions = [], fetchServiceDefinitions } = useData();
 

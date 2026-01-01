@@ -1,11 +1,12 @@
 // src/components/auth/LoginForm.jsx
 import { useState } from "react";
 
-export default function LoginForm({ onSubmit, onCancel, loading = false, error = null }) {
+export default function LoginForm({ onSubmit, onCancel, onForgotPassword, loading = false, error = null }) {
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleChange = (e) =>
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -41,7 +42,7 @@ export default function LoginForm({ onSubmit, onCancel, loading = false, error =
           <span className="text-sm font-medium text-gray-700">Password</span>
           <button
             type="button"
-            onClick={() => setShowPassword(s => !s)}
+            onClick={() => setShowPassword((s) => !s)}
             className="text-xs text-blue-600 hover:underline"
           >
             {showPassword ? "Hide" : "Show"}
@@ -58,11 +59,23 @@ export default function LoginForm({ onSubmit, onCancel, loading = false, error =
         />
       </label>
 
+      <div className="flex justify-between items-center mt-2 mb-4">
+        <button
+          type="button"
+          onClick={onForgotPassword}
+          className="text-sm text-blue-600 hover:underline"
+        >
+          Forgot Password?
+        </button>
+      </div>
+
       <div className="flex items-center justify-between mt-4">
         <button
           type="submit"
           disabled={loading}
-          className={`px-4 py-2 rounded text-white font-medium ${loading ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}`}
+          className={`px-4 py-2 rounded text-white font-medium ${
+            loading ? "bg-blue-300" : "bg-blue-600 hover:bg-blue-700"
+          }`}
         >
           {loading ? "Signing in..." : "Sign in"}
         </button>

@@ -264,7 +264,7 @@ export default function customerDashboard() {
                   <tr key={time}>
                     <td className="px-2 py-1 border font-medium">{time}</td>
                     {weekDates.map((d) => {
-                      const dateISO = d.toISOString().split("T")[0];
+                      const dateISO = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
                       return renderSlotCell(dateISO, time);
                     })}
                   </tr>

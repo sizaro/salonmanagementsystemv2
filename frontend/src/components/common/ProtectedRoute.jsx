@@ -1,16 +1,17 @@
-// src/components/ProtectedRoute.jsx
-import React from "react";
+// src/components/common/ProtectedRoute.jsx
+import { useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { useData } from "../../context/DataContext";
 
 const ProtectedRoute = ({ children, role }) => {
-  const { user, loading } = useData();
+  const { user, loading, checkAuth } = useData();
 
-  console.log("🔐 [ProtectedRoute] Checking user from context...");
-  console.log("📦 Context user:", user);
-  console.log("⏳ Loading state:", loading);
+  useEffect(() => {
+    if (!user) {
+      checkAuth();
+    }
+  }, []);
 
-  // While the user is being fetched, show a loading message
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen text-gray-600">
@@ -19,21 +20,14 @@ const ProtectedRoute = ({ children, role }) => {
     );
   }
 
-  // Only redirect if loading is finished and user is truly null
   if (!user) {
-    console.warn("🚫 No logged-in user found — redirecting to home");
-    return console.log("waiting for user");
-  }
-
-  // Check role if required
-  if (role && user.role !== role) {
-    console.warn(
-      `🚫 Role mismatch — required: ${role}, but user role is ${user.role}`
-    );
     return <Navigate to="/" replace />;
   }
 
-  console.log("✅ Access granted for user:", user.last_name, "Role:", user.role);
+  if (role && user.role !== role) {
+    return <Navigate to="/" replace />;
+  }
+
   return children;
 };
 
