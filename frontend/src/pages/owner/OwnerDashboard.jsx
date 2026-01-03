@@ -18,7 +18,7 @@ export default function OwnerDashboard() {
       const staticBaseUrl =
   import.meta.env.MODE === "development"
     ? "http://localhost:5500"
-    : "https://salonmanagementsystemv2.onrender.com";
+    : "https://salonmanagementsystemv2-ru0i.onrender.com";
   const [modalType, setModalType] = useState(null);
   const [salonStatus, setSalonStatus] = useState("closed");
   const [selectedFee, setSelectedFee] = useState(null);

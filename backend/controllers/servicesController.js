@@ -122,11 +122,11 @@ export const updateServiceDefinition = async (req, res) => {
       return res.status(404).json({ success: false, message: "Service not found" });
     }
 
-    let service_image = existingService.service_image;
+    let service_image = existingService.image_url;
 
     if (req.file?.filename) {
-      if (existingService.service_image) {
-        const oldPath = path.join(process.cwd(), existingService.service_image);
+      if (existingService.image_url) {
+        const oldPath = path.join(process.cwd(), existingService.image_url);
         if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
       }
       service_image = `/uploads/images/${req.file.filename}`;
