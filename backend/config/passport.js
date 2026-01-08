@@ -28,16 +28,29 @@ passport.use(
 );
 
 passport.serializeUser((user, done) => {
-  done(null, user.id);
+  done(null, {
+    id: user.id,
+    salon_id: user.salon_id
+  });
 });
 
-passport.deserializeUser(async (id, done) => {
-  console.log("🔹 deserializeUser called with id:", id);
-  const salon_id =  process.env.DEFAULT_SALON_ID;
+passport.deserializeUser(async (sessionUser, done) => {
   try {
+    const { id, salon_id } = sessionUser;
+
+    if (!id || !salon_id) {
+      return done(null, false);
+    }
+
     const user = await findUserById(id, salon_id);
+
+    if (!user) {
+      return done(null, false);
+    }
+
     done(null, user);
   } catch (err) {
-    done(err, null);
+    done(err);
   }
 });
+

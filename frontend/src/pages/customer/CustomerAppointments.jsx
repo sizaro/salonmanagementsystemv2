@@ -16,6 +16,8 @@ export default function CustomerAppointments() {
     });
   }, [services, serviceMaterials]);
 
+  console.log("service transactions inside customer appointments page", servicesWithMaterials)
+
   // Filter services for the logged-in customer
   useEffect(() => {
     if (user && servicesWithMaterials.length > 0) {
@@ -40,6 +42,7 @@ export default function CustomerAppointments() {
 
 
   const formatTime12h = (time24) => {
+    console.log("Time inside the customer appointment", time24)
     if (!time24) return "N/A";
     let [hour, minute] = time24.split(":").map(Number);
     const ampm = hour >= 12 ? "PM" : "AM";

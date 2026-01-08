@@ -362,19 +362,10 @@ export default function OwnerDashboard() {
   <div className="flex flex-wrap gap-4">
     {appointmentsByStatus[activeTab].length > 0 ? (
       appointmentsByStatus[activeTab].map((s) => {
-        const assigned = (s.performers || [])
-          .map((p) => {
-            const emp = Employees.find((e) => e.id === p.employee_id);
-            const role = serviceRoles.find((r) => r.id === p.role_id);
-
-            if (!emp || !role) return null;
-
-            return {
-              label: role.role_name,
-              name: `${emp.first_name} ${emp.last_name}`,
-            };
-          })
-          .filter(Boolean);
+        const assigned = (s.performers || []).map((p) => ({
+  label: p.role_name,
+  name: `${p.first_name} ${p.last_name}`,
+})).filter(Boolean);
 
         const customer = Customers.find((c) => c.id === s.customer_id);
 

@@ -7,12 +7,7 @@ import {
   fetchAllClockings
 } from "../models/clockingsModel.js";
 
-/**
- * Resolve salon_id safely:
- * 1. Authenticated user
- * 2. Request-scoped salon (future)
- * 3. DEFAULT_SALON_ID from env
- */
+
 const resolveSalonId = (req) => {
   return (
     req.user?.salon_id ||
