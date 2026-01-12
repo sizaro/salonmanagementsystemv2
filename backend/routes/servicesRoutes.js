@@ -1,3 +1,5 @@
+import { redisClient } from "../config/redis.js";
+
 import express from 'express';
 const router = express.Router();
 

@@ -1,3 +1,4 @@
+import { connectRedis } from "./config/redis.js";
 import http from "http";
 import { Server as IOServer } from "socket.io";
 import express from "express";
@@ -173,6 +174,17 @@ io.on("connection", (socket) => {
 });
 
 // start server
-server.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+(async () => {
+  try {
+    await connectRedis();
+
+    server.listen(PORT, () =>
+      console.log(`✅ Server running on port ${PORT}`)
+    );
+  } catch (err) {
+    console.error("❌ Failed to start server:", err);
+  }
+})();
+
 
 

@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { redisClient } from "../config/redis.js";
 import dotenv from "dotenv";
 dotenv.config();
 
