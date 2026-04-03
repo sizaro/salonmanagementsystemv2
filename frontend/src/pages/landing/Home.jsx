@@ -47,7 +47,7 @@ useEffect(() => {
           className="w-full h-full object-cover brightness-75"
         />
         <div className="absolute inset-0 hidden md:flex flex-col justify-center items-center text-center text-white px-4" style={{ textShadow: "2px 2px 4px rgba(0, 102, 255, 0.7)" }}>
-          <h1 className="text-2xl md:text-6xl font-bold mb-2">Beauty Parlour & Spa</h1> 
+          <h1 className="text-2xl md:text-6xl font-bold mb-2">Salehish Beauty Parlour & Spa</h1> 
           <h3 className="md:text-3xl font-semibold mb-4 text-2xl">The Core of Beauty Parlour</h3>
           <h3 className=" mb-4 max-w-md mx-auto">
             To “Book Appointment” create an account or sign in if you already have one at the top.
@@ -60,7 +60,7 @@ useEffect(() => {
 
       <section className="py-16 px-6 max-w-7xl mx-auto text-center flex md:hidden">
         <div className="flex flex-col justify-center items-center text-center text-blue-600 px-4">
-          <h1 className="text-2xl md:text-6xl font-bold mb-2">Beauty Parlour & Spa</h1>
+          <h1 className="text-2xl md:text-6xl font-bold mb-2">Salehish Beauty Parlour & Spa</h1>
           <h3 className="md:text-3xl font-semibold mb-4 text-2xl">The Core of Beauty Parlour</h3>
           <h3 className=" mb-4 max-w-md mx-auto">
             To “Book Appointment” create an account or sign in if you already have one at the top.
