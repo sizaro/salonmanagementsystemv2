@@ -8,8 +8,54 @@ import {
   UpdateUserById,
   DeleteUserById,
 } from "../models/usersModel.js";
+import { findUserByEmail } from "../models/usersModel.js";
 import dotenv from "dotenv";
 dotenv.config();
+
+export const setupOwnerUser = async (req, res) => {
+  try {
+    const { salon_id, email, password } = req.body;
+
+    if (!salon_id || !email || !password) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    // Step 1: check if user already exists
+    const existingUser = await findUserByEmail(email);
+    if (existingUser) {
+      return res.status(200).json({
+        message: "User already exists, proceed to login",
+        user: existingUser,
+        isNew: false,
+      });
+    }
+
+    // Step 2: create new owner with only essential info
+    const newUser = await saveUser({
+      first_name: null,
+      middle_name: null,
+      last_name: null,
+      email,
+      password,
+      contact: null,
+      salon_id,
+      role: "owner",
+    });
+
+    return res.status(201).json({
+      message: "Owner account created successfully",
+      user: newUser,
+      isNew: true,
+    });
+
+  } catch (err) {
+    console.error("Error in setupOwnerUser:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+
 
 /**
  * Get all users for the current salon

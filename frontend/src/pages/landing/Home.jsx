@@ -9,11 +9,29 @@ export default function Home() {
   import.meta.env.MODE === "development"
     ? "http://localhost:5500"
     : "https://salonmanagementsystemv2-ru0i.onrender.com";
-  const { serviceDefinitions = [], fetchServiceDefinitions } = useData();
+ const data = useData();
 
-  useEffect(() => {
+ console.log("DATA CONTEXT:", data);
+
+
+ if (!data) {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <p>Loading salon data…</p>
+    </div>
+  );
+}
+
+
+const serviceDefinitions = data?.serviceDefinitions ?? [];
+const fetchServiceDefinitions = data?.fetchServiceDefinitions;
+
+useEffect(() => {
+  if (fetchServiceDefinitions) {
     fetchServiceDefinitions();
-  }, []);
+  }
+}, [fetchServiceDefinitions]);
+
 
   const popularServices = serviceDefinitions.slice(0, 4);
 

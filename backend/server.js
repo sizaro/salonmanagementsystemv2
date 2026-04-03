@@ -11,6 +11,7 @@ import session from "express-session";
 import passport from "passport";
 import pgSession from "connect-pg-simple";
 import "./config/passport.js";
+// import { checkSetupStatus } from "../controllers/setupController.js";
 
 dotenv.config();
 
@@ -25,6 +26,9 @@ import reportsRoutes from "./routes/reportsRoutes.js";
 import feesRoutes from "./routes/feesRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import sectionsRoutes from "./routes/sectionsRoutes.js"
+import salonRoutes from "./routes/salonRoutes.js";
+import salonProfileRoutes from "./routes/salonProfileRoutes.js";
+
 
 const app = express();
 
@@ -122,6 +126,8 @@ app.use("/uploads/images", express.static(path.join(__dirname, "/uploads/images"
 
 
 // --- Routes ---
+// after other app.use routes
+app.use("/api/salon-profile", salonProfileRoutes);
 app.use("/api/services", servicesRoutes);
 app.use("/api/servicet", serviceRoutet);
 app.use("/api/expenses", expensesRoutes);
@@ -133,6 +139,7 @@ app.use("/api/reports", reportsRoutes);
 app.use("/api/fees", feesRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/sections", sectionsRoutes)
+app.use("/api/salon", salonRoutes);
 
 
 
