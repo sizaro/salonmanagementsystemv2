@@ -179,12 +179,22 @@ io.on("connection", (socket) => {
     console.log("🔴 Socket disconnected:", socket.id, "reason:", reason);
   });
 });
-
 // start server
 (async () => {
   try {
-    await connectRedis();
+    // --- Connect Redis only in local development ---
+    if (process.env.NODE_ENV !== "production") {
+      try {
+        await connectRedis();
+        console.log("✅ Redis connected (development)");
+      } catch (err) {
+        console.error("❌ Failed to connect Redis:", err);
+      }
+    } else {
+      console.log("Redis skipped in production");
+    }
 
+    // --- Start server ---
     server.listen(PORT, () =>
       console.log(`✅ Server running on port ${PORT}`)
     );
