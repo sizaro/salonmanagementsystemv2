@@ -97,7 +97,7 @@ export default function OwnerSidebar() {
             <li><Link to="/owner/dashboard" onClick={() => setMenuOpen(false)} className={linkClass('/owner/dashboard')}>Dashboard</Link></li>
             <li><Link to="/owner/income-report" onClick={() => setMenuOpen(false)} className={linkClass('/owner/income-report')}>Income Reports</Link></li>
             <li><Link to="/owner/expenses-report" onClick={() => setMenuOpen(false)} className={linkClass('/owner/expenses-report')}>Expenses Reports</Link></li>
-            <li><Link to="/owner/employees-management" className={linkClass('/owner/employee-management')}>Employee Management</Link></li>
+            <li><Link to="/owner/employees-management" onClick={() => setMenuOpen(false)} className={linkClass('/owner/employee-management')}>Employee Management</Link></li>
             <li><Link to="/owner/employee-report" onClick={() => setMenuOpen(false)} className={linkClass('/owner/employee-report')}>Employee Report</Link></li>
             <li><Link to="/owner/advances" onClick={() => setMenuOpen(false)} className={linkClass('/owner/advances')}>Employees Advances</Link></li>
             <li><Link to="/owner/staff-performance" onClick={() => setMenuOpen(false)} className={linkClass('/owner/staff-performance')}>Staff Performance</Link></li>

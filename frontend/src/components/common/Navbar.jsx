@@ -120,7 +120,7 @@ const handleBackToLogin = () => {
     <nav className="bg-white shadow-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
         <NavLink to="/" className="md:text-2xl text-l font-bold text-blue-700">
-          Beauty Parlour & Spa
+          Salehish Beauty Parlour & Spa
         </NavLink>
 
         {/* Hamburger Mobile */}
