@@ -28,6 +28,8 @@ import authRoutes from "./routes/authRoutes.js";
 import sectionsRoutes from "./routes/sectionsRoutes.js"
 import salonRoutes from "./routes/salonRoutes.js";
 import salonProfileRoutes from "./routes/salonProfileRoutes.js";
+import mobileAuthRoutes from "./routes/mobileAuth.js";
+
 
 
 const app = express();
@@ -39,7 +41,7 @@ const __dirname = path.dirname(__filename);
 // ✅ CORS setup
 const allowedOrigins = [
   "https://salonmanagementsystemv2.vercel.app",
-  "http://localhost:5173"
+  "http://localhost:5173", "http://192.168.1.104:8081"
 ];
 
 app.use((req, res, next) => {
@@ -140,11 +142,12 @@ app.use("/api/fees", feesRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/sections", sectionsRoutes)
 app.use("/api/salon", salonRoutes);
+app.use("/api/mobile", mobileAuthRoutes);
 
 
 
 // ----------- SOCKET.IO SETUP -----------
-const PORT = process.env.PORT || 5500;
+const PORT = process.env.PORT || 5500 || "0,0,0,0";
 
 // create http server from express app
 const server = http.createServer(app);

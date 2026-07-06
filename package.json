@@ -1,5 +1,10 @@
 {
 	"devDependencies": {
 		"@tauri-apps/cli": "^2.9.6"
+	},
+	"dependencies": {
+		"@nestjs/cli": "^11.0.23",
+		"add": "^2.0.6",
+		"global": "^4.4.0"
 	}
 }
