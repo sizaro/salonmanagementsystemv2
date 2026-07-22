@@ -203,63 +203,60 @@ export default function AddPastService({
   }
 
 
-    const payload={
+    const payload = {
+
+  entry_type: "past",
+
+  section_id:
+  form.section_id,
+
+  service_definition_id:
+  form.service_definition_id,
+
+  service_date:
+  form.service_date,
+
+  service_time:
+  form.service_time,
 
 
-      section_id:
-      form.section_id,
+  appointment_date:null,
+
+  appointment_time:null,
 
 
-      service_definition_id:
-      form.service_definition_id,
+  customer_id:
+  customerId,
 
 
-      service_date:
-      form.service_date,
+  created_by:
+  createdBy,
 
 
-      service_time:
-      form.service_time || null,
+  customer_note:
+  form.customerNote,
 
 
-      // no appointment because this is past
-      appointment_date:null,
-
-      appointment_time:null,
+  status:
+  serviceStatus,
 
 
-      customer_id:
-      customerId,
+  performers:
+  form.performers.map((p)=>({
 
+    role_id:p.role_id,
 
-      created_by:
-      createdBy,
+    employee_id:
+    p.employee_id === ""
+    ? null
+    : p.employee_id,
 
+    earned_amount:
+    p.earned_amount
 
-      customer_note:
-      form.customerNote,
+  }))
 
-
-      status:
-      serviceStatus,
-
-
-      performers:
-      form.performers.map((p)=>({
-
-        role_id:p.role_id,
-
-        employee_id:
-        p.employee_id === ""
-        ? null
-        : p.employee_id,
-
-        earned_amount:
-        p.earned_amount
-
-      }))
-
-    };
+};
 
 
 
@@ -567,7 +564,7 @@ service_date:e.target.value
 <div className="flex flex-col">
 
 <label>
-Service Time (optional)
+Service Time
 </label>
 
 

@@ -211,8 +211,8 @@ export const createServiceTransaction = async (req, res) => {
 
       if (!service_date || !service_time) {
         return res.status(400).json({
-          success:false,
-          message:"Past service requires service date and service time"
+          success: false,
+          message: "Past service requires service date and service time"
         });
       }
 
@@ -225,8 +225,8 @@ export const createServiceTransaction = async (req, res) => {
 
     else {
       return res.status(400).json({
-        success:false,
-        message:"Invalid service entry type"
+        success: false,
+        message: "Invalid service entry type"
       });
     }
 
@@ -237,18 +237,24 @@ export const createServiceTransaction = async (req, res) => {
 
       salon_id,
 
-      // Controller owns these values
+      // These values are controlled by backend
       service_date: finalServiceDate,
       service_time: finalServiceTime
     };
 
+
+    console.log("SERVICE DATA BEFORE MODEL:");
     console.log({
-  entry_type,
-  finalServiceDate,
-  finalServiceTime
-});
+      entry_type: data.entry_type,
+      service_date: data.service_date,
+      service_time: data.service_time,
+      salon_id: data.salon_id
+    });
+
+
 
     const transaction = await saveServiceTransaction(data);
+
 
 
     const io = req.app.get("io") || global.io;
@@ -261,23 +267,30 @@ export const createServiceTransaction = async (req, res) => {
     }
 
 
-    res.json({
-      success:true,
-      data:transaction
+
+    return res.json({
+      success: true,
+      data: transaction
     });
 
 
   } catch (err) {
 
-    console.error(err);
+    console.error(
+      "CREATE SERVICE TRANSACTION ERROR:",
+      err
+    );
 
-    res.status(500).json({
-      success:false,
-      message:"Failed to create service transaction"
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create service transaction"
     });
 
   }
 };
+
+
 export const getAllServiceTransactions = async (req, res) => {
   try {
     const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;

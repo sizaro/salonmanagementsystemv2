@@ -415,36 +415,49 @@ export const saveServiceTransaction = async (data) => {
 };
 
 // FETCH ALL SERVICE TRANSACTIONS
-
 export const fetchAllServiceTransactions = async (salon_id) => {
   const query = `
     SELECT 
       st.*,
       st.id AS transaction_id,
 
-      -- force DATE to stay DATE
-      st.appointment_date::TEXT AS appointment_date,
+      -- keep dates as text for frontend consistency
+      st.service_date::TEXT AS service_date,
 
-      -- Uganda-local service time (for display only)
-      st.service_timestamp AT TIME ZONE 'Africa/Kampala' AS service_time,
+      -- keep service time directly from stored value
+      st.service_time::TEXT AS service_time,
+
+      -- appointment values
+      st.appointment_date::TEXT AS appointment_date,
 
       sd.service_name,
       sd.description,
       sd.service_amount AS full_amount,
       sd.salon_amount,
       sd.section_id AS definition_section_id,
+
       sec.section_name,
 
+
+      -- performers
       COALESCE(perf.performers, '[]'::json) AS performers,
+
+
+      -- materials
       COALESCE(mat.materials, '[]'::json) AS materials
 
+
     FROM service_transactions st
+
 
     JOIN service_definitions sd 
       ON sd.id = st.service_definition_id
 
+
     JOIN service_sections sec
       ON sec.id = sd.section_id
+
+
 
     -- performers
     LEFT JOIN LATERAL (
@@ -457,50 +470,131 @@ export const fetchAllServiceTransactions = async (salon_id) => {
           'last_name', u.last_name
         )
       ) AS performers
+
       FROM service_performers sp
-      LEFT JOIN service_roles sr ON sr.id = sp.service_role_id
-      LEFT JOIN users u ON u.id = sp.employee_id
+
+      LEFT JOIN service_roles sr 
+        ON sr.id = sp.service_role_id
+
+      LEFT JOIN users u 
+        ON u.id = sp.employee_id
+
       WHERE sp.service_transaction_id = st.id
+
     ) perf ON TRUE
+
+
+
 
     -- materials
     LEFT JOIN LATERAL (
+
       SELECT json_agg(
         jsonb_build_object(
           'material_name', sm.material_name,
           'material_cost', sm.material_cost
         )
       ) AS materials
+
       FROM service_materials sm
+
       WHERE sm.service_definition_id = sd.id
+
     ) mat ON TRUE
+
+
+
 
     WHERE st.salon_id = $1
 
-    ORDER BY st.service_timestamp DESC;
+
+    ORDER BY 
+      st.service_date DESC,
+      st.service_time DESC;
   `;
+
+
 
   const { rows } = await db.query(query, [salon_id]);
 
+
+
   return rows.map(row => {
+
     row.materials = Array.isArray(row.materials)
-      ? Array.from(new Map(row.materials.map(m => [m.material_name, m])).values())
+
+      ? Array.from(
+          new Map(
+            row.materials.map(
+              m => [m.material_name, m]
+            )
+          ).values()
+        )
+
       : [];
+
+
     return row;
+
   });
 };
 
-
-// FETCH SINGLE SERVICE TRANSACTION
 export const fetchServiceTransactionById = async (id, salon_id) => {
-  console.log("id and salon_id in the models", id, "salon_id", salon_id)
+
+  console.log(
+    "id and salon_id in the models",
+    id,
+    "salon_id",
+    salon_id
+  );
+
+
   const query = `
-    SELECT st.*, sd.service_name, sd.description, sd.service_amount AS full_amount, sd.salon_amount
+
+    SELECT 
+
+      st.*,
+
+      st.service_date::TEXT AS service_date,
+
+      st.service_time::TEXT AS service_time,
+
+      sd.service_name,
+
+      sd.description,
+
+      sd.service_amount AS full_amount,
+
+      sd.salon_amount
+
+
     FROM service_transactions st
-    JOIN service_definitions sd ON sd.id = st.service_definition_id
-    WHERE st.id=$1 AND st.salon_id=$2;
+
+
+    JOIN service_definitions sd 
+
+      ON sd.id = st.service_definition_id
+
+
+    WHERE 
+
+      st.id=$1 
+
+      AND st.salon_id=$2;
+
   `;
-  const { rows } = await db.query(query, [id, salon_id]);
+
+
+
+  const { rows } = await db.query(
+    query,
+    [
+      id,
+      salon_id
+    ]
+  );
+
+
   return rows[0] || null;
 };
 

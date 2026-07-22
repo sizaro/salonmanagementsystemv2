@@ -657,13 +657,35 @@ const fetchServiceMaterials = async () => {
 
   //insert service transactions and performers
 // ---------- CREATE ----------
+
+
 const createServiceTransaction = async (payload) => {
   try {
-    const res = await axios.post(`${API_URL}/services/service_transactions`, payload, { withCredentials: true });
+
+    console.log(
+      "🚀 PAYLOAD GOING TO BACKEND:",
+      JSON.stringify(payload, null, 2)
+    );
+
+    const res = await axios.post(
+      `${API_URL}/services/service_transactions`,
+      payload,
+      { withCredentials: true }
+    );
+
     await fetchServiceTransactions();
+
     return res.data;
+
   } catch (err) {
+
     console.error("Error creating service transaction:", err);
+
+    if(err.response){
+      console.log("STATUS:", err.response.status);
+      console.log("BACKEND RESPONSE:", err.response.data);
+    }
+
     throw err;
   }
 };

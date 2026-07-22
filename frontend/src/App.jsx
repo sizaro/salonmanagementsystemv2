@@ -13,6 +13,8 @@ import ManagerLayout from "./components/layout/ManagerLayout.jsx";
 import EmployeeLayout from "./components/layout/EmployeeLayout.jsx";
 import CustomerLayout from "./components/layout/CustomerLayout.jsx";
 
+import CashierLayout from "./components/layout/CashierLayout.jsx";
+
 
 function App() {
   return (
@@ -65,6 +67,16 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+
+        <Route
+  path="/cashier/*"
+  element={
+    <ProtectedRoute role="cashier">
+      <CashierLayout />
+    </ProtectedRoute>
+  }
+/>
       </Routes>
   );
 }

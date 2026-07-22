@@ -57,6 +57,7 @@ export default function Navbar() {
       else if (res.role === "manager") navigate("/manager");
       else if (res.role === "employee") navigate("/employee");
       else if (res.role === "customer") navigate("/customer");
+      else if (res.role === "cashier") navigate("/cashier");
       else navigate("/");
     } catch (err) {
       setLoginError(err?.response?.data?.message || "Sign in failed");
