@@ -274,50 +274,143 @@ export const saveServiceTransaction = async (data) => {
     created_by,
     appointment_date,
     appointment_time,
+    service_date,
+    service_time,
     customer_id,
     customer_note,
     status,
+    entry_type,
     performers = [],
     salon_id
   } = data;
 
-  if (!salon_id) throw new Error("salon_id is required");
+
+  if (!salon_id) {
+    throw new Error("salon_id is required");
+  }
+
+
+  if (!service_date || !service_time) {
+    throw new Error(
+      "service_date and service_time are required"
+    );
+  }
+
 
   try {
     await db.query("BEGIN");
 
+
     const insertTrans = `
       INSERT INTO service_transactions
-      (salon_id, service_definition_id, created_by, appointment_date, appointment_time, customer_id, customer_note, status, service_timestamp)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+      (
+        salon_id,
+        service_definition_id,
+        created_by,
+        appointment_date,
+        appointment_time,
+        service_date,
+        service_time,
+        customer_id,
+        customer_note,
+        status,
+        entry_type,
+        service_timestamp
+      )
+
+      VALUES
+      (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7,
+        $8,
+        $9,
+        $10,
+        $11,
+        NOW()
+      )
+
       RETURNING *;
     `;
+
+
     const { rows } = await db.query(insertTrans, [
+
       salon_id,
+
       service_definition_id,
+
       created_by,
+
       appointment_date || null,
+
       appointment_time || null,
+
+      service_date,
+
+      service_time,
+
       customer_id || null,
+
       customer_note || null,
+
       status || null,
+
+      entry_type || "current"
+
     ]);
+
 
     const transaction = rows[0];
 
+
     for (const p of performers) {
+
       await db.query(
-        `INSERT INTO service_performers (salon_id, service_transaction_id, service_role_id, employee_id) VALUES ($1,$2,$3,$4)`,
-        [salon_id, transaction.id, p.role_id, p.employee_id || null]
+        `
+        INSERT INTO service_performers
+        (
+          salon_id,
+          service_transaction_id,
+          service_role_id,
+          employee_id
+        )
+
+        VALUES
+        ($1,$2,$3,$4)
+        `,
+        [
+          salon_id,
+          transaction.id,
+          p.role_id,
+          p.employee_id || null
+        ]
       );
+
     }
 
+
     await db.query("COMMIT");
+
+
     return transaction;
+
+
   } catch (err) {
+
     await db.query("ROLLBACK");
-    console.error("Error saving service transaction:", err);
+
+    console.error(
+      "Error saving service transaction:",
+      err
+    );
+
     throw err;
+
   }
 };
 

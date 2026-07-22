@@ -908,17 +908,17 @@ useEffect(() => {
 
 
 
-  useEffect(() => {
-  // Listen for new appointments
-  socket.on("appointment_created", (payload) => {
-    console.log("Appointment received via socket:", payload);
-    fetchServiceTransactionsApp();
-  });
+//   useEffect(() => {
+//   // Listen for new appointments
+//   socket.on("appointment_created", (payload) => {
+//     console.log("Appointment received via socket:", payload);
+//     fetchServiceTransactionsApp();
+//   });
 
-  return () => {
-    socket.off("appointment_created");
-  };
-}, []);
+//   return () => {
+//     socket.off("appointment_created");
+//   };
+// }, []);
 
   // ---------- Export ----------
   return (

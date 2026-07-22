@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { redisClient } from "../config/redis.js";
+import { DateTime } from "luxon";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -179,25 +180,104 @@ export const createServiceTransaction = async (req, res) => {
   try {
     const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
 
+    const {
+      entry_type,
+      service_date,
+      service_time
+    } = req.body;
+
+
+    let finalServiceDate = null;
+    let finalServiceTime = null;
+
+
+    // CURRENT WALK-IN SERVICE
+    if (entry_type === "current") {
+
+      const now = DateTime
+        .now()
+        .setZone("Africa/Kampala");
+
+
+      finalServiceDate = now.toISODate();
+
+      finalServiceTime = now.toFormat("HH:mm:ss");
+
+    }
+
+
+    // DIRECTOR ADDING PAST SERVICE
+    else if (entry_type === "past") {
+
+      if (!service_date || !service_time) {
+        return res.status(400).json({
+          success:false,
+          message:"Past service requires service date and service time"
+        });
+      }
+
+
+      finalServiceDate = service_date;
+      finalServiceTime = service_time;
+
+    }
+
+
+    else {
+      return res.status(400).json({
+        success:false,
+        message:"Invalid service entry type"
+      });
+    }
+
+
+
     const data = {
       ...req.body,
-      salon_id
+
+      salon_id,
+
+      // Controller owns these values
+      service_date: finalServiceDate,
+      service_time: finalServiceTime
     };
+
+    console.log({
+  entry_type,
+  finalServiceDate,
+  finalServiceTime
+});
 
     const transaction = await saveServiceTransaction(data);
 
+
     const io = req.app.get("io") || global.io;
+
     if (io && data.status === "pending") {
-      io.emit("appointment_created", { id: transaction.id, data: transaction });
+      io.emit("appointment_created", {
+        id: transaction.id,
+        data: transaction
+      });
     }
 
-    res.json({ success: true, data: transaction });
+
+    res.json({
+      success:true,
+      data:transaction
+    });
+
+
   } catch (err) {
+
     console.error(err);
-    res.status(500).json({ success: false, message: "Failed to create service transaction" });
+
+    res.status(500).json({
+      success:false,
+      message:"Failed to create service transaction"
+    });
+
   }
 };
-
 export const getAllServiceTransactions = async (req, res) => {
   try {
     const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;

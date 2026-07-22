@@ -12,6 +12,7 @@ export default function ServiceForm({
   customerId = null,
   serviceStatus,
   serviceData = null,
+  entryType = "current",
 }) {
 
   console.log("sections in the service form", Sections)
@@ -147,21 +148,35 @@ const handleServiceSelect = (e) => {
   e.preventDefault();
 
   const payload = {
-    id: form.id || null,
-    section_id: form.section_id,
-    service_definition_id: form.service_definition_id,
-    appointment_date: isCustomer ? form.appointment_date : null,
-    appointment_time: isCustomer ? form.appointment_time : null,
-    created_by: createdBy,
-    customer_id:customerId,
-    customer_note:form.customerNote,
-    status: serviceStatus,
-    performers: form.performers.map((p) => ({
-      role_id: p.role_id,
-      employee_id: p.employee_id === "" ? null : p.employee_id,
-      earned_amount: p.earned_amount,
-    })),
-  };
+  id: form.id || null,
+
+  section_id: form.section_id,
+  service_definition_id: form.service_definition_id,
+
+  entry_type: entryType,
+
+  appointment_date: isCustomer 
+    ? form.appointment_date 
+    : null,
+
+  appointment_time: isCustomer 
+    ? form.appointment_time 
+    : null,
+
+  created_by: createdBy,
+
+  customer_id: customerId,
+
+  customer_note: form.customerNote,
+
+  status: serviceStatus,
+
+  performers: form.performers.map((p) => ({
+    role_id: p.role_id,
+    employee_id: p.employee_id === "" ? null : p.employee_id,
+    earned_amount: p.earned_amount,
+  })),
+};
 
   // ⬇️ DEEP LOG - shows the REAL payload sent to backend
   console.log(

@@ -9,6 +9,7 @@ import ClockForm from "../../components/ClockForm";
 import TagFeeForm from "../../components/TagFeeForm.jsx";
 import LateFeeForm from "../../components/LateFeeForm.jsx";
 import CancelReasonForm from "../../components/CancelReasonForm.jsx";
+import AddPastService from "../../components/AddPastService";
 import Button from "../../components/Button";
 import { useData } from "../../context/DataContext.jsx";
 import io from "socket.io-client";
@@ -327,7 +328,13 @@ export default function OwnerDashboard() {
           )}
         </div>
 
-        <Button onClick={() => setModalType("service")}>Add Service</Button>
+        <Button onClick={() => setModalType("service")}>
+  Add Service
+</Button>
+
+<Button onClick={() => setModalType("past_service")}>
+  Add Past Service
+</Button>
         <Button onClick={() => setModalType("expense")}>Add Expense</Button>
         <Button onClick={() => setModalType("advance")}>Add Advance</Button>
         <Button onClick={() => setModalType("clocking")}>Employee Clocking</Button>
@@ -579,8 +586,22 @@ export default function OwnerDashboard() {
               Sections={sections}
               createdBy={createdbyID?.id}
               serviceStatus={null}
+              entryType="past"
             />
           )}
+          {modalType === "past_service" && (
+  <AddPastService
+    onSubmit={createServiceTransaction}
+    onClose={closeModal}
+    Services={serviceDefinitions}
+    Roles={serviceRoles}
+    Employees={Employees}
+    Sections={sections}
+    createdBy={createdbyID?.id}
+    serviceStatus="completed"
+    entryType="current"
+  />
+)}
           {modalType === "expense" && <ExpenseForm onSubmit={createExpense} onClose={closeModal} />}
           {modalType === "advance" && <AdvanceForm onSubmit={createAdvance} onClose={closeModal} />}
           {modalType === "clocking" && <ClockForm onSubmit={handleClocking} onClose={closeModal} employees={Employees} />}
