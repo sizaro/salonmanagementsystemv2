@@ -36,14 +36,14 @@ const pendingCount = pendingAppointments.length;
 
   const navigate = useNavigate();
 
-  const SOCKET_API_URL = import.meta.env.VITE_API_URL || "https://salonmanagementsystemv2-ru0i.onrender.com";
+  // const SOCKET_API_URL = import.meta.env.VITE_API_URL || "https://salonmanagementsystemv2-ru0i.onrender.com";
   const API_URL = import.meta.env.VITE_API_URL || "/api";
 
-  const socket = io(SOCKET_API_URL.replace("/api", ""), {
-    withCredentials: true,
-  transports: ["websocket"],
-  secure: true
-});
+//   const socket = io(SOCKET_API_URL.replace("/api", ""), {
+//     withCredentials: true,
+//   transports: ["websocket"],
+//   secure: true
+// });
 
   // ---------- Fetch All ----------
   const fetchAllData = async () => {

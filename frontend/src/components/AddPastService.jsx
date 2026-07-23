@@ -10,6 +10,7 @@ export default function AddPastService({
   createdBy,
   customerId = null,
   serviceStatus = "completed",
+  entryType = "current",
 }) {
 
   const [sections] = useState(Sections);
@@ -205,7 +206,7 @@ export default function AddPastService({
 
     const payload = {
 
-  entry_type: "past",
+  entry_type: entryType,
 
   section_id:
   form.section_id,
