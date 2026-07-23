@@ -4,8 +4,12 @@ import db from './database.js';
 // SERVICES (week model similar to daily model)
 // ===============================
 
+// ===============================
+// SERVICES (week model using service_date + service_time)
+// ===============================
 
 export const getServicesByDateRange = async (startDate, endDate, salon_id) => {
+
   const query = `
     SELECT 
       st.id AS transaction_id,
@@ -13,7 +17,10 @@ export const getServicesByDateRange = async (startDate, endDate, salon_id) => {
       st.customer_id,
       st.customer_note,
       st.created_by,
-      st.service_timestamp AT TIME ZONE 'Africa/Kampala' AS service_time,
+
+      -- SERVICE DATE/TIME
+      st.service_date,
+      st.service_time,
 
       sd.service_name,
       sd.description,
@@ -22,68 +29,125 @@ export const getServicesByDateRange = async (startDate, endDate, salon_id) => {
       sd.section_id AS definition_section_id,
       sec.section_name,
 
+
       COALESCE(perf.performers, '[]'::json) AS performers,
       COALESCE(mat.materials, '[]'::json) AS materials
 
+
     FROM service_transactions st
+
+
     JOIN service_definitions sd 
       ON sd.id = st.service_definition_id
-      AND sd.salon_id = $3   -- enforce salon_id on service definition
+      AND sd.salon_id = $3
+
+
     JOIN service_sections sec
       ON sec.id = sd.section_id
-      AND sec.salon_id = $3  -- optional if sections are salon-specific
+      AND sec.salon_id = $3
 
+
+
+    -- PERFORMERS
     LEFT JOIN LATERAL (
       SELECT json_agg(
-               jsonb_build_object(
-                 'role_name', sr.role_name,
-                 'role_amount', sr.earned_amount,
-                 'employee_id', u.id,
-                 'first_name', u.first_name,
-                 'last_name', u.last_name
-               )
-             ) AS performers
+        jsonb_build_object(
+          'role_name', sr.role_name,
+          'role_amount', sr.earned_amount,
+          'employee_id', u.id,
+          'first_name', u.first_name,
+          'last_name', u.last_name
+        )
+      ) AS performers
+
       FROM service_performers sp
-      LEFT JOIN service_roles sr ON sr.id = sp.service_role_id
-      LEFT JOIN users u ON u.id = sp.employee_id AND u.salon_id = $3 -- enforce salon_id for employees
+
+      LEFT JOIN service_roles sr 
+        ON sr.id = sp.service_role_id
+
+      LEFT JOIN users u 
+        ON u.id = sp.employee_id
+        AND u.salon_id = $3
+
       WHERE sp.service_transaction_id = st.id
+
     ) perf ON TRUE
 
+
+
+    -- MATERIALS
     LEFT JOIN LATERAL (
       SELECT json_agg(
-               jsonb_build_object(
-                 'material_name', sm.material_name,
-                 'material_cost', sm.material_cost
-               )
-             ) AS materials
+        jsonb_build_object(
+          'material_name', sm.material_name,
+          'material_cost', sm.material_cost
+        )
+      ) AS materials
+
       FROM service_materials sm
+
       WHERE sm.service_definition_id = sd.id
-        AND sm.salon_id = $3   -- enforce salon_id on materials
+        AND sm.salon_id = $3
+
     ) mat ON TRUE
+
+
 
     WHERE 
       st.salon_id = $3
-      AND (st.service_timestamp AT TIME ZONE 'Africa/Kampala') BETWEEN $1 AND $2
+
+      AND st.service_date BETWEEN $1 AND $2
+
       AND (st.status IS NULL OR LOWER(st.status) = 'completed')
 
-    ORDER BY st.service_timestamp DESC;
+
+    ORDER BY 
+      st.service_date DESC,
+      st.service_time DESC;
+
   `;
 
-  const { rows } = await db.query(query, [startDate, endDate, salon_id]);
 
-  // Remove duplicate materials if needed
+  const { rows } = await db.query(
+    query,
+    [
+      startDate,
+      endDate,
+      salon_id
+    ]
+  );
+
+
   const result = rows.map(row => {
+
     if (Array.isArray(row.materials)) {
+
       row.materials = Array.from(
-        new Map(row.materials.map(m => [m.material_name, m])).values()
+        new Map(
+          row.materials.map(
+            m => [m.material_name, m]
+          )
+        ).values()
       );
+
     } else {
+
       row.materials = [];
+
     }
+
+
     return row;
+
   });
 
-  console.log("services in the weekly model", result);
+
+  console.log(
+    "services in weekly model",
+    result
+  );
+
+
   return result;
 };
 

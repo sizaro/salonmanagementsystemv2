@@ -158,13 +158,35 @@ const servicesWithMaterials = useMemo(() => {
 console.log("servicesWithMaterials", servicesWithMaterials);
 
 // Filter services by selected employee
+
 const employeeServices = useMemo(() => {
-  console.log("useMemo: filtering employeeServices for", selectedEmployee);
+
   if (!selectedEmployee) return [];
-  return servicesWithMaterials.filter((s) =>
-    s.performers?.some((p) => p.employee_id === selectedEmployee.id)
-  );
-}, [servicesWithMaterials, selectedEmployee]);
+
+
+  return servicesWithMaterials.filter((s) => {
+
+    const belongsToEmployee =
+      s.performers?.some(
+        (p) => Number(p.employee_id) === Number(selectedEmployee.id)
+      );
+
+
+    const belongsToDate =
+      !selectedDate ||
+      s.service_date === selectedDate;
+
+
+    return belongsToEmployee && belongsToDate;
+
+  });
+
+
+}, [
+  servicesWithMaterials,
+  selectedEmployee,
+  selectedDate
+]);
 
 console.log("employeeServices", employeeServices);
 
