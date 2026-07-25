@@ -15,6 +15,7 @@ const UserForm = ({ user, onSubmit, onClose, role = "" }) => {
     next_of_kin: "",
     next_of_kin_contact: "",
     role: "",
+    gender: "",
     specialty: "",
     status: "active",
     bio: "",
@@ -37,6 +38,7 @@ const UserForm = ({ user, onSubmit, onClose, role = "" }) => {
         next_of_kin: user.next_of_kin || "",
         next_of_kin_contact: user.next_of_kin_contact || "",
         role: user.role || "",
+        gender: user.gender || "",
         specialty: user.specialty || "",
         status: user.status || "active",
         bio: user.bio || "",
@@ -268,21 +270,38 @@ const UserForm = ({ user, onSubmit, onClose, role = "" }) => {
               className="mt-1 block w-full border rounded-md p-2"
             />
           </div>
-          <div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Gender</label>
+              <select
+                name="gender"
+                value={formData.gender}
+                onChange={handleChange}
+                className="mt-1 block w-full border rounded-md p-2"
+              >
+                <option value="">Select gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700">Role</label>
               <input
                 type="text"
                 name="role"
                 value={formData.role}
                 onChange={(e) =>
-    setFormData((prev) => ({
-      ...prev,
-      role: e.target.value.toLowerCase(),
-    }))}
+                  setFormData((prev) => ({
+                    ...prev,
+                    role: e.target.value.toLowerCase(),
+                  }))
+                }
                 placeholder="e.g., manager or employee"
                 className="mt-1 block w-full border rounded-md p-2"
               />
             </div>
+          </div>
         </>
       )}
 

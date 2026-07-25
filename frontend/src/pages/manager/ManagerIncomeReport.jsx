@@ -298,10 +298,28 @@ const handleYearChange = (e) => {
   };
 
   useEffect(() => {
-    fetchDailyData(selectedDate);
-    fetchUsers();
-    fetchServiceMaterials();
-  }, []);
+    let isMounted = true;
+
+    const loadInitialReport = async () => {
+      try {
+        await Promise.all([
+          fetchDailyData(selectedDate),
+          fetchUsers(),
+          fetchServiceMaterials(),
+        ]);
+      } catch (err) {
+        console.error("Failed to load initial income report data:", err);
+      }
+    };
+
+    if (isMounted) {
+      loadInitialReport();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDate]);
 
   const formatPerformersAndMaterials = (s) => {
     const lines = [];

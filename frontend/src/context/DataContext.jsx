@@ -881,47 +881,42 @@ const resetPassword = async (payload) => {
   };
 
   // ---------- useEffect ----------
-useEffect(() => {
-  const initializeApp = async () => {
-    try {
-      fetchSessions(); // fetch sessions in background
-    } catch (err) {
-      console.error("Error initializing app:", err);
-    }
-  };
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        await fetchSessions(); // fetch sessions in background
+      } catch (err) {
+        console.error("Error initializing app:", err);
+      }
+    };
 
-  const transactionData = async () => {
-    try {
-      await Promise.all([
-        fetchSections(),
-        fetchServiceDefinitions(),
-        fetchServiceRoles(),
-        fetchUsers(),
-        fetchServiceTransactions(),
-        fetchServiceMaterials(),
-      ]);
-    } catch (err) {
-      console.error("Error fetching transaction data:", err);
-    }
-  };
+    const transactionData = async () => {
+      try {
+        await Promise.all([
+          fetchSections(),
+          fetchServiceDefinitions(),
+          fetchServiceRoles(),
+          fetchUsers(),
+        ]);
+      } catch (err) {
+        console.error("Error fetching transaction data:", err);
+      }
+    };
 
-  // --- initialize all data ---
-  initializeApp();
-  transactionData();
+    initializeApp();
+    transactionData();
 
-  const interval = setInterval(fetchSessions, 60 * 1000); 
-  return () => clearInterval(interval);
+    const interval = setInterval(fetchSessions, 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
-}, []);
-
-
-  useEffect(()=>{
+  useEffect(() => {
     fetchServiceTransactionsApp();
-  }, [])
+  }, []);
 
-   useEffect(()=>{
+  useEffect(() => {
     checkAuth();
-  }, [])
+  }, []);
 
 
 

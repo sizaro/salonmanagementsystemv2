@@ -39,6 +39,7 @@ export const saveUser = async ({
   next_of_kin,
   next_of_kin_contact,
   role,
+  gender,
   specialty,
   status,
   bio,
@@ -49,10 +50,10 @@ export const saveUser = async ({
       (
         first_name, middle_name, last_name, email, password, 
         birthdate, contact, next_of_kin, next_of_kin_contact, 
-        role, specialty, status, bio, image_url, salon_id, created_at
+        role, gender, specialty, status, bio, image_url, salon_id, created_at
       ) 
     VALUES 
-      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NOW())
+      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW())
     RETURNING *;
   `;
 
@@ -67,6 +68,7 @@ export const saveUser = async ({
     next_of_kin || null,
     next_of_kin_contact || null,
     role || 'customer',
+    gender || null,
     specialty || null,
     status || 'active',
     bio || null,
@@ -95,6 +97,7 @@ export const UpdateUserById = async (data) => {
     next_of_kin,
     next_of_kin_contact,
     role,
+    gender,
     specialty,
     status,
     bio,
@@ -115,9 +118,10 @@ export const UpdateUserById = async (data) => {
     "next_of_kin = $8",
     "next_of_kin_contact = $9",
     "role = $10",
-    "specialty = $11",
-    "status = $12",
-    "bio = $13",
+    "gender = $11",
+    "specialty = $12",
+    "status = $13",
+    "bio = $14",
   ];
 
   const values = [
@@ -131,6 +135,7 @@ export const UpdateUserById = async (data) => {
     next_of_kin || null,
     next_of_kin_contact || null,
     role || "customer",
+    gender || null,
     specialty || null,
     status || "active",
     bio || null,
