@@ -85,21 +85,17 @@ const pendingCount = pendingAppointments.length;
       const formatDate = (d) => new Date(d).toISOString().split("T")[0];
       const res = await axios.get(`${API_URL}/reports/daily`, {
         params: { date: formatDate(date) },
-      }, {
-  withCredentials: true,
-});
+        withCredentials: true,
+      });
       const data = res.data;
 
-      setServices(data.services);
-      console.log("service transactions in daily context", data.services)
-      setExpenses(data.expenses);
-      setAdvances(data.advances);
-      console.log("advances in daily context", data.advances)
-      setClockings(data.clockings);
-      console.log("clockings in daily context", data.clockings)
-      setUsers(data.users);
-      setTagFees(data.tagFees);
-      setLateFees(data.lateFees);
+      setServices((prev) => data.services ?? prev);
+      setExpenses((prev) => data.expenses ?? prev);
+      setAdvances((prev) => data.advances ?? prev);
+      setClockings((prev) => data.clockings ?? prev);
+      setUsers((prev) => data.users ?? data.employees ?? prev);
+      setTagFees((prev) => data.tagFees ?? prev);
+      setLateFees((prev) => data.lateFees ?? prev);
       return data;
     } catch (err) {
       console.error("Error fetching daily report:", err);
@@ -112,19 +108,16 @@ const pendingCount = pendingAppointments.length;
       const formatDate = (date) => date.toISOString().split("T")[0];
       const res = await axios.get(`${API_URL}/reports/weekly`, {
         params: { startDate: formatDate(start), endDate: formatDate(end) },
-      }, {
-  withCredentials: true,
-});
-            console.log("data in weekly context", res.lateFeeData)
+        withCredentials: true,
+      });
       const data = res.data;
-      setServices(data.services);
-      console.log("service transactions in daily context", data.services)
-      setExpenses(data.expenses);
-      setAdvances(data.advances);
-      console.log("clockings in daily context", data.clockings)
-      setUsers(data.users);
-      setTagFees(data.tagFees);
-      setLateFees(data.lateFees);
+      setServices((prev) => data.services ?? prev);
+      setExpenses((prev) => data.expenses ?? prev);
+      setAdvances((prev) => data.advances ?? prev);
+      setClockings((prev) => data.clockings ?? prev);
+      setUsers((prev) => data.users ?? data.employees ?? prev);
+      setTagFees((prev) => data.tagFees ?? prev);
+      setLateFees((prev) => data.lateFees ?? prev);
       return data;
     } catch (err) {
       console.error("Error fetching weekly report:", err);
@@ -135,16 +128,16 @@ const pendingCount = pendingAppointments.length;
     try {
       const res = await axios.get(`${API_URL}/reports/monthly`, {
         params: { year, month },
-      }, {
-  withCredentials: true,
-});
+        withCredentials: true,
+      });
       const data = res.data;
-      setServices(data.services);
-      setExpenses(data.expenses);
-      setAdvances(data.advances);
-      setUsers(data.users);
-      setTagFees(data.tagFees);
-      setLateFees(data.lateFees);
+      setServices((prev) => data.services ?? prev);
+      setExpenses((prev) => data.expenses ?? prev);
+      setAdvances((prev) => data.advances ?? prev);
+      setClockings((prev) => data.clockings ?? prev);
+      setUsers((prev) => data.users ?? data.employees ?? prev);
+      setTagFees((prev) => data.tagFees ?? prev);
+      setLateFees((prev) => data.lateFees ?? prev);
       return data;
     } catch (err) {
       console.error("Error fetching monthly report:", err);
@@ -154,16 +147,18 @@ const pendingCount = pendingAppointments.length;
 
   const fetchYearlyData = async (year) => {
     try {
-      const res = await axios.get(`${API_URL}/reports/yearly`, { params: { year } }, {
-  withCredentials: true,
-});
+      const res = await axios.get(`${API_URL}/reports/yearly`, {
+        params: { year },
+        withCredentials: true,
+      });
       const data = res.data;
-      setServices(data.services);
-      setExpenses(data.expenses);
-      setAdvances(data.advances);
-      setUsers(data.users);
-      setTagFees(data.tagFees);
-      setLateFees(data.lateFees);
+      setServices((prev) => data.services ?? prev);
+      setExpenses((prev) => data.expenses ?? prev);
+      setAdvances((prev) => data.advances ?? prev);
+      setClockings((prev) => data.clockings ?? prev);
+      setUsers((prev) => data.users ?? data.employees ?? prev);
+      setTagFees((prev) => data.tagFees ?? prev);
+      setLateFees((prev) => data.lateFees ?? prev);
       return data;
     } catch (err) {
       console.error("Error fetching yearly report:", err);

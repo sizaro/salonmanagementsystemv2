@@ -38,7 +38,12 @@ console.log("📝 late fees in the report for employee page", lateFees);
 console.log("📝 tag fees in the report for employee page", tagFees);
 console.log("📝 advances in the report for employee page", advances);
 
-const toYMD = (date) => date.toISOString().split("T")[0];
+const toYMD = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 const today = new Date();
 
 const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -55,7 +60,6 @@ const handleEmployeeChange = (e) => {
 
   const emp = users.find((u) => u.id === id);
   setSelectedEmployee(emp || null);
-  fetchUsers();
 };
 
 const handleDayChange = (e) => {
@@ -142,12 +146,13 @@ const servicesWithMaterials = useMemo(() => {
 
 console.log("servicesWithMaterials", servicesWithMaterials);
 
-// Filter services by selected employee
+// Filter services by selected employee using the period data already loaded by the report fetchers.
 const employeeServices = useMemo(() => {
   console.log("useMemo: filtering employeeServices for", selectedEmployee);
   if (!selectedEmployee) return [];
+
   return servicesWithMaterials.filter((s) =>
-    s.performers?.some((p) => p.employee_id === selectedEmployee.id)
+    s.performers?.some((p) => Number(p.employee_id) === Number(selectedEmployee.id))
   );
 }, [servicesWithMaterials, selectedEmployee]);
 
@@ -308,7 +313,8 @@ const chartOptions = {
 
 // Initial data fetch
 useEffect(() => {
-  console.log("useEffect: fetching all users...");
+  console.log("useEffect: fetching report data for the current day...");
+  fetchDailyData(selectedDate);
   fetchUsers();
 }, []);
 

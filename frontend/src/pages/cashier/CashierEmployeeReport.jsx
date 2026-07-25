@@ -70,14 +70,12 @@ const handleEmployeeChange = (e) => {
 
   const emp = users.find((u) => u.id === id);
   setSelectedEmployee(emp || null);
-  fetchUsers();
 };
 
 const handleDayChange = (e) => {
   console.log("handleDayChange called with value:", e.target.value);
   setSelectedDate(e.target.value);
   fetchDailyData(e.target.value);
-  fetchUsers();
 };
 
 const handleWeekChange = (e) => {
@@ -104,7 +102,6 @@ const handleWeekChange = (e) => {
     `${monday.toLocaleDateString("en-US")} → ${sunday.toLocaleDateString("en-US")}`
   );
   fetchWeeklyData(monday, sunday);
-  fetchUsers();
 };
 
 const handleMonthChange = (e) => {
@@ -121,7 +118,6 @@ const handleMonthChange = (e) => {
       })}`
     );
     fetchMonthlyData(year, month);
-    fetchUsers()
 };
 
 const handleYearChange = (e) => {
@@ -157,12 +153,13 @@ const servicesWithMaterials = useMemo(() => {
 
 console.log("servicesWithMaterials", servicesWithMaterials);
 
-// Filter services by selected employee
+// Filter services by selected employee using the period data already loaded by the report fetchers.
 const employeeServices = useMemo(() => {
   console.log("useMemo: filtering employeeServices for", selectedEmployee);
   if (!selectedEmployee) return [];
+
   return servicesWithMaterials.filter((s) =>
-    s.performers?.some((p) => p.employee_id === selectedEmployee.id)
+    s.performers?.some((p) => Number(p.employee_id) === Number(selectedEmployee.id))
   );
 }, [servicesWithMaterials, selectedEmployee]);
 
@@ -323,7 +320,8 @@ const chartOptions = {
 
 // Initial data fetch
 useEffect(() => {
-  console.log("useEffect: fetching all users...");
+  console.log("useEffect: fetching report data for the current day...");
+  fetchDailyData(selectedDate);
   fetchUsers();
 }, []);
 
