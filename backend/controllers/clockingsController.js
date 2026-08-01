@@ -6,12 +6,12 @@ import {
   updateClockingModel,
   fetchAllClockings
 } from "../models/clockingsModel.js";
+import { fetchUserById } from "../models/usersModel.js";
 
 
 const resolveSalonId = (req) => {
   return (
     req.user?.salon_id ||
-    req.salon_id ||
     Number(process.env.DEFAULT_SALON_ID)
   );
 };
@@ -19,11 +19,24 @@ const resolveSalonId = (req) => {
 // ---------------- CREATE CLOCKING ----------------
 export const createClocking = async (req, res) => {
   try {
-    const { employee_id } = req.body;
+    let { employee_id } = req.body;
     const salon_id = resolveSalonId(req);
 
     if (!salon_id) {
       return res.status(400).json({ message: "Missing salon context" });
+    }
+
+    // Convert employee_id to integer
+    employee_id = parseInt(employee_id, 10);
+    
+    if (isNaN(employee_id)) {
+      return res.status(400).json({ message: "Invalid employee_id format" });
+    }
+
+    // Validate that employee exists
+    const employee = await fetchUserById(employee_id, salon_id);
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
     }
 
     console.log("data coming from the frontend", {
@@ -48,11 +61,24 @@ export const createClocking = async (req, res) => {
 // ---------------- UPDATE CLOCKING ----------------
 export const updateClocking = async (req, res) => {
   try {
-    const { employee_id } = req.body;
+    let { employee_id } = req.body;
     const salon_id = resolveSalonId(req);
 
     if (!salon_id) {
       return res.status(400).json({ message: "Missing salon context" });
+    }
+
+    // Convert employee_id to integer
+    employee_id = parseInt(employee_id, 10);
+    
+    if (isNaN(employee_id)) {
+      return res.status(400).json({ message: "Invalid employee_id format" });
+    }
+
+    // Validate that employee exists
+    const employee = await fetchUserById(employee_id, salon_id);
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
     }
 
     console.log("data arriving for update", {

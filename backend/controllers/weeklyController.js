@@ -20,7 +20,9 @@ const getWeekRange = (dateInput) => {
   console.log("Monday start local:", monday);
 
   // Uganda offset: convert local to UTC for DB
-  const mondayUTC = new Date(monday.getTime() - monday.getTimezoneOffset() * 60000);
+  const mondayUTC = new Date(
+    monday.getTime() - monday.getTimezoneOffset() * 60000,
+  );
   console.log("Monday UTC for DB:", mondayUTC);
 
   const sunday = new Date(monday);
@@ -28,7 +30,9 @@ const getWeekRange = (dateInput) => {
   sunday.setHours(23, 59, 59, 999);
   console.log("Sunday end local:", sunday);
 
-  const sundayUTC = new Date(sunday.getTime() - sunday.getTimezoneOffset() * 60000);
+  const sundayUTC = new Date(
+    sunday.getTime() - sunday.getTimezoneOffset() * 60000,
+  );
   console.log("Sunday UTC for DB:", sundayUTC);
 
   return { monday, sunday, mondayUTC, sundayUTC };
@@ -38,21 +42,30 @@ const getWeekRange = (dateInput) => {
 export const getWeeklyReport = async (req, res) => {
   try {
     const { startDate } = req.query;
-     const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
 
     if (!startDate)
       return res.status(400).json({ error: "Missing startDate query param" });
 
     const { mondayUTC, sundayUTC } = getWeekRange(startDate);
-    console.log("Querying services from", mondayUTC, "to", sundayUTC, "for salon:", salon_id);
+    console.log(
+      "Querying services from",
+      mondayUTC,
+      "to",
+      sundayUTC,
+      "for salon:",
+      salon_id,
+    );
 
-    const [services, expenses, advances, tagFees, lateFees] = await Promise.all([
-      WeeklyModel.getServicesByDateRange(mondayUTC, sundayUTC, salon_id),
-      WeeklyModel.getExpensesByDateRange(mondayUTC, sundayUTC, salon_id),
-      WeeklyModel.getAdvancesByDateRange(mondayUTC, sundayUTC, salon_id),
-      WeeklyModel.getTagFeesByDateRange(mondayUTC, sundayUTC, salon_id),
-      WeeklyModel.getLateFeesByDateRange(mondayUTC, sundayUTC, salon_id)
-    ]);
+    const [services, expenses, advances, tagFees, lateFees, sessions] =
+      await Promise.all([
+        WeeklyModel.getServicesByDateRange(mondayUTC, sundayUTC, salon_id),
+        WeeklyModel.getExpensesByDateRange(mondayUTC, sundayUTC, salon_id),
+        WeeklyModel.getAdvancesByDateRange(mondayUTC, sundayUTC, salon_id),
+        WeeklyModel.getTagFeesByDateRange(mondayUTC, sundayUTC, salon_id),
+        WeeklyModel.getLateFeesByDateRange(mondayUTC, sundayUTC, salon_id),
+        WeeklyModel.getSalonSessionsByDateRange(mondayUTC, sundayUTC, salon_id),
+      ]);
 
     console.log("Weekly services fetched:", services);
 
@@ -61,12 +74,11 @@ export const getWeeklyReport = async (req, res) => {
       expenses: expenses.rows,
       advances: advances.rows,
       tagFees: tagFees.rows,
-      lateFees: lateFees.rows
+      lateFees: lateFees.rows,
+      sessions,
     });
-
   } catch (err) {
     console.error("Error fetching weekly report:", err);
     res.status(500).json({ error: "Server error" });
   }
 };
-

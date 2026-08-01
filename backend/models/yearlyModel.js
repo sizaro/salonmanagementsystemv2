@@ -1,4 +1,4 @@
-import db from './database.js';
+import db from "./database.js";
 
 // ===============================
 // SERVICES (yearly report with salon_id enforcement)
@@ -8,7 +8,6 @@ import db from './database.js';
 // SERVICES (yearly report using service_date + service_time)
 // ===============================
 export const getServicesByYear = async (year, salon_id) => {
-
   const query = `
     SELECT 
       st.id AS transaction_id,
@@ -114,47 +113,21 @@ export const getServicesByYear = async (year, salon_id) => {
 
   `;
 
+  const { rows } = await db.query(query, [year, salon_id]);
 
-  const { rows } = await db.query(
-    query,
-    [
-      year,
-      salon_id
-    ]
-  );
-
-
-
-  const result = rows.map(row => {
-
+  const result = rows.map((row) => {
     if (Array.isArray(row.materials)) {
-
       row.materials = Array.from(
-        new Map(
-          row.materials.map(
-            m => [m.material_name, m]
-          )
-        ).values()
+        new Map(row.materials.map((m) => [m.material_name, m])).values(),
       );
-
     } else {
-
       row.materials = [];
-
     }
 
-
     return row;
-
   });
 
-
-
-  console.log(
-    "services in yearly model",
-    result
-  );
-
+  console.log("services in yearly model", result);
 
   return result;
 };
@@ -180,18 +153,28 @@ export const getExpensesByYear = async (year, salon_id) => {
 // ===============================
 export const getAdvancesByYear = async (year, salon_id) => {
   const query = `
-    SELECT 
+    SELECT
       a.*,
       u.first_name,
       u.last_name
+
     FROM advances a
-    LEFT JOIN users u ON a.employee_id = u.id
+
+    LEFT JOIN users u
+      ON a.employee_id = u.id
+
     WHERE
       a.salon_id = $2
-      AND EXTRACT(YEAR FROM (a.created_at AT TIME ZONE 'Africa/Kampala')) = $1
-    ORDER BY a.id DESC;
+      AND EXTRACT(YEAR FROM a.advance_date) = $1
+
+    ORDER BY
+      a.advance_date DESC,
+      a.advance_time DESC,
+      a.id DESC;
   `;
+
   const { rows } = await db.query(query, [year, salon_id]);
+
   return rows;
 };
 
@@ -234,6 +217,37 @@ export const getLateFeesByYear = async (year, salon_id) => {
 };
 
 // ===============================
+// SALON SESSIONS
+// ===============================
+export const getSalonSessionsByYear = async (year, salon_id) => {
+  const query = `
+    SELECT
+      id,
+      salon_id,
+      status,
+
+      open_date::TEXT AS open_date,
+      open_time::TEXT AS open_time,
+
+      close_date::TEXT AS close_date,
+      close_time::TEXT AS close_time,
+
+      created_at,
+      updated_at
+
+    FROM salon_sessions
+
+    WHERE salon_id = $2
+      AND EXTRACT(YEAR FROM open_date) = $1
+
+    ORDER BY open_date DESC, open_time DESC;
+  `;
+
+  const { rows } = await db.query(query, [year, salon_id]);
+  return rows;
+};
+
+// ===============================
 // EXPORT ALL
 // ===============================
 export default {
@@ -241,5 +255,6 @@ export default {
   getExpensesByYear,
   getAdvancesByYear,
   getTagFeesByYear,
-  getLateFeesByYear
+  getLateFeesByYear,
+  getSalonSessionsByYear,
 };

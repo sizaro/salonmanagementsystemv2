@@ -88,22 +88,12 @@ export const getServicesByDay = async (dateString, salon_id) => {
 
   `;
 
+  const { rows } = await db.query(query, [dateString, salon_id]);
 
-  const { rows } = await db.query(query, [
-    dateString,
-    salon_id
-  ]);
-
-
-  return rows.map(row => {
-
+  return rows.map((row) => {
     if (Array.isArray(row.materials)) {
       row.materials = Array.from(
-        new Map(
-          row.materials.map(
-            m => [m.material_name, m]
-          )
-        ).values()
+        new Map(row.materials.map((m) => [m.material_name, m])).values(),
       );
     } else {
       row.materials = [];
@@ -111,14 +101,12 @@ export const getServicesByDay = async (dateString, salon_id) => {
 
     return row;
   });
-
 };
 
 // ===============================
 // EXPENSES
 // ===============================
 export const getExpensesByDay = async (dateString, salon_id) => {
-
   const query = `
     SELECT *
     FROM expenses
@@ -127,94 +115,74 @@ export const getExpensesByDay = async (dateString, salon_id) => {
     ORDER BY id DESC;
   `;
 
-  const { rows } = await db.query(query, [
-    dateString,
-    salon_id
-  ]);
+  const { rows } = await db.query(query, [dateString, salon_id]);
 
   return rows;
-
 };
-
-
 
 // ===============================
 // SALARY ADVANCES
 // ===============================
-export const getAdvancesByDay = async (dateString, salon_id) => {
 
+export const getAdvancesByDay = async (dateString, salon_id) => {
   const query = `
-    SELECT 
+    SELECT
       a.*,
       u.first_name,
       u.last_name
 
     FROM advances a
 
-    LEFT JOIN users u 
+    LEFT JOIN users u
       ON a.employee_id = u.id
 
-    WHERE a.created_at::DATE = $1
+    WHERE a.advance_date = $1
       AND a.salon_id = $2
 
-    ORDER BY a.id DESC;
-
+    ORDER BY
+      a.advance_date DESC,
+      a.advance_time DESC,
+      a.id DESC;
   `;
 
-
-  const { rows } = await db.query(query, [
-    dateString,
-    salon_id
-  ]);
+  const { rows } = await db.query(query, [dateString, salon_id]);
 
   return rows;
-
 };
-
-
-
 // ===============================
 // EMPLOYEE CLOCKINGS
 // ===============================
-export const getClockingsByDay = async (dateString, salon_id) => {
 
+export const getClockingsByDay = async (dateString, salon_id) => {
   const query = `
-    SELECT 
+    SELECT
       ec.*,
       u.first_name,
       u.last_name
 
     FROM employee_clocking ec
 
-    LEFT JOIN users u 
+    LEFT JOIN users u
       ON ec.employee_id = u.id
 
-
-    WHERE ec.clock_in::DATE = $1
+    WHERE ec.clock_in_date = $1
       AND ec.salon_id = $2
 
-
-    ORDER BY ec.id DESC;
-
+    ORDER BY
+      ec.clock_in_date DESC,
+      ec.clock_in_time DESC,
+      ec.id DESC;
   `;
 
-
-  const { rows } = await db.query(query, [
-    dateString,
-    salon_id
-  ]);
+  const { rows } = await db.query(query, [dateString, salon_id]);
 
   return rows;
-
 };
-
-
 
 // ===============================
 // TAG FEES
 // ===============================
 export const getTagFeesByDay = async (dateString, salon_id) => {
-
   const query = `
     SELECT 
       tf.*, 
@@ -234,23 +202,15 @@ export const getTagFeesByDay = async (dateString, salon_id) => {
 
   `;
 
-
-  const { rows } = await db.query(query, [
-    dateString,
-    salon_id
-  ]);
+  const { rows } = await db.query(query, [dateString, salon_id]);
 
   return rows;
-
 };
-
-
 
 // ===============================
 // LATE FEES
 // ===============================
 export const getLateFeesByDay = async (dateString, salon_id) => {
-
   const query = `
     SELECT 
       lf.*, 
@@ -270,23 +230,47 @@ export const getLateFeesByDay = async (dateString, salon_id) => {
 
   `;
 
-
-  const { rows } = await db.query(query, [
-    dateString,
-    salon_id
-  ]);
+  const { rows } = await db.query(query, [dateString, salon_id]);
 
   return rows;
-
 };
 
+// ===============================
+// SALON SESSIONS
+// ===============================
+export const getSalonSessionsByDay = async (dateString, salon_id) => {
+  const query = `
+    SELECT
+      id,
+      salon_id,
+      status,
 
+      open_date::TEXT AS open_date,
+      open_time::TEXT AS open_time,
+
+      close_date::TEXT AS close_date,
+      close_time::TEXT AS close_time,
+
+      created_at,
+      updated_at
+
+    FROM salon_sessions
+
+    WHERE salon_id = $2
+      AND open_date = $1
+
+    ORDER BY open_date DESC, open_time DESC;
+  `;
+
+  const { rows } = await db.query(query, [dateString, salon_id]);
+
+  return rows;
+};
 
 // ===============================
 // EMPLOYEES
 // ===============================
 export const fetchAllEmployees = async (salon_id) => {
-
   const query = `
     SELECT 
       u.*,
@@ -301,16 +285,10 @@ export const fetchAllEmployees = async (salon_id) => {
 
   `;
 
-
-  const result = await db.query(query, [
-    salon_id
-  ]);
+  const result = await db.query(query, [salon_id]);
 
   return result.rows;
-
 };
-
-
 
 // ===============================
 // EXPORT ALL
@@ -322,5 +300,6 @@ export default {
   getClockingsByDay,
   getTagFeesByDay,
   getLateFeesByDay,
-  fetchAllEmployees
+  getSalonSessionsByDay,
+  fetchAllEmployees,
 };

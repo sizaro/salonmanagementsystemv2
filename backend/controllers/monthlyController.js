@@ -3,12 +3,9 @@ dotenv.config();
 
 import monthlyModel from "../models/monthlyModel.js";
 
-
 const resolveSalonId = (req) => {
   return (
-    req.user?.salon_id ||
-    req.salon_id ||
-    Number(process.env.DEFAULT_SALON_ID)
+    req.user?.salon_id || req.salon_id || Number(process.env.DEFAULT_SALON_ID)
   );
 };
 
@@ -29,31 +26,27 @@ export const getMonthlyReport = async (req, res) => {
     console.log("📊 Monthly report request:", {
       year,
       month,
-      salon_id
+      salon_id,
     });
 
-    const [
-      services,
-      expenses,
-      advances,
-      tagFees,
-      lateFees
-    ] = await Promise.all([
-      monthlyModel.getServicesByMonth(year, month, salon_id),
-      monthlyModel.getExpensesByMonth(year, month, salon_id),
-      monthlyModel.getAdvancesByMonth(year, month, salon_id),
-      monthlyModel.getTagFeesByMonth(year, month, salon_id),
-      monthlyModel.getLateFeesByMonth(year, month, salon_id)
-    ]);
+    const [services, expenses, advances, tagFees, lateFees, sessions] =
+      await Promise.all([
+        monthlyModel.getServicesByMonth(year, month, salon_id),
+        monthlyModel.getExpensesByMonth(year, month, salon_id),
+        monthlyModel.getAdvancesByMonth(year, month, salon_id),
+        monthlyModel.getTagFeesByMonth(year, month, salon_id),
+        monthlyModel.getLateFeesByMonth(year, month, salon_id),
+        monthlyModel.getSalonSessionsByMonth(year, month, salon_id),
+      ]);
 
     res.status(200).json({
       services,
       expenses,
       advances,
       tagFees,
-      lateFees
+      lateFees,
+      sessions,
     });
-
   } catch (err) {
     console.error("❌ Error fetching monthly report:", err);
     res.status(500).json({ error: "Server error" });
@@ -61,6 +54,5 @@ export const getMonthlyReport = async (req, res) => {
 };
 
 export default {
-  getMonthlyReport
+  getMonthlyReport,
 };
-

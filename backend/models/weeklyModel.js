@@ -1,4 +1,4 @@
-import db from './database.js';
+import db from "./database.js";
 
 // ===============================
 // SERVICES (week model similar to daily model)
@@ -9,7 +9,6 @@ import db from './database.js';
 // ===============================
 
 export const getServicesByDateRange = async (startDate, endDate, salon_id) => {
-
   const query = `
     SELECT 
       st.id AS transaction_id,
@@ -107,50 +106,24 @@ export const getServicesByDateRange = async (startDate, endDate, salon_id) => {
 
   `;
 
+  const { rows } = await db.query(query, [startDate, endDate, salon_id]);
 
-  const { rows } = await db.query(
-    query,
-    [
-      startDate,
-      endDate,
-      salon_id
-    ]
-  );
-
-
-  const result = rows.map(row => {
-
+  const result = rows.map((row) => {
     if (Array.isArray(row.materials)) {
-
       row.materials = Array.from(
-        new Map(
-          row.materials.map(
-            m => [m.material_name, m]
-          )
-        ).values()
+        new Map(row.materials.map((m) => [m.material_name, m])).values(),
       );
-
     } else {
-
       row.materials = [];
-
     }
 
-
     return row;
-
   });
 
-
-  console.log(
-    "services in weekly model",
-    result
-  );
-
+  console.log("services in weekly model", result);
 
   return result;
 };
-
 
 // ===============================
 // EXPENSES
@@ -158,7 +131,7 @@ export const getServicesByDateRange = async (startDate, endDate, salon_id) => {
 export const getExpensesByDateRange = async (startDate, endDate, salon_id) => {
   const result = await db.query(
     "SELECT * FROM expenses WHERE salon_id=$3 AND created_at BETWEEN $1 AND $2 ORDER BY id DESC",
-    [startDate, endDate, salon_id]
+    [startDate, endDate, salon_id],
   );
   return result;
 };
@@ -168,18 +141,28 @@ export const getExpensesByDateRange = async (startDate, endDate, salon_id) => {
 // ===============================
 export const getAdvancesByDateRange = async (startDate, endDate, salon_id) => {
   const query = `
-    SELECT 
+    SELECT
       a.*,
       u.first_name,
       u.last_name
+
     FROM advances a
-    LEFT JOIN users u ON a.employee_id = u.id
+
+    LEFT JOIN users u
+      ON a.employee_id = u.id
+
     WHERE a.salon_id = $3
-      AND a.created_at BETWEEN $1 AND $2
-    ORDER BY a.id DESC;
+      AND a.advance_date BETWEEN $1 AND $2
+
+    ORDER BY
+      a.advance_date DESC,
+      a.advance_time DESC,
+      a.id DESC;
   `;
-  const result = await db.query(query, [startDate, endDate, salon_id]);
-  return result;
+
+  const { rows } = await db.query(query, [startDate, endDate, salon_id]);
+
+  return rows;
 };
 
 // ===============================
@@ -215,6 +198,41 @@ export const getLateFeesByDateRange = async (startDate, endDate, salon_id) => {
 };
 
 // ===============================
+// SALON SESSIONS
+// ===============================
+export const getSalonSessionsByDateRange = async (
+  startDate,
+  endDate,
+  salon_id,
+) => {
+  const query = `
+    SELECT
+      id,
+      salon_id,
+      status,
+
+      open_date::TEXT AS open_date,
+      open_time::TEXT AS open_time,
+
+      close_date::TEXT AS close_date,
+      close_time::TEXT AS close_time,
+
+      created_at,
+      updated_at
+
+    FROM salon_sessions
+
+    WHERE salon_id = $3
+      AND open_date BETWEEN $1::date AND $2::date
+
+    ORDER BY open_date DESC, open_time DESC;
+  `;
+
+  const { rows } = await db.query(query, [startDate, endDate, salon_id]);
+  return rows;
+};
+
+// ===============================
 // EMPLOYEES (Users with role employee/manager/owner)
 // ===============================
 export const fetchAllEmployees = async (salon_id) => {
@@ -239,5 +257,6 @@ export default {
   getAdvancesByDateRange,
   getTagFeesByDateRange,
   getLateFeesByDateRange,
-  fetchAllEmployees
+  getSalonSessionsByDateRange,
+  fetchAllEmployees,
 };

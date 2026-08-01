@@ -1,15 +1,13 @@
-import db from './database.js';
+import db from "./database.js";
 
 // ===============================
 // SERVICES
 // ===============================
-
 
 // ===============================
 // SERVICES
 // ===============================
 export const getServicesByMonth = async (year, month, salon_id) => {
-
   const query = `
     SELECT 
       st.id AS transaction_id,
@@ -102,37 +100,19 @@ export const getServicesByMonth = async (year, month, salon_id) => {
 
   `;
 
+  const { rows } = await db.query(query, [year, month, salon_id]);
 
-  const { rows } = await db.query(query, [
-    year,
-    month,
-    salon_id
-  ]);
-
-
-  return rows.map(row => {
-
+  return rows.map((row) => {
     if (Array.isArray(row.materials)) {
-
       row.materials = Array.from(
-        new Map(
-          row.materials.map(
-            m => [m.material_name, m]
-          )
-        ).values()
+        new Map(row.materials.map((m) => [m.material_name, m])).values(),
       );
-
     } else {
-
       row.materials = [];
-
     }
 
-
     return row;
-
   });
-
 };
 
 // ===============================
@@ -152,25 +132,34 @@ export const getExpensesByMonth = async (year, month, salon_id) => {
   return rows;
 };
 
-
 // ===============================
 // SALARY ADVANCES
 // ===============================
 export const getAdvancesByMonth = async (year, month, salon_id) => {
   const query = `
-    SELECT 
+    SELECT
       a.*,
       u.first_name,
       u.last_name
+
     FROM advances a
-    LEFT JOIN users u ON a.employee_id = u.id
+
+    LEFT JOIN users u
+      ON a.employee_id = u.id
+
     WHERE
-      EXTRACT(YEAR FROM a.created_at) = $1
-      AND EXTRACT(MONTH FROM a.created_at) = $2
+      EXTRACT(YEAR FROM a.advance_date) = $1
+      AND EXTRACT(MONTH FROM a.advance_date) = $2
       AND a.salon_id = $3
-    ORDER BY a.id DESC;
+
+    ORDER BY
+      a.advance_date DESC,
+      a.advance_time DESC,
+      a.id DESC;
   `;
+
   const { rows } = await db.query(query, [year, month, salon_id]);
+
   return rows;
 };
 
@@ -215,6 +204,43 @@ export const getLateFeesByMonth = async (year, month, salon_id) => {
 };
 
 // ===============================
+// SALON SESSIONS
+// ===============================
+export const getSalonSessionsByMonth = async (year, month, salon_id) => {
+  const query = `
+    SELECT
+      id,
+      salon_id,
+      status,
+
+      open_date::TEXT AS open_date,
+      open_time::TEXT AS open_time,
+
+      close_date::TEXT AS close_date,
+      close_time::TEXT AS close_time,
+
+      created_at,
+      updated_at
+
+    FROM salon_sessions
+
+    WHERE salon_id = $3
+      AND EXTRACT(YEAR FROM open_date) = $1
+      AND EXTRACT(MONTH FROM open_date) = $2
+
+    ORDER BY open_date DESC, open_time DESC;
+  `;
+
+  const { rows } = await db.query(query, [
+    Number(year),
+    Number(month),
+    salon_id,
+  ]);
+
+  return rows;
+};
+
+// ===============================
 // EXPORT ALL
 // ===============================
 export default {
@@ -222,5 +248,6 @@ export default {
   getExpensesByMonth,
   getAdvancesByMonth,
   getTagFeesByMonth,
-  getLateFeesByMonth
+  getLateFeesByMonth,
+  getSalonSessionsByMonth,
 };

@@ -11,6 +11,7 @@ import Advances from "../../pages/owner/OwnerAdvances.jsx";
 import StaffPerformance from "../../pages/owner/OwnerStaffReport.jsx";
 import LateFeesReport from "../../pages/owner/OwnerLateFeesReport.jsx";
 import TagFeesReport from "../../pages/owner/OwnerTagFeesReport.jsx";
+import OwnerSalonReport from "../../pages/owner/OwnerSalonReport.jsx";
 
 const OwnerLayout = () => {
   return (
@@ -33,6 +34,7 @@ const OwnerLayout = () => {
           <Route path="advances" element={<Advances />} />
           <Route path="employees-management" element={<Employees />} />
           <Route path="employee-report" element={<EmployeeReport />} />
+          <Route path="salon-report" element={<OwnerSalonReport />} />
 
           {/* Staff Performance */}
           <Route path="staff-performance" element={<StaffPerformance />} />

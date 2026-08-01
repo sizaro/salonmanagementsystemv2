@@ -2,11 +2,9 @@ import { createContext, useContext, useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { io } from "socket.io-client";
-
-
+import { DateTime } from "luxon";
 
 const DataContext = createContext();
-
 
 export const DataProvider = ({ children }) => {
   const [services, setServices] = useState([]);
@@ -24,37 +22,35 @@ export const DataProvider = ({ children }) => {
   const [serviceDefinitions, setServiceDefinitions] = useState([]);
   const [serviceRoles, setServiceRoles] = useState([]);
   const [serviceMaterials, setServiceMaterials] = useState([]);
-const [transactions, setTransactions] = useState([]);
+  const [transactions, setTransactions] = useState([]);
 
-const pendingAppointments = useMemo(() => {
-  return (transactions || []).filter(s => s.status === "pending");
-}, [transactions]);
+  const pendingAppointments = useMemo(() => {
+    return (transactions || []).filter((s) => s.status === "pending");
+  }, [transactions]);
 
-
-const pendingCount = pendingAppointments.length;
-
+  const pendingCount = pendingAppointments.length;
 
   const navigate = useNavigate();
 
   // const SOCKET_API_URL = import.meta.env.VITE_API_URL || "https://salonmanagementsystemv2-ru0i.onrender.com";
   const API_URL = import.meta.env.VITE_API_URL || "/api";
 
-//   const socket = io(SOCKET_API_URL.replace("/api", ""), {
-//     withCredentials: true,
-//   transports: ["websocket"],
-//   secure: true
-// });
+  //   const socket = io(SOCKET_API_URL.replace("/api", ""), {
+  //     withCredentials: true,
+  //   transports: ["websocket"],
+  //   secure: true
+  // });
 
   // ---------- Fetch All ----------
   const fetchAllData = async () => {
     try {
       const [clockingsRes, servicesRes] = await Promise.all([
         axios.get(`${API_URL}/clockings`, {
-  withCredentials: true,
-}),
+          withCredentials: true,
+        }),
         axios.get(`${API_URL}/services/service_transactions`, {
-  withCredentials: true,
-}),
+          withCredentials: true,
+        }),
       ]);
       setClockings(clockingsRes.data);
       setServices(servicesRes.data);
@@ -68,100 +64,267 @@ const pendingCount = pendingAppointments.length;
   const fetchSessions = async () => {
     try {
       const res = await axios.get(`${API_URL}/sessions`, {
-  withCredentials: true,
-});
+        withCredentials: true,
+      });
       setSessions(res.data);
     } catch (err) {
       console.error("Error fetching sessions:", err);
     }
   };
 
-
-  
-
   // ---------- Reports ----------
+
+  const TIMEZONE = "Africa/Kampala";
+
+  // =====================================
+  // FORMAT DATE SAFELY WITH LUXON
+  // =====================================
+  const formatReportDate = (date) => {
+    if (!date) {
+      throw new Error("A valid date is required");
+    }
+
+    if (typeof date === "string") {
+      const parsedDate = DateTime.fromISO(date, {
+        zone: TIMEZONE,
+      });
+
+      if (!parsedDate.isValid) {
+        throw new Error(`Invalid date: ${date}`);
+      }
+
+      return parsedDate.toISODate();
+    }
+
+    if (date instanceof Date) {
+      const parsedDate = DateTime.fromJSDate(date).setZone(TIMEZONE);
+
+      if (!parsedDate.isValid) {
+        throw new Error("Invalid JavaScript Date");
+      }
+
+      return parsedDate.toISODate();
+    }
+
+    throw new Error("Unsupported date value");
+  };
+
+  // =====================================
+  // DAILY REPORT
+  // =====================================
   const fetchDailyData = async (date) => {
     try {
-      const formatDate = (d) => new Date(d).toISOString().split("T")[0];
+      const formattedDate = formatReportDate(date);
+
+      console.log("Fetching daily report for:", formattedDate);
+
       const res = await axios.get(`${API_URL}/reports/daily`, {
-        params: { date: formatDate(date) },
+        params: {
+          date: formattedDate,
+        },
         withCredentials: true,
       });
+
       const data = res.data;
 
       setServices((prev) => data.services ?? prev);
+
       setExpenses((prev) => data.expenses ?? prev);
+
       setAdvances((prev) => data.advances ?? prev);
+
       setClockings((prev) => data.clockings ?? prev);
+
       setUsers((prev) => data.users ?? data.employees ?? prev);
+
       setTagFees((prev) => data.tagFees ?? prev);
+
       setLateFees((prev) => data.lateFees ?? prev);
+
+      setSessions(data.sessions ?? []);
+
+      console.log("Daily salon sessions:", data.sessions);
+
       return data;
     } catch (err) {
-      console.error("Error fetching daily report:", err);
+      console.error(
+        "Error fetching daily report:",
+        err.response?.data || err.message,
+      );
+
       throw err;
     }
   };
 
+  // =====================================
+  // WEEKLY REPORT
+  // =====================================
   const fetchWeeklyData = async (start, end) => {
     try {
-      const formatDate = (date) => date.toISOString().split("T")[0];
-      const res = await axios.get(`${API_URL}/reports/weekly`, {
-        params: { startDate: formatDate(start), endDate: formatDate(end) },
-        withCredentials: true,
-      });
-      const data = res.data;
-      setServices((prev) => data.services ?? prev);
-      setExpenses((prev) => data.expenses ?? prev);
-      setAdvances((prev) => data.advances ?? prev);
-      setClockings((prev) => data.clockings ?? prev);
-      setUsers((prev) => data.users ?? data.employees ?? prev);
-      setTagFees((prev) => data.tagFees ?? prev);
-      setLateFees((prev) => data.lateFees ?? prev);
-      return data;
-    } catch (err) {
-      console.error("Error fetching weekly report:", err);
-    }
-  };
+      if (!start || !end) {
+        throw new Error("Start date and end date are required");
+      }
 
-  const fetchMonthlyData = async (year, month) => {
-    try {
-      const res = await axios.get(`${API_URL}/reports/monthly`, {
-        params: { year, month },
+      const startDate = formatReportDate(start);
+      const endDate = formatReportDate(end);
+
+      console.log("Fetching weekly report:", {
+        startDate,
+        endDate,
+      });
+
+      const res = await axios.get(`${API_URL}/reports/weekly`, {
+        params: {
+          startDate,
+          endDate,
+        },
         withCredentials: true,
       });
+
       const data = res.data;
+
       setServices((prev) => data.services ?? prev);
+
       setExpenses((prev) => data.expenses ?? prev);
+
       setAdvances((prev) => data.advances ?? prev);
+
       setClockings((prev) => data.clockings ?? prev);
+
       setUsers((prev) => data.users ?? data.employees ?? prev);
+
       setTagFees((prev) => data.tagFees ?? prev);
+
       setLateFees((prev) => data.lateFees ?? prev);
+
+      setSessions(data.sessions ?? []);
+
+      console.log("Weekly salon sessions:", data.sessions);
+
       return data;
     } catch (err) {
-      console.error("Error fetching monthly report:", err);
+      console.error(
+        "Error fetching weekly report:",
+        err.response?.data || err.message,
+      );
+
       throw err;
     }
   };
 
-  const fetchYearlyData = async (year) => {
+  // =====================================
+  // MONTHLY REPORT
+  // =====================================
+  const fetchMonthlyData = async (year, month) => {
     try {
-      const res = await axios.get(`${API_URL}/reports/yearly`, {
-        params: { year },
+      const selectedYear = Number(year);
+      const selectedMonth = Number(month);
+
+      if (!selectedYear || Number.isNaN(selectedYear)) {
+        throw new Error("A valid year is required");
+      }
+
+      if (
+        !selectedMonth ||
+        Number.isNaN(selectedMonth) ||
+        selectedMonth < 1 ||
+        selectedMonth > 12
+      ) {
+        throw new Error("A valid month from 1 to 12 is required");
+      }
+
+      console.log("Fetching monthly report:", {
+        year: selectedYear,
+        month: selectedMonth,
+      });
+
+      const res = await axios.get(`${API_URL}/reports/monthly`, {
+        params: {
+          year: selectedYear,
+          month: selectedMonth,
+        },
         withCredentials: true,
       });
+
       const data = res.data;
+
       setServices((prev) => data.services ?? prev);
+
       setExpenses((prev) => data.expenses ?? prev);
+
       setAdvances((prev) => data.advances ?? prev);
+
       setClockings((prev) => data.clockings ?? prev);
+
       setUsers((prev) => data.users ?? data.employees ?? prev);
+
       setTagFees((prev) => data.tagFees ?? prev);
+
       setLateFees((prev) => data.lateFees ?? prev);
+
+      setSessions(data.sessions ?? []);
+
+      console.log("Monthly salon sessions:", data.sessions);
+
       return data;
     } catch (err) {
-      console.error("Error fetching yearly report:", err);
+      console.error(
+        "Error fetching monthly report:",
+        err.response?.data || err.message,
+      );
+
+      throw err;
+    }
+  };
+
+  // =====================================
+  // YEARLY REPORT
+  // =====================================
+  const fetchYearlyData = async (year) => {
+    try {
+      const selectedYear = Number(year);
+
+      if (!selectedYear || Number.isNaN(selectedYear)) {
+        throw new Error("A valid year is required");
+      }
+
+      console.log("Fetching yearly report for:", selectedYear);
+
+      const res = await axios.get(`${API_URL}/reports/yearly`, {
+        params: {
+          year: selectedYear,
+        },
+        withCredentials: true,
+      });
+
+      const data = res.data;
+
+      setServices((prev) => data.services ?? prev);
+
+      setExpenses((prev) => data.expenses ?? prev);
+
+      setAdvances((prev) => data.advances ?? prev);
+
+      setClockings((prev) => data.clockings ?? prev);
+
+      setUsers((prev) => data.users ?? data.employees ?? prev);
+
+      setTagFees((prev) => data.tagFees ?? prev);
+
+      setLateFees((prev) => data.lateFees ?? prev);
+
+      setSessions(data.sessions ?? []);
+
+      console.log("Yearly salon sessions:", data.sessions);
+
+      return data;
+    } catch (err) {
+      console.error(
+        "Error fetching yearly report:",
+        err.response?.data || err.message,
+      );
+
+      throw err;
     }
   };
 
@@ -208,7 +371,6 @@ const pendingCount = pendingAppointments.length;
     }
   };
 
-
   // ---------- Employees CRUD ----------
   const fetchUsers = async () => {
     try {
@@ -218,7 +380,8 @@ const pendingCount = pendingAppointments.length;
     } catch (err) {
       console.error("Error fetching employees:", err);
       throw err;
-  };}
+    }
+  };
 
   const fetchUserById = async (id) => {
     try {
@@ -255,8 +418,8 @@ const pendingCount = pendingAppointments.length;
   const deleteUser = async (id) => {
     try {
       await axios.delete(`${API_URL}/users/${id}`, {
-  withCredentials: true,
-});
+        withCredentials: true,
+      });
       await fetchUsers();
     } catch (err) {
       console.error(`error deleting user`, err);
@@ -311,8 +474,8 @@ const pendingCount = pendingAppointments.length;
   const deleteAdvance = async (id) => {
     try {
       await axios.delete(`${API_URL}/advances/${id}`, {
-  withCredentials: true,
-});
+        withCredentials: true,
+      });
       await fetchAdvances();
     } catch (err) {
       console.error("Error deleting advance:", err);
@@ -367,8 +530,8 @@ const pendingCount = pendingAppointments.length;
   const deleteExpense = async (id) => {
     try {
       await axios.delete(`${API_URL}/expenses/${id}`, {
-  withCredentials: true,
-});
+        withCredentials: true,
+      });
       await fetchExpenses();
     } catch (err) {
       console.error("Error deleting expense:", err);
@@ -411,7 +574,10 @@ const pendingCount = pendingAppointments.length;
 
   const updateLateFee = async (id, lateFeeData) => {
     try {
-      const res = await axios.put(`${API_URL}/fees/late_fees/${id}`, lateFeeData);
+      const res = await axios.put(
+        `${API_URL}/fees/late_fees/${id}`,
+        lateFeeData,
+      );
       await fetchLateFees();
       return res.data;
     } catch (err) {
@@ -423,8 +589,8 @@ const pendingCount = pendingAppointments.length;
   const deleteLateFee = async (id) => {
     try {
       await axios.delete(`${API_URL}/fees/late_fees/${id}`, {
-  withCredentials: true,
-});
+        withCredentials: true,
+      });
       await fetchLateFees();
     } catch (err) {
       console.error("Error deleting late fee:", err);
@@ -479,8 +645,8 @@ const pendingCount = pendingAppointments.length;
   const deleteTagFee = async (id) => {
     try {
       await axios.delete(`${API_URL}/fees/tag/${id}`, {
-  withCredentials: true,
-});
+        withCredentials: true,
+      });
       await fetchTagFees();
     } catch (err) {
       console.error("Error deleting tag fee:", err);
@@ -488,10 +654,9 @@ const pendingCount = pendingAppointments.length;
     }
   };
 
-
   // fetch sections
 
-    const fetchSections = async () => {
+  const fetchSections = async () => {
     try {
       const res = await axios.get(`${API_URL}/sections`);
       setSections(res.data);
@@ -504,58 +669,56 @@ const pendingCount = pendingAppointments.length;
   };
 
   const fetchSectionById = async (id) => {
-  try {
-    if (!id) throw new Error("Section ID is required");
-    const res = await axios.get(`${API_URL}/sections/${id}`);
-    console.log(`Section ${id}:`, res.data);
-    return res.data; // returns the single section object
-  } catch (err) {
-    console.error(`Error fetching section with ID ${id}:`, err);
-    throw err;
-  }
-};
+    try {
+      if (!id) throw new Error("Section ID is required");
+      const res = await axios.get(`${API_URL}/sections/${id}`);
+      console.log(`Section ${id}:`, res.data);
+      return res.data; // returns the single section object
+    } catch (err) {
+      console.error(`Error fetching section with ID ${id}:`, err);
+      throw err;
+    }
+  };
 
   // ---------- Sections CRUD ----------
 
-const createSection = async (sectionData) => {
-  try {
-    const res = await axios.post(`${API_URL}/sections/create`, sectionData);
-    await fetchSections();
-    return res.data;
-  } catch (err) {
-    console.error("Error creating section:", err);
-    throw err;
-  }
-};
+  const createSection = async (sectionData) => {
+    try {
+      const res = await axios.post(`${API_URL}/sections/create`, sectionData);
+      await fetchSections();
+      return res.data;
+    } catch (err) {
+      console.error("Error creating section:", err);
+      throw err;
+    }
+  };
 
-const updateSection = async (id, sectionData) => {
-  try {
-    const res = await axios.put(`${API_URL}/sections/${id}`, sectionData);
-    await fetchSections();
-    return res.data;
-  } catch (err) {
-    console.error("Error updating section:", err);
-    throw err;
-  }
-};
+  const updateSection = async (id, sectionData) => {
+    try {
+      const res = await axios.put(`${API_URL}/sections/${id}`, sectionData);
+      await fetchSections();
+      return res.data;
+    } catch (err) {
+      console.error("Error updating section:", err);
+      throw err;
+    }
+  };
 
-const deleteSection = async (id) => {
-  try {
-    await axios.delete(`${API_URL}/sections/${id}`, {
-  withCredentials: true,
-});
-    await fetchSections();
-  } catch (err) {
-    console.error("Error deleting section:", err);
-    throw err;
-  }
-};
-
-
+  const deleteSection = async (id) => {
+    try {
+      await axios.delete(`${API_URL}/sections/${id}`, {
+        withCredentials: true,
+      });
+      await fetchSections();
+    } catch (err) {
+      console.error("Error deleting section:", err);
+      throw err;
+    }
+  };
 
   //fetch service definitions
 
-    const fetchServiceDefinitions = async () => {
+  const fetchServiceDefinitions = async () => {
     try {
       const res = await axios.get(`${API_URL}/services/service_definitions`);
       setServiceDefinitions(res.data.data);
@@ -567,62 +730,67 @@ const deleteSection = async (id) => {
     }
   };
 
-
   const fetchServiceDefinitionById = async (id) => {
-  try {
-    if (!id) throw new Error("Service definition ID is required");
-    const res = await axios.get(`${API_URL}/services/service_definitions/${id}`);
-    console.log(`Service definition ${id}:`, res.data.data);
-    return res.data.data; // returns the single service definition object
-  } catch (err) {
-    console.error(`Error fetching service definition with ID ${id}:`, err);
-    throw err;
-  }
-};
-
+    try {
+      if (!id) throw new Error("Service definition ID is required");
+      const res = await axios.get(
+        `${API_URL}/services/service_definitions/${id}`,
+      );
+      console.log(`Service definition ${id}:`, res.data.data);
+      return res.data.data; // returns the single service definition object
+    } catch (err) {
+      console.error(`Error fetching service definition with ID ${id}:`, err);
+      throw err;
+    }
+  };
 
   // ---------- CREATE SERVICE DEFINITION ----------
-const createServiceDefinition = async (serviceData) => {
-  try {
-    const res = await axios.post(`${API_URL}/services/service_definitions/create`, serviceData);
-    await fetchServiceDefinitions();
-    await fetchServiceRoles()
-    return res.data;
-  } catch (err) {
-    console.error("Error creating service definition:", err);
-    throw err;
-  }
-};
+  const createServiceDefinition = async (serviceData) => {
+    try {
+      const res = await axios.post(
+        `${API_URL}/services/service_definitions/create`,
+        serviceData,
+      );
+      await fetchServiceDefinitions();
+      await fetchServiceRoles();
+      return res.data;
+    } catch (err) {
+      console.error("Error creating service definition:", err);
+      throw err;
+    }
+  };
 
-// ---------- UPDATE SERVICE DEFINITION ----------
-const updateServiceDefinition = async (id, serviceData) => {
-  try {
-    const res = await axios.put(`${API_URL}/services/service_definitions/${id}`, serviceData);
-    await fetchServiceDefinitions(); // refresh after update
-    return res.data;
-  } catch (err) {
-    console.error("Error updating service definition:", err);
-    throw err;
-  }
-};
+  // ---------- UPDATE SERVICE DEFINITION ----------
+  const updateServiceDefinition = async (id, serviceData) => {
+    try {
+      const res = await axios.put(
+        `${API_URL}/services/service_definitions/${id}`,
+        serviceData,
+      );
+      await fetchServiceDefinitions(); // refresh after update
+      return res.data;
+    } catch (err) {
+      console.error("Error updating service definition:", err);
+      throw err;
+    }
+  };
 
-// ---------- DELETE SERVICE DEFINITION ----------
-const deleteServiceDefinition = async (id) => {
-  try {
-    await axios.delete(`${API_URL}/services/service_definitions/${id}`, {
-  withCredentials: true,
-});
-    await fetchServiceDefinitions(); // refresh after deletion
-  } catch (err) {
-    console.error("Error deleting service definition:", err);
-    throw err;
-  }
-};
-
+  // ---------- DELETE SERVICE DEFINITION ----------
+  const deleteServiceDefinition = async (id) => {
+    try {
+      await axios.delete(`${API_URL}/services/service_definitions/${id}`, {
+        withCredentials: true,
+      });
+      await fetchServiceDefinitions(); // refresh after deletion
+    } catch (err) {
+      console.error("Error deleting service definition:", err);
+      throw err;
+    }
+  };
 
   // fetch service roles
 
-    const fetchServiceRoles = async () => {
+  const fetchServiceRoles = async () => {
     try {
       const res = await axios.get(`${API_URL}/services/service_roles`);
       setServiceRoles(res.data.data);
@@ -634,129 +802,129 @@ const deleteServiceDefinition = async (id) => {
     }
   };
 
-
   // fetch service materials
-const fetchServiceMaterials = async () => {
-  try {
-    const res = await axios.get(`${API_URL}/services/service_materials`);
-    setServiceMaterials(res.data.data);
-    console.log("service materials:", res.data.data);
-    return res.data.data;
-  } catch (err) {
-    console.error("Error fetching service materials:", err);
-    throw err;
-  }
-};
-
-
+  const fetchServiceMaterials = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/services/service_materials`);
+      setServiceMaterials(res.data.data);
+      console.log("service materials:", res.data.data);
+      return res.data.data;
+    } catch (err) {
+      console.error("Error fetching service materials:", err);
+      throw err;
+    }
+  };
 
   //insert service transactions and performers
-// ---------- CREATE ----------
+  // ---------- CREATE ----------
 
+  const createServiceTransaction = async (payload) => {
+    try {
+      console.log(
+        "🚀 PAYLOAD GOING TO BACKEND:",
+        JSON.stringify(payload, null, 2),
+      );
 
-const createServiceTransaction = async (payload) => {
-  try {
+      const res = await axios.post(
+        `${API_URL}/services/service_transactions`,
+        payload,
+        { withCredentials: true },
+      );
 
-    console.log(
-      "🚀 PAYLOAD GOING TO BACKEND:",
-      JSON.stringify(payload, null, 2)
-    );
+      await fetchServiceTransactions();
 
-    const res = await axios.post(
-      `${API_URL}/services/service_transactions`,
-      payload,
-      { withCredentials: true }
-    );
+      return res.data;
+    } catch (err) {
+      console.error("Error creating service transaction:", err);
 
-    await fetchServiceTransactions();
+      if (err.response) {
+        console.log("STATUS:", err.response.status);
+        console.log("BACKEND RESPONSE:", err.response.data);
+      }
 
-    return res.data;
-
-  } catch (err) {
-
-    console.error("Error creating service transaction:", err);
-
-    if(err.response){
-      console.log("STATUS:", err.response.status);
-      console.log("BACKEND RESPONSE:", err.response.data);
+      throw err;
     }
+  };
 
-    throw err;
-  }
-};
+  // ---------- UPDATE ----------
+  const updateServiceTransactionById = async (id, payload) => {
+    try {
+      const res = await axios.put(
+        `${API_URL}/services/service_transactions/${id}`,
+        payload,
+      );
+      await fetchServiceTransactions(); // refresh list
+      return res.data;
+    } catch (err) {
+      console.error("Error updating service transaction:", err);
+      throw err;
+    }
+  };
 
-// ---------- UPDATE ----------
-const updateServiceTransactionById = async (id, payload) => {
-  try {
-    const res = await axios.put(`${API_URL}/services/service_transactions/${id}`, payload);
-    await fetchServiceTransactions(); // refresh list
-    return res.data;
-  } catch (err) {
-    console.error("Error updating service transaction:", err);
-    throw err;
-  }
-};
+  // ---------- UPDATE APPOINTMENT ----------
+  const updateServiceTransactionAppointment = async (id, payload) => {
+    try {
+      const res = await axios.put(
+        `${API_URL}/services/service_transactions_appointment/${id}`,
+        payload,
+      );
+      await fetchServiceTransactions(); // refresh list
+      return res.data;
+    } catch (err) {
+      console.error("Error updating service transaction:", err);
+      throw err;
+    }
+  };
 
-// ---------- UPDATE APPOINTMENT ----------
-const updateServiceTransactionAppointment = async (id, payload) => {
-  try {
-    const res = await axios.put(`${API_URL}/services/service_transactions_appointment/${id}`, payload);
-    await fetchServiceTransactions(); // refresh list
-    return res.data;
-  } catch (err) {
-    console.error("Error updating service transaction:", err);
-    throw err;
-  }
-};
+  // ---------- FETCH ALL ----------
+  const fetchServiceTransactions = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/services/service_transactions`);
+      setServices(res.data.data);
+      console.log("service transactions in the data context", res.data.data);
+      return res.data;
+    } catch (err) {
+      console.error("Error fetching service transactions:", err);
+      throw err;
+    }
+  };
 
-// ---------- FETCH ALL ----------
-const fetchServiceTransactions = async () => {
-  try {
-    const res = await axios.get(`${API_URL}/services/service_transactions`);
-    setServices(res.data.data);
-    console.log("service transactions in the data context", res.data.data)
-    return res.data;
-  } catch (err) {
-    console.error("Error fetching service transactions:", err);
-    throw err;
-  }
-};
+  const fetchServiceTransactionsApp = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/services/service_transactions`);
+      setTransactions(res.data.data);
+      console.log("service appointments in the data context", res.data.data);
+      return res.data.data;
+    } catch (err) {
+      console.error("Error fetching service transactions appointments:", err);
+      throw err;
+    }
+  };
 
-const fetchServiceTransactionsApp = async () => {
-  try {
-    const res = await axios.get(`${API_URL}/services/service_transactions`);
-    setTransactions(res.data.data);
-    console.log("service appointments in the data context", res.data.data)
-    return res.data.data;
-  } catch (err) {
-    console.error("Error fetching service transactions appointments:", err);
-    throw err;
-  }
-};
+  // ---------- FETCH SINGLE ----------
+  const fetchServiceTransactionById = async (id) => {
+    try {
+      const res = await axios.get(
+        `${API_URL}/services/service_transactions/${id}`,
+      );
+      return res.data.data;
+    } catch (err) {
+      console.error("Error fetching transaction by ID:", err);
+      throw err;
+    }
+  };
 
-// ---------- FETCH SINGLE ----------
-const fetchServiceTransactionById = async (id) => {
-  try {
-    const res = await axios.get(`${API_URL}/services/service_transactions/${id}`);
-    return res.data.data;
-  } catch (err) {
-    console.error("Error fetching transaction by ID:", err);
-    throw err;
-  }
-};
-
-const deleteServiceTransaction = async (id) => {
-  try {
-    await axios.delete(`${API_URL}/services/service_transactions/${id}`, {
-  withCredentials: true,
-});
-    await fetchServiceDefinitions(); // refresh after deletion
-  } catch (err) {
-    console.error("Error deleting service transaction:", err);
-    throw err;
-  }
-};
-
+  const deleteServiceTransaction = async (id) => {
+    try {
+      await axios.delete(`${API_URL}/services/service_transactions/${id}`, {
+        withCredentials: true,
+      });
+      await fetchServiceDefinitions(); // refresh after deletion
+    } catch (err) {
+      console.error("Error deleting service transaction:", err);
+      throw err;
+    }
+  };
 
   // ---------- Auth ----------
   const loginUser = async (credentials) => {
@@ -766,7 +934,7 @@ const deleteServiceTransaction = async (id) => {
         withCredentials: true,
       });
       const { user } = res.data;
-      console.log("user in logged in context", user)
+      console.log("user in logged in context", user);
       setUser(user);
 
       if (!user) {
@@ -781,19 +949,18 @@ const deleteServiceTransaction = async (id) => {
   };
 
   const checkAuth = async () => {
-  try {
-    const res = await axios.get(`${API_URL}/auth/check`, {
-      withCredentials: true,
-    });
-    console.log("🔹 auth check response:", res.data);
-    setUser(res.data.user);
-  } catch (err) {
-    setUser(null);
-  } finally {
-    setLoading(false);
-  }
-};
-
+    try {
+      const res = await axios.get(`${API_URL}/auth/check`, {
+        withCredentials: true,
+      });
+      console.log("🔹 auth check response:", res.data);
+      setUser(res.data.user);
+    } catch (err) {
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const logoutUser = async () => {
     try {
@@ -806,35 +973,75 @@ const deleteServiceTransaction = async (id) => {
     }
   };
 
-
   // inside DataProvider
 
-const forgotPassword = async (email) => {
-  try {
-    setLoading(true);
-    const res = await axios.post(`${API_URL}/auth/forgot-password`, { email });
-    setLoading(false);
-    return { success: true, message: res.data.message };
-  } catch (err) {
-    setLoading(false);
-    console.error("Error sending password reset email:", err);
-    return { success: false, message: err.response?.data?.message || "Server error" };
-  }
-};
+  const forgotPassword = async (email) => {
+    try {
+      setLoading(true);
+      const res = await axios.post(`${API_URL}/auth/forgot-password`, {
+        email,
+      });
+      setLoading(false);
+      return { success: true, message: res.data.message };
+    } catch (err) {
+      setLoading(false);
+      console.error("Error sending password reset email:", err);
+      return {
+        success: false,
+        message: err.response?.data?.message || "Server error",
+      };
+    }
+  };
 
+  const resetPassword = async (payload) => {
+    try {
+      setLoading(true);
+      const res = await axios.post(`${API_URL}/auth/reset-password`, payload);
+      setLoading(false);
+      return { success: true, message: res.data.message };
+    } catch (err) {
+      setLoading(false);
+      console.error("Error resetting password:", err);
+      return {
+        success: false,
+        message: err.response?.data?.message || "Server error",
+      };
+    }
+  };
 
-const resetPassword = async (payload) => {
-  try {
-    setLoading(true);
-    const res = await axios.post(`${API_URL}/auth/reset-password`, payload);
-    setLoading(false);
-    return { success: true, message: res.data.message };
-  } catch (err) {
-    setLoading(false);
-    console.error("Error resetting password:", err);
-    return { success: false, message: err.response?.data?.message || "Server error" };
-  }
-};
+  const openSalonSession = async () => {
+    try {
+      const res = await axios.post(
+        `${API_URL}/sessions`,
+        { status: "open" },
+        { withCredentials: true },
+      );
+
+      await fetchSessions();
+
+      return res.data;
+    } catch (err) {
+      console.error("Error opening salon:", err);
+      throw err;
+    }
+  };
+
+  const closeSalonSession = async () => {
+    try {
+      const res = await axios.put(
+        `${API_URL}/sessions`,
+        { status: "closed" },
+        { withCredentials: true },
+      );
+
+      await fetchSessions();
+
+      return res.data;
+    } catch (err) {
+      console.error("Error closing salon:", err);
+      throw err;
+    }
+  };
 
   // ---------- Send Form ----------
   const sendFormData = async (formIdentifier, formData) => {
@@ -854,20 +1061,12 @@ const resetPassword = async (payload) => {
           await fetchAllData();
           break;
         case "createClocking":
-          res = await axios.post(`${API_URL}/clockings`, formData,);
+          res = await axios.post(`${API_URL}/clockings`, formData);
           await fetchAllData();
           break;
         case "updateClocking":
           res = await axios.put(`${API_URL}/clockings`, formData);
           await fetchAllData();
-          break;
-        case "openSalon":
-        case "closeSalon":
-          res =
-            formIdentifier === "openSalon"
-              ? await axios.post(`${API_URL}/sessions`, formData,  { withCredentials: true })
-              : await axios.put(`${API_URL}/sessions`, formData,  { withCredentials: true });
-          await fetchSessions();
           break;
         default:
           throw new Error("Unknown form identifier: " + formIdentifier);
@@ -918,19 +1117,17 @@ const resetPassword = async (payload) => {
     checkAuth();
   }, []);
 
+  //   useEffect(() => {
+  //   // Listen for new appointments
+  //   socket.on("appointment_created", (payload) => {
+  //     console.log("Appointment received via socket:", payload);
+  //     fetchServiceTransactionsApp();
+  //   });
 
-
-//   useEffect(() => {
-//   // Listen for new appointments
-//   socket.on("appointment_created", (payload) => {
-//     console.log("Appointment received via socket:", payload);
-//     fetchServiceTransactionsApp();
-//   });
-
-//   return () => {
-//     socket.off("appointment_created");
-//   };
-// }, []);
+  //   return () => {
+  //     socket.off("appointment_created");
+  //   };
+  // }, []);
 
   // ---------- Export ----------
   return (
@@ -1011,7 +1208,9 @@ const resetPassword = async (payload) => {
         updateTagFee,
         deleteTagFee,
         forgotPassword,
-        resetPassword
+        resetPassword,
+        openSalonSession,
+        closeSalonSession,
       }}
     >
       {children}
@@ -1021,60 +1220,6 @@ const resetPassword = async (payload) => {
 
 export const useData = () => useContext(DataContext);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // import { createContext, useContext, useState, useEffect, useMemo } from "react";
 // import { useNavigate } from "react-router-dom";
 // import { nodeApi } from "../api/nodeApi.js";
@@ -1082,10 +1227,7 @@ export const useData = () => useContext(DataContext);
 
 // import { io } from "socket.io-client";
 
-
-
 // const DataContext = createContext();
-
 
 // export const DataProvider = ({ children }) => {
 //   const [services, setServices] = useState([]);
@@ -1120,16 +1262,12 @@ export const useData = () => useContext(DataContext);
 //   slug: "",
 // });
 
-
 // const pendingAppointments = useMemo(() => {
 //   if (!Array.isArray(transactions)) return [];
 //   return transactions.filter(s => s.status === "pending");
 // }, [transactions]);
 
-
-
 // const pendingCount = pendingAppointments.length;
-
 
 //   const navigate = useNavigate();
 
@@ -1155,7 +1293,6 @@ export const useData = () => useContext(DataContext);
 //     throw err;
 //   }
 // };
-
 
 // // ---------- Setup Step 1: Check if user exists ----------
 // const checkOwnerUser = async (email, phone) => {
@@ -1224,9 +1361,6 @@ export const useData = () => useContext(DataContext);
 //       console.error("Error fetching sessions:", err);
 //     }
 //   };
-
-
-  
 
 //   // ---------- Reports ----------
 //   const fetchDailyData = async (date) => {
@@ -1361,7 +1495,6 @@ export const useData = () => useContext(DataContext);
 //       throw err;
 //     }
 //   };
-
 
 //   // ---------- Employees CRUD ----------
 //   const fetchUsers = async () => {
@@ -1642,7 +1775,6 @@ export const useData = () => useContext(DataContext);
 //     }
 //   };
 
-
 //   // fetch sections
 
 //     const fetchSections = async () => {
@@ -1705,8 +1837,6 @@ export const useData = () => useContext(DataContext);
 //   }
 // };
 
-
-
 //   //fetch service definitions
 
 //     const fetchServiceDefinitions = async () => {
@@ -1721,7 +1851,6 @@ export const useData = () => useContext(DataContext);
 //     }
 //   };
 
-
 //   const fetchServiceDefinitionById = async (id) => {
 //   try {
 //     if (!id) throw new Error("Service definition ID is required");
@@ -1733,7 +1862,6 @@ export const useData = () => useContext(DataContext);
 //     throw err;
 //   }
 // };
-
 
 //   // ---------- CREATE SERVICE DEFINITION ----------
 // const createServiceDefinition = async (serviceData) => {
@@ -1773,7 +1901,6 @@ export const useData = () => useContext(DataContext);
 //   }
 // };
 
-
 //   // fetch service roles
 
 //     const fetchServiceRoles = async () => {
@@ -1788,7 +1915,6 @@ export const useData = () => useContext(DataContext);
 //     }
 //   };
 
-
 //   // fetch service materials
 // const fetchServiceMaterials = async () => {
 //   try {
@@ -1801,8 +1927,6 @@ export const useData = () => useContext(DataContext);
 //     throw err;
 //   }
 // };
-
-
 
 //   //insert service transactions and performers
 // // ---------- CREATE ----------
@@ -1865,7 +1989,6 @@ export const useData = () => useContext(DataContext);
 //   }
 // };
 
-
 // // ---------- FETCH SINGLE ----------
 // const fetchServiceTransactionById = async (id) => {
 //   try {
@@ -1888,8 +2011,6 @@ export const useData = () => useContext(DataContext);
 //     throw err;
 //   }
 // };
-
-
 
 //   // ---------- Auth ----------
 //   const loginUser = async (credentials) => {
@@ -1927,7 +2048,6 @@ export const useData = () => useContext(DataContext);
 //   }
 // };
 
-
 //   const logoutUser = async () => {
 //     try {
 //       await axios.post(`${API_URL}/auth/logout`, {}, { withCredentials: true });
@@ -1938,7 +2058,6 @@ export const useData = () => useContext(DataContext);
 //       navigate("/");
 //     }
 //   };
-
 
 //   // inside DataProvider
 
@@ -1954,7 +2073,6 @@ export const useData = () => useContext(DataContext);
 //     return { success: false, message: err.response?.data?.message || "Server error" };
 //   }
 // };
-
 
 // const resetPassword = async (payload) => {
 //   try {
@@ -2042,11 +2160,10 @@ export const useData = () => useContext(DataContext);
 //   initializeApp();
 //   transactionData();
 
-//   const interval = setInterval(fetchSessions, 60 * 1000); 
+//   const interval = setInterval(fetchSessions, 60 * 1000);
 //   return () => clearInterval(interval);
 
 // }, []);
-
 
 //   useEffect(()=>{
 //     fetchServiceTransactionsApp();
@@ -2055,8 +2172,6 @@ export const useData = () => useContext(DataContext);
 //    useEffect(()=>{
 //     checkAuth();
 //   }, [])
-
-
 
 //   useEffect(() => {
 //   // Listen for new appointments

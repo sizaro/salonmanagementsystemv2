@@ -3,12 +3,9 @@ dotenv.config();
 
 import dailyModel from "../models/dailyModel.js";
 
-
 const resolveSalonId = (req) => {
   return (
-    req.user?.salon_id ||
-    req.salon_id ||
-    Number(process.env.DEFAULT_SALON_ID)
+    req.user?.salon_id || req.salon_id || Number(process.env.DEFAULT_SALON_ID)
   );
 };
 
@@ -29,7 +26,8 @@ export async function getDailyReport(req, res) {
       clockings,
       tagFees,
       lateFees,
-      employees
+      sessions,
+      employees,
     ] = await Promise.all([
       dailyModel.getServicesByDay(date, salon_id),
       dailyModel.getExpensesByDay(date, salon_id),
@@ -37,7 +35,8 @@ export async function getDailyReport(req, res) {
       dailyModel.getClockingsByDay(date, salon_id),
       dailyModel.getTagFeesByDay(date, salon_id),
       dailyModel.getLateFeesByDay(date, salon_id),
-      dailyModel.fetchAllEmployees(salon_id)
+      dailyModel.getSalonSessionsByDay(date, salon_id),
+      dailyModel.fetchAllEmployees(salon_id),
     ]);
 
     console.log("✅ Daily Report Generated:", {
@@ -48,7 +47,8 @@ export async function getDailyReport(req, res) {
       advancesCount: advances?.length,
       clockingsCount: clockings?.length,
       tagFeesCount: tagFees?.length,
-      lateFeesCount: lateFees?.length
+      lateFeesCount: lateFees?.length,
+      sessionsCount: sessions?.length,
     });
 
     res.json({
@@ -58,9 +58,9 @@ export async function getDailyReport(req, res) {
       clockings,
       tagFees,
       lateFees,
-      employees
+      sessions,
+      employees,
     });
-
   } catch (error) {
     console.error("❌ Error fetching daily report:", error);
     res.status(500).json({ error: "Internal Server Error" });
