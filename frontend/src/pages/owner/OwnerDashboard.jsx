@@ -595,9 +595,13 @@ export default function OwnerDashboard() {
         </section>
 
         <section className="mt-6">
-          <h3 className="text-md font-semibold mb-2">Service Definitions</h3>
-          <table className="min-w-full border border-gray-300">
-            <thead>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <h3 className="text-md font-semibold">Service Definitions</h3>
+            <span className="text-sm text-gray-500">Scroll this list to view all services</span>
+          </div>
+          <div className="max-h-[34rem] overflow-auto rounded-lg border border-gray-300 bg-white">
+          <table className="min-w-[1100px] w-full border-collapse">
+            <thead className="sticky top-0 z-20">
               <tr className="bg-gray-100">
                 <th className="border px-4 py-2 text-left">Name</th>
                 <th className="border px-4 py-2 text-left">Image</th>
@@ -612,7 +616,7 @@ export default function OwnerDashboard() {
                 </th>
                 <th className="border px-4 py-2 text-left">Salon Amount</th>
                 <th className="border px-4 py-2 text-left">Full Amount</th>
-                <th className="border px-4 py-2">Actions</th>
+                <th className="sticky right-0 border bg-gray-100 px-4 py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -711,7 +715,8 @@ export default function OwnerDashboard() {
                       <td className="border px-4 py-2 align-top font-semibold">
                         {displayFull}
                       </td>
-                      <td className="border px-4 py-2 flex gap-2 align-top">
+                      <td className="sticky right-0 border bg-white px-4 py-2 align-top">
+                        <div className="flex gap-2">
                         <Button
                           onClick={() =>
                             handleEditServiceDefinition(service.id)
@@ -726,6 +731,7 @@ export default function OwnerDashboard() {
                         >
                           Delete
                         </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -739,6 +745,7 @@ export default function OwnerDashboard() {
               )}
             </tbody>
           </table>
+          </div>
         </section>
 
         <Modal isOpen={modalType !== null} onClose={closeModal}>

@@ -8,6 +8,7 @@ import {
   updateExpenseById,
   deleteExpenseById,
 } from '../controllers/expensesController.js';
+import { requireRole } from "../middleware/auth.js";
 
 // GET all expenses
 router.get('/', getAllExpenses);
@@ -19,9 +20,9 @@ router.get('/:id', getExpenseById);
 router.post('/', createExpense);
 
 // PUT update expense by ID
-router.put('/:id', updateExpenseById);
+router.put('/:id', requireRole('owner', 'manager'), updateExpenseById);
 
 // DELETE remove expense by ID
-router.delete('/:id', deleteExpenseById);
+router.delete('/:id', requireRole('owner', 'manager'), deleteExpenseById);
 
 export default router;

@@ -132,7 +132,7 @@ app.use("/uploads/images", express.static(path.join(__dirname, "/uploads/images"
 // after other app.use routes
 app.use("/api/salon-profile", salonProfileRoutes);
 app.use("/api/services", servicesRoutes);
-app.use("/api/servicet", serviceRoutet);
+app.use("/api/servicet", requireAuth, requireSalonContext, requireRole("owner", "manager", "cashier"), serviceRoutet);
 app.use("/api/expenses", requireAuth, requireSalonContext, requireRole("owner", "manager", "cashier"), expensesRoutes);
 app.use("/api/advances", requireAuth, requireSalonContext, requireRole("owner", "manager", "cashier"), advancesRoutes);
 app.use("/api/clockings", requireAuth, requireSalonContext, requireRole("owner", "manager", "cashier"), clockingsRoutes);

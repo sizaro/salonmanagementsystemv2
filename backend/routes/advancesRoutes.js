@@ -8,6 +8,7 @@ import {
   updateAdvanceById,
   deleteAdvanceById,
 } from '../controllers/advancesController.js';
+import { requireRole } from "../middleware/auth.js";
 
 // GET all advances
 router.get('/', getAllAdvances);
@@ -19,9 +20,9 @@ router.get('/:id', getAdvanceById);
 router.post('/', createAdvance);
 
 // PUT update advance by ID
-router.put('/:id', updateAdvanceById);
+router.put('/:id', requireRole('owner', 'manager'), updateAdvanceById);
 
 // DELETE remove advance by ID
-router.delete('/:id', deleteAdvanceById);
+router.delete('/:id', requireRole('owner', 'manager'), deleteAdvanceById);
 
 export default router;
