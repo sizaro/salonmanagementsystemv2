@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useData } from "../../context/DataContext.jsx";
+import useOwnerReport from "../../hooks/useOwnerReport.js";
 import AdvanceForm from "../../components/AdvanceForm.jsx";
 import ConfirmModal from "../../components/ConfirmModal.jsx";
 import Modal from "../../components/Modal.jsx";
@@ -8,16 +9,13 @@ const OwnerAdvances = () => {
   const {
     users = [],
     fetchUsers,
-    advances = [],
-    fetchDailyData,
-    fetchWeeklyData,
-    fetchMonthlyData,
-    fetchYearlyData,
     fetchAdvanceById,
     createAdvance,
     updateAdvance,
     deleteAdvance,
   } = useData();
+  const { report, fetchDailyData, fetchWeeklyData, fetchMonthlyData, fetchYearlyData } = useOwnerReport();
+  const advances = report?.advances ?? [];
 
     console.log("Users:", users);
     console.log("advances:", advances);

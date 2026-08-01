@@ -80,15 +80,6 @@ export default function EmployeeSidebar() {
               </Link>
             </li>
 
-            <li>
-              <Link
-                to="/employee/profile"
-                className={linkClass("/employee/profile")}
-              >
-                Profile
-              </Link>
-            </li>
-
             <li className="mt-10">
               <SidebarFooter />
             </li>
@@ -133,16 +124,6 @@ export default function EmployeeSidebar() {
                 className={linkClass("/employee/income-report")}
               >
                 Income Reports
-              </Link>
-            </li>
-
-            <li>
-              <Link
-                to="/employee/profile"
-                onClick={() => setMenuOpen(false)}
-                className={linkClass("/employee/profile")}
-              >
-                Profile
               </Link>
             </li>
 

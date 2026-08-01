@@ -163,6 +163,11 @@ export const getAdvancesByMonth = async (year, month, salon_id) => {
   return rows;
 };
 
+export const getClockingsByMonth = async (year, month, salon_id) => {
+  const { rows } = await db.query(`SELECT ec.*, u.first_name, u.last_name FROM employee_clocking ec LEFT JOIN users u ON u.id = ec.employee_id AND u.salon_id = $3 WHERE ec.salon_id = $3 AND EXTRACT(YEAR FROM ec.clock_in_date) = $1 AND EXTRACT(MONTH FROM ec.clock_in_date) = $2 ORDER BY ec.clock_in_date DESC, ec.clock_in_time DESC`, [year, month, salon_id]);
+  return rows;
+};
+
 // ===============================
 // TAG FEES
 // ===============================
@@ -247,6 +252,7 @@ export default {
   getServicesByMonth,
   getExpensesByMonth,
   getAdvancesByMonth,
+  getClockingsByMonth,
   getTagFeesByMonth,
   getLateFeesByMonth,
   getSalonSessionsByMonth,

@@ -1,20 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { useData } from "../../context/DataContext.jsx";
+import useOwnerReport from "../../hooks/useOwnerReport.js";
 import Modal from "../../components/Modal.jsx";
 import ExpenseForm from "../../components/ExpenseForm.jsx";
 import ConfirmModal from "../../components/ConfirmModal.jsx";
 
 const OwnerExpensesReport = () => {
   const {
-    expenses = [],
-    fetchDailyData,
-    fetchWeeklyData,
-    fetchMonthlyData,
-    fetchYearlyData,
     fetchExpenseById,
     updateExpense,
     deleteExpense
   } = useData();
+  const { report, fetchDailyData, fetchWeeklyData, fetchMonthlyData, fetchYearlyData } = useOwnerReport();
+  const expenses = report?.expenses ?? [];
 
   const toYMD = (date) => {
   const year = date.getFullYear();

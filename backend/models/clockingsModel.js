@@ -120,21 +120,31 @@ export const updateClockingModel = async ({ employee_id, salon_id }) => {
 // ===============================
 export const fetchAllClockings = async (salon_id) => {
   const query = `
-    SELECT *
-    FROM employee_clocking
-    WHERE salon_id = $1;
+    SELECT
+      ec.*,
+      (ec.clock_in_date + ec.clock_in_time) AS clock_in,
+      CASE
+        WHEN ec.clock_out_date IS NOT NULL AND ec.clock_out_time IS NOT NULL
+          THEN (ec.clock_out_date + ec.clock_out_time)
+        ELSE NULL
+      END AS clock_out
+    FROM employee_clocking ec
+    WHERE ec.salon_id = $1
+    ORDER BY ec.clock_in_date DESC, ec.clock_in_time DESC;
   `;
 
   const result = await db.query(query, [salon_id]);
-  console.log(
-    "this is what the data from the database for all clockings",
-    result.rows,
-  );
   return result.rows;
+};
+
+export const fetchActiveClockings = async (salon_id) => {
+  const { rows } = await db.query(`SELECT ec.*, u.first_name, u.last_name, u.role FROM employee_clocking ec JOIN users u ON u.id = ec.employee_id AND u.salon_id = $1 WHERE ec.salon_id = $1 AND ec.clock_out_date IS NULL AND ec.clock_out_time IS NULL ORDER BY ec.clock_in_date ASC, ec.clock_in_time ASC`, [Number(salon_id)]);
+  return rows;
 };
 
 export default {
   saveClocking,
   updateClockingModel,
   fetchAllClockings,
+  fetchActiveClockings,
 };

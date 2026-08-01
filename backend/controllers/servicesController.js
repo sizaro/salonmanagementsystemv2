@@ -242,6 +242,14 @@ export const createServiceTransaction = async (req, res) => {
       service_time: finalServiceTime
     };
 
+    // A customer may only create an appointment for their own account. Never
+    // trust a customer_id or created_by value submitted by the browser.
+    if (req.user?.role === "customer") {
+      data.customer_id = req.user.id;
+      data.created_by = req.user.id;
+      data.status = "pending";
+    }
+
 
     console.log("SERVICE DATA BEFORE MODEL:");
     console.log({
@@ -295,7 +303,16 @@ export const getAllServiceTransactions = async (req, res) => {
   try {
     const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
     const transactions = await fetchAllServiceTransactions(salon_id);
-    res.json({ success: true, data: transactions });
+    const role = req.user?.role;
+    const userId = Number(req.user?.id);
+    const visibleTransactions = role === "customer"
+      ? transactions.filter((transaction) => Number(transaction.customer_id) === userId)
+      : role === "employee"
+        ? transactions.filter((transaction) =>
+            transaction.performers?.some((performer) => Number(performer.employee_id) === userId),
+          )
+        : transactions;
+    res.json({ success: true, data: visibleTransactions });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Failed to fetch service transactions" });
@@ -311,6 +328,15 @@ export const getServiceTransactionById = async (req, res) => {
     if (!transaction) {
       return res.status(404).json({ success: false, message: "Transaction not found" });
     }
+
+    const role = req.user?.role;
+    const userId = Number(req.user?.id);
+    const canView = role !== "customer" && role !== "employee"
+      ? true
+      : role === "customer"
+        ? Number(transaction.customer_id) === userId
+        : transaction.performers?.some((performer) => Number(performer.employee_id) === userId);
+    if (!canView) return res.status(403).json({ success: false, message: "You cannot view this transaction" });
 
     res.json({ success: true, data: transaction });
   } catch (err) {

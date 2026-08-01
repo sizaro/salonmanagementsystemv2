@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useData } from "../../context/DataContext.jsx";
+import useOwnerReport from "../../hooks/useOwnerReport.js";
 
 // ===============================
 // DATE HELPERS
@@ -149,13 +150,10 @@ const filterSessionsByDate = (sessions, startDate, endDate) => {
 
 export default function OwnerSalonReport() {
   const {
-    sessions = [],
     fetchSessions,
-    fetchDailyData,
-    fetchWeeklyData,
-    fetchMonthlyData,
-    fetchYearlyData,
   } = useData();
+  const { report, fetchDailyData, fetchWeeklyData, fetchMonthlyData, fetchYearlyData } = useOwnerReport();
+  const sessions = report?.sessions ?? [];
 
   // ===============================
   // STATES

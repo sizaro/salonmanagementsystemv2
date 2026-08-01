@@ -8,6 +8,9 @@ import {
   updateSection,
   deleteSection,
 } from '../controllers/sectionsController.js';
+import { requireAuth, requireRole, requireSalonContext } from "../middleware/auth.js";
+
+router.use(requireAuth, requireSalonContext);
 
 // Fetch all sections
 router.get('/', getSections);
@@ -16,12 +19,12 @@ router.get('/', getSections);
 router.get('/:id', getSection);
 
 // Create a new section
-router.post('/create', createSection);
+router.post('/create', requireRole('owner', 'manager'), createSection);
 
 // Update a section by ID
-router.put('/:id', updateSection);
+router.put('/:id', requireRole('owner', 'manager'), updateSection);
 
 // Delete a section by ID
-router.delete('/:id', deleteSection);
+router.delete('/:id', requireRole('owner', 'manager'), deleteSection);
 
 export default router;

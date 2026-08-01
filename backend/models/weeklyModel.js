@@ -129,11 +129,8 @@ export const getServicesByDateRange = async (startDate, endDate, salon_id) => {
 // EXPENSES
 // ===============================
 export const getExpensesByDateRange = async (startDate, endDate, salon_id) => {
-  const result = await db.query(
-    "SELECT * FROM expenses WHERE salon_id=$3 AND created_at BETWEEN $1 AND $2 ORDER BY id DESC",
-    [startDate, endDate, salon_id],
-  );
-  return result;
+  const { rows } = await db.query("SELECT * FROM expenses WHERE salon_id=$3 AND (created_at AT TIME ZONE 'Africa/Kampala')::date BETWEEN $1::date AND $2::date ORDER BY id DESC", [startDate, endDate, salon_id]);
+  return rows;
 };
 
 // ===============================
@@ -165,6 +162,11 @@ export const getAdvancesByDateRange = async (startDate, endDate, salon_id) => {
   return rows;
 };
 
+export const getClockingsByDateRange = async (startDate, endDate, salon_id) => {
+  const { rows } = await db.query(`SELECT ec.*, u.first_name, u.last_name FROM employee_clocking ec LEFT JOIN users u ON u.id = ec.employee_id AND u.salon_id = $3 WHERE ec.salon_id = $3 AND ec.clock_in_date BETWEEN $1::date AND $2::date ORDER BY ec.clock_in_date DESC, ec.clock_in_time DESC`, [startDate, endDate, salon_id]);
+  return rows;
+};
+
 // ===============================
 // TAG FEES
 // ===============================
@@ -177,8 +179,8 @@ export const getTagFeesByDateRange = async (startDate, endDate, salon_id) => {
       AND tf.created_at BETWEEN $1 AND $2
     ORDER BY tf.id DESC;
   `;
-  const result = await db.query(query, [startDate, endDate, salon_id]);
-  return result;
+  const { rows } = await db.query(query, [startDate, endDate, salon_id]);
+  return rows;
 };
 
 // ===============================
@@ -193,8 +195,8 @@ export const getLateFeesByDateRange = async (startDate, endDate, salon_id) => {
       AND lf.created_at BETWEEN $1 AND $2
     ORDER BY lf.id DESC;
   `;
-  const result = await db.query(query, [startDate, endDate, salon_id]);
-  return result;
+  const { rows } = await db.query(query, [startDate, endDate, salon_id]);
+  return rows;
 };
 
 // ===============================
@@ -255,6 +257,7 @@ export default {
   getServicesByDateRange,
   getExpensesByDateRange,
   getAdvancesByDateRange,
+  getClockingsByDateRange,
   getTagFeesByDateRange,
   getLateFeesByDateRange,
   getSalonSessionsByDateRange,

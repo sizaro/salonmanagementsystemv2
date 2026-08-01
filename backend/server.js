@@ -29,6 +29,7 @@ import sectionsRoutes from "./routes/sectionsRoutes.js"
 import salonRoutes from "./routes/salonRoutes.js";
 import salonProfileRoutes from "./routes/salonProfileRoutes.js";
 import mobileAuthRoutes from "./routes/mobileAuth.js";
+import { requireAuth, requireRole, requireSalonContext } from "./middleware/auth.js";
 
 
 
@@ -132,13 +133,13 @@ app.use("/uploads/images", express.static(path.join(__dirname, "/uploads/images"
 app.use("/api/salon-profile", salonProfileRoutes);
 app.use("/api/services", servicesRoutes);
 app.use("/api/servicet", serviceRoutet);
-app.use("/api/expenses", expensesRoutes);
-app.use("/api/advances", advancesRoutes);
-app.use("/api/clockings", clockingsRoutes);
-app.use("/api/sessions", sessionsRoutes);
+app.use("/api/expenses", requireAuth, requireSalonContext, requireRole("owner", "manager", "cashier"), expensesRoutes);
+app.use("/api/advances", requireAuth, requireSalonContext, requireRole("owner", "manager", "cashier"), advancesRoutes);
+app.use("/api/clockings", requireAuth, requireSalonContext, requireRole("owner", "manager", "cashier"), clockingsRoutes);
+app.use("/api/sessions", requireAuth, requireSalonContext, requireRole("owner", "manager"), sessionsRoutes);
 app.use("/api/users", usersRoutes);
-app.use("/api/reports", reportsRoutes);
-app.use("/api/fees", feesRoutes);
+app.use("/api/reports", requireAuth, requireSalonContext, reportsRoutes);
+app.use("/api/fees", requireAuth, requireSalonContext, requireRole("owner"), feesRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/sections", sectionsRoutes)
 app.use("/api/salon", salonRoutes);

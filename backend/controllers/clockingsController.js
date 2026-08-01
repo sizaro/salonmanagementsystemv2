@@ -4,7 +4,8 @@ dotenv.config();
 import {
   saveClocking,
   updateClockingModel,
-  fetchAllClockings
+  fetchAllClockings,
+  fetchActiveClockings,
 } from "../models/clockingsModel.js";
 import { fetchUserById } from "../models/usersModel.js";
 
@@ -44,17 +45,18 @@ export const createClocking = async (req, res) => {
       salon_id
     });
 
-    await saveClocking({
+    const clocking = await saveClocking({
       employee_id,
       salon_id
     });
 
     res.status(201).json({
-      message: "Clocking created successfully",
+      message: `${employee.first_name} ${employee.last_name} clocked in successfully`,
+      data: clocking,
     });
   } catch (error) {
     console.error("Error creating clocking:", error);
-    res.status(500).json({ message: "Failed to create clocking" });
+    res.status(error.message === "Employee already has an active clock-in" ? 409 : 500).json({ message: error.message || "Failed to create clocking" });
   }
 };
 
@@ -86,18 +88,27 @@ export const updateClocking = async (req, res) => {
       salon_id
     });
 
-    await updateClockingModel({
+    const clocking = await updateClockingModel({
       employee_id,
       salon_id
     });
 
     res.status(200).json({
-      message: "Clocking updated successfully",
+      message: `${employee.first_name} ${employee.last_name} clocked out successfully`,
+      data: clocking,
     });
   } catch (error) {
     console.error("Error updating clocking:", error);
-    res.status(500).json({ message: "Failed to update clocking" });
+    res.status(error.message === "No active employee clock-in found" ? 409 : 500).json({ message: error.message || "Failed to update clocking" });
   }
+};
+
+export const getActiveClockings = async (req, res) => {
+  try {
+    const salon_id = resolveSalonId(req);
+    if (!salon_id) return res.status(400).json({ message: "Missing salon context" });
+    res.json(await fetchActiveClockings(salon_id));
+  } catch (error) { res.status(500).json({ message: "Failed to fetch active clockings" }); }
 };
 
 // ---------------- GET ALL CLOCKINGS ----------------

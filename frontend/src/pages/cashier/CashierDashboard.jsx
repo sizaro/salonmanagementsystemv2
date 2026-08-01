@@ -32,6 +32,8 @@ export default function CashierDashboard() {
   const {
     services,
     sendFormData,
+    activeClockings,
+    fetchActiveClockings,
     sessions,
     users,
     fetchUsers,
@@ -164,11 +166,17 @@ export default function CashierDashboard() {
 
   const handleClocking = async (type, formData) => {
     try {
-      if (type === "clockin") await sendFormData("createClocking", formData);
-      else if (type === "clockout") await sendFormData("updateClocking", formData);
-      else console.error("Invalid clocking type");
+      const result = type === "clockin"
+        ? await sendFormData("createClocking", formData)
+        : type === "clockout"
+          ? await sendFormData("updateClocking", formData)
+          : null;
+      if (!result) throw new Error("Invalid clocking type");
+      await fetchActiveClockings();
+      return result;
     } catch (err) {
       console.error("Error handling clocking:", err.response?.data || err.message);
+      throw err;
     }
   };
 
@@ -319,13 +327,6 @@ export default function CashierDashboard() {
     <>
       <div className="space-y-1 md:space-y-10">
         <div className="space-y-1 md:space-y-10">
-          {salonStatus === "closed" ? (
-            <Button className="bg-green-400 hover:bg-green-300" onClick={() => handleSalonSession("open")}>
-              Open Salon
-            </Button>
-          ) : (
-            <Button onClick={() => handleSalonSession("closed")}>Close Salon</Button>
-          )}
         </div>
 
         <Button onClick={() => setModalType("service")}>
@@ -334,8 +335,6 @@ export default function CashierDashboard() {
         <Button onClick={() => setModalType("expense")}>Add Expense</Button>
         <Button onClick={() => setModalType("advance")}>Add Advance</Button>
         <Button onClick={() => setModalType("clocking")}>Employee Clocking</Button>
-        <Button onClick={() => setModalType("tagfee")}>Add Tag Fee</Button>
-        <Button onClick={() => setModalType("latefee")}>Add Late Fee</Button>
 
         {/* <h2 className="text-lg font-semibold mt-10">Service Setup</h2>
         <div className="flex gap-3 mt-3">
@@ -587,7 +586,7 @@ export default function CashierDashboard() {
           )}
           {modalType === "expense" && <ExpenseForm onSubmit={createExpense} onClose={closeModal} />}
           {modalType === "advance" && <AdvanceForm onSubmit={createAdvance} onClose={closeModal} />}
-          {modalType === "clocking" && <ClockForm onSubmit={handleClocking} onClose={closeModal} employees={Employees} />}
+          {modalType === "clocking" && <ClockForm onSubmit={handleClocking} onClose={closeModal} employees={Employees} activeClockings={activeClockings} />}
           {modalType === "tagfee" && <TagFeeForm onSubmit={CreateTagFee} onClose={closeModal} feeData={selectedFee} employees={Employees || []} />}
           {modalType === "latefee" && <LateFeeForm onSubmit={CreateLateFee} onClose={closeModal} feeData={selectedFee} employees={Employees || []} />}
           {modalType === "new_section" && <SectionForm onSubmit={createSection} onClose={closeModal} sectionData={null} />}

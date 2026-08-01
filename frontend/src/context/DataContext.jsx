@@ -4,6 +4,8 @@ import axios from "axios";
 import { io } from "socket.io-client";
 import { DateTime } from "luxon";
 
+axios.defaults.withCredentials = true;
+
 const DataContext = createContext();
 
 export const DataProvider = ({ children }) => {
@@ -12,6 +14,7 @@ export const DataProvider = ({ children }) => {
   const [expenses, setExpenses] = useState([]);
   const [advances, setAdvances] = useState([]);
   const [clockings, setClockings] = useState([]);
+  const [activeClockings, setActiveClockings] = useState([]);
   const [lateFees, setLateFees] = useState([]);
   const [tagFees, setTagFees] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -44,20 +47,28 @@ export const DataProvider = ({ children }) => {
   // ---------- Fetch All ----------
   const fetchAllData = async () => {
     try {
-      const [clockingsRes, servicesRes] = await Promise.all([
+      const [clockingsRes, activeClockingsRes, servicesRes] = await Promise.all([
         axios.get(`${API_URL}/clockings`, {
           withCredentials: true,
         }),
+        axios.get(`${API_URL}/clockings/active`, { withCredentials: true }),
         axios.get(`${API_URL}/services/service_transactions`, {
           withCredentials: true,
         }),
       ]);
       setClockings(clockingsRes.data);
+      setActiveClockings(activeClockingsRes.data);
       setServices(servicesRes.data);
       console.log("all services in the data context:", servicesRes.data);
     } catch (err) {
       console.error("Error fetching static data:", err);
     }
+  };
+
+  const fetchActiveClockings = async () => {
+    const res = await axios.get(`${API_URL}/clockings/active`, { withCredentials: true });
+    setActiveClockings(res.data);
+    return res.data;
   };
 
   // ---------- Fetch Sessions ----------
@@ -127,19 +138,13 @@ export const DataProvider = ({ children }) => {
 
       const data = res.data;
 
-      setServices((prev) => data.services ?? prev);
-
-      setExpenses((prev) => data.expenses ?? prev);
-
-      setAdvances((prev) => data.advances ?? prev);
-
-      setClockings((prev) => data.clockings ?? prev);
-
-      setUsers((prev) => data.users ?? data.employees ?? prev);
-
-      setTagFees((prev) => data.tagFees ?? prev);
-
-      setLateFees((prev) => data.lateFees ?? prev);
+      setServices(data.services ?? []);
+      setExpenses(data.expenses ?? []);
+      setAdvances(data.advances ?? []);
+      setClockings(data.clockings ?? []);
+      setUsers(data.users ?? data.employees ?? []);
+      setTagFees(data.tagFees ?? []);
+      setLateFees(data.lateFees ?? []);
 
       setSessions(data.sessions ?? []);
 
@@ -183,19 +188,13 @@ export const DataProvider = ({ children }) => {
 
       const data = res.data;
 
-      setServices((prev) => data.services ?? prev);
-
-      setExpenses((prev) => data.expenses ?? prev);
-
-      setAdvances((prev) => data.advances ?? prev);
-
-      setClockings((prev) => data.clockings ?? prev);
-
-      setUsers((prev) => data.users ?? data.employees ?? prev);
-
-      setTagFees((prev) => data.tagFees ?? prev);
-
-      setLateFees((prev) => data.lateFees ?? prev);
+      setServices(data.services ?? []);
+      setExpenses(data.expenses ?? []);
+      setAdvances(data.advances ?? []);
+      setClockings(data.clockings ?? []);
+      setUsers(data.users ?? data.employees ?? []);
+      setTagFees(data.tagFees ?? []);
+      setLateFees(data.lateFees ?? []);
 
       setSessions(data.sessions ?? []);
 
@@ -248,19 +247,13 @@ export const DataProvider = ({ children }) => {
 
       const data = res.data;
 
-      setServices((prev) => data.services ?? prev);
-
-      setExpenses((prev) => data.expenses ?? prev);
-
-      setAdvances((prev) => data.advances ?? prev);
-
-      setClockings((prev) => data.clockings ?? prev);
-
-      setUsers((prev) => data.users ?? data.employees ?? prev);
-
-      setTagFees((prev) => data.tagFees ?? prev);
-
-      setLateFees((prev) => data.lateFees ?? prev);
+      setServices(data.services ?? []);
+      setExpenses(data.expenses ?? []);
+      setAdvances(data.advances ?? []);
+      setClockings(data.clockings ?? []);
+      setUsers(data.users ?? data.employees ?? []);
+      setTagFees(data.tagFees ?? []);
+      setLateFees(data.lateFees ?? []);
 
       setSessions(data.sessions ?? []);
 
@@ -299,19 +292,13 @@ export const DataProvider = ({ children }) => {
 
       const data = res.data;
 
-      setServices((prev) => data.services ?? prev);
-
-      setExpenses((prev) => data.expenses ?? prev);
-
-      setAdvances((prev) => data.advances ?? prev);
-
-      setClockings((prev) => data.clockings ?? prev);
-
-      setUsers((prev) => data.users ?? data.employees ?? prev);
-
-      setTagFees((prev) => data.tagFees ?? prev);
-
-      setLateFees((prev) => data.lateFees ?? prev);
+      setServices(data.services ?? []);
+      setExpenses(data.expenses ?? []);
+      setAdvances(data.advances ?? []);
+      setClockings(data.clockings ?? []);
+      setUsers(data.users ?? data.employees ?? []);
+      setTagFees(data.tagFees ?? []);
+      setLateFees(data.lateFees ?? []);
 
       setSessions(data.sessions ?? []);
 
@@ -1081,41 +1068,36 @@ export const DataProvider = ({ children }) => {
 
   // ---------- useEffect ----------
   useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        await fetchSessions(); // fetch sessions in background
-      } catch (err) {
-        console.error("Error initializing app:", err);
-      }
-    };
+    checkAuth();
+  }, []);
 
-    const transactionData = async () => {
+  useEffect(() => {
+    if (!user) return;
+
+    const loadRoleData = async () => {
       try {
         await Promise.all([
           fetchSections(),
           fetchServiceDefinitions(),
           fetchServiceRoles(),
           fetchUsers(),
+          fetchServiceTransactionsApp(),
         ]);
+
+        if (["owner", "manager"].includes(user.role)) {
+          await Promise.all([fetchSessions(), fetchAllData()]);
+        }
       } catch (err) {
-        console.error("Error fetching transaction data:", err);
+        console.error("Error loading authorised dashboard data:", err);
       }
     };
 
-    initializeApp();
-    transactionData();
+    void loadRoleData();
+    if (!["owner", "manager"].includes(user.role)) return undefined;
 
     const interval = setInterval(fetchSessions, 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    fetchServiceTransactionsApp();
-  }, []);
-
-  useEffect(() => {
-    checkAuth();
-  }, []);
+  }, [user]);
 
   //   useEffect(() => {
   //   // Listen for new appointments
@@ -1139,6 +1121,7 @@ export const DataProvider = ({ children }) => {
         expenses,
         advances,
         clockings,
+        activeClockings,
         sessions,
         loading,
         lateFees,
@@ -1170,6 +1153,7 @@ export const DataProvider = ({ children }) => {
         updateServiceTransactionAppointment,
         deleteServiceTransaction,
         fetchAllData,
+        fetchActiveClockings,
         sendFormData,
         fetchDailyData,
         fetchWeeklyData,

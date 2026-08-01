@@ -1,15 +1,33 @@
 import React, { useMemo } from "react";
+import { DateTime } from "luxon";
+
+const TIMEZONE = "Africa/Kampala";
+
+const toClockDateTime = (clock, type) => {
+  const timestamp = clock[type];
+  if (timestamp) {
+    const parsed = DateTime.fromISO(String(timestamp), { zone: TIMEZONE });
+    if (parsed.isValid) return parsed;
+  }
+
+  const date = clock[`${type}_date`];
+  const time = clock[`${type}_time`];
+  if (!date || !time) return null;
+
+  const parsed = DateTime.fromISO(`${String(date).slice(0, 10)}T${String(time)}`, {
+    zone: TIMEZONE,
+  });
+  return parsed.isValid ? parsed : null;
+};
 
 const formatTime = (value) => {
   if (!value) return "-";
-  try {
-    return new Date(value).toLocaleTimeString("en-UG", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "-";
-  }
+  return value.setZone(TIMEZONE).toFormat("h:mm a");
+};
+
+const formatHours = (minutes) => {
+  if (!minutes) return "0h 0m";
+  return `${Math.floor(minutes / 60)}h ${Math.round(minutes % 60)}m`;
 };
 
 const StaffPerformanceMatrix = ({
@@ -59,13 +77,23 @@ const StaffPerformanceMatrix = ({
         .filter((fee) => Number(fee.employee_id) === employeeId)
         .reduce((sum, fee) => sum + Number(fee.amount || 0), 0);
 
-      const clockEntry = (clockings || []).find((clock) => Number(clock.employee_id) === employeeId);
-      const clockIn = clockEntry?.clock_in ? new Date(clockEntry.clock_in) : null;
-      const clockOut = clockEntry?.clock_out ? new Date(clockEntry.clock_out) : null;
+      const employeeClockings = (clockings || [])
+        .filter((clock) => Number(clock.employee_id) === employeeId)
+        .map((clock) => ({
+          clockIn: toClockDateTime(clock, "clock_in"),
+          clockOut: toClockDateTime(clock, "clock_out"),
+        }))
+        .filter((clock) => clock.clockIn)
+        .sort((a, b) => a.clockIn.toMillis() - b.clockIn.toMillis());
 
-      const totalHours = clockIn && clockOut
-        ? ((clockOut - clockIn) / 36e5).toFixed(2)
-        : "-";
+      const completedClockings = employeeClockings.filter((clock) => clock.clockOut);
+      const totalMinutes = completedClockings.reduce(
+        (sum, clock) => sum + Math.max(0, clock.clockOut.diff(clock.clockIn, "minutes").minutes),
+        0,
+      );
+      const clockIn = employeeClockings[0]?.clockIn || null;
+      const clockOut = completedClockings.at(-1)?.clockOut || null;
+      const totalHours = formatHours(totalMinutes);
 
       const netSalary = totalSalary - totalAdvances - totalTagFees - totalLateFees;
 
@@ -79,6 +107,7 @@ const StaffPerformanceMatrix = ({
         totalLateFees,
         netSalary,
         totalHours,
+        totalMinutes,
         clockIn,
         clockOut,
         serviceCounts,
@@ -247,7 +276,7 @@ const StaffPerformanceMatrix = ({
               {employeeStats.map((employee) => (
                 <div key={employee.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
                   <span className="font-medium text-slate-700">{employee.name}</span>
-                  <span>{employee.totalHours} hrs</span>
+                  <span>{employee.totalHours}</span>
                 </div>
               ))}
             </div>

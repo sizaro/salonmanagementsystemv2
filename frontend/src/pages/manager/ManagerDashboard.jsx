@@ -24,6 +24,8 @@ export default function ManagerDashboard() {
   const {
     services,
     sendFormData,
+    activeClockings,
+    fetchActiveClockings,
     sessions,
     users,
     fetchUsers,
@@ -152,11 +154,17 @@ export default function ManagerDashboard() {
 
   const handleClocking = async (type, formData) => {
     try {
-      if (type === "clockin") await sendFormData("createClocking", formData);
-      else if (type === "clockout") await sendFormData("updateClocking", formData);
-      else console.error("Invalid clocking type");
+      const result = type === "clockin"
+        ? await sendFormData("createClocking", formData)
+        : type === "clockout"
+          ? await sendFormData("updateClocking", formData)
+          : null;
+      if (!result) throw new Error("Invalid clocking type");
+      await fetchActiveClockings();
+      return result;
     } catch (err) {
       console.error("Error handling clocking:", err.response?.data || err.message);
+      throw err;
     }
   };
 
@@ -301,11 +309,7 @@ export default function ManagerDashboard() {
         </div>
 
         <Button onClick={() => setModalType("service")}>Add Service</Button>
-        <Button onClick={() => setModalType("expense")}>Add Expense</Button>
-        <Button onClick={() => setModalType("advance")}>Add Advance</Button>
         <Button onClick={() => setModalType("clocking")}>Employee Clocking</Button>
-        <Button onClick={() => setModalType("tagfee")}>Add Tag Fee</Button>
-        <Button onClick={() => setModalType("latefee")}>Add Late Fee</Button>
 
         <section className="bg-white shadow-md rounded-lg p-4 mb-6">
   <h2 className="text-xl font-semibold text-blue-700 mb-4">Appointments</h2>
@@ -547,7 +551,7 @@ export default function ManagerDashboard() {
           )}
           {modalType === "expense" && <ExpenseForm onSubmit={createExpense} onClose={closeModal} />}
           {modalType === "advance" && <AdvanceForm onSubmit={createAdvance} onClose={closeModal} />}
-          {modalType === "clocking" && <ClockForm onSubmit={handleClocking} onClose={closeModal} employees={Employees} />}
+          {modalType === "clocking" && <ClockForm onSubmit={handleClocking} onClose={closeModal} employees={Employees} activeClockings={activeClockings} />}
           {modalType === "tagfee" && <TagFeeForm onSubmit={CreateTagFee} onClose={closeModal} feeData={selectedFee} employees={Employees || []} />}
           {modalType === "latefee" && <LateFeeForm onSubmit={CreateLateFee} onClose={closeModal} feeData={selectedFee} employees={Employees || []} />}
           {modalType === "new_section" && <SectionForm onSubmit={createSection} onClose={closeModal} sectionData={null} />}

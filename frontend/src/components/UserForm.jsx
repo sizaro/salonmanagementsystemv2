@@ -45,6 +45,8 @@ const UserForm = ({ user, onSubmit, onClose, role = "" }) => {
         created_at: user.created_at || "",
         image_url: user.image_url,
       });
+    } else if (role) {
+      setFormData((previous) => ({ ...previous, role }));
     }
   }, [user, role]);
 
@@ -287,19 +289,18 @@ const UserForm = ({ user, onSubmit, onClose, role = "" }) => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Role</label>
-              <input
-                type="text"
+              <select
                 name="role"
                 value={formData.role}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    role: e.target.value.toLowerCase(),
-                  }))
-                }
-                placeholder="e.g., manager or employee"
+                onChange={handleChange}
                 className="mt-1 block w-full border rounded-md p-2"
-              />
+              >
+                <option value="owner">Owner</option>
+                <option value="manager">Manager</option>
+                <option value="cashier">Cashier</option>
+                <option value="employee">Employee</option>
+                <option value="customer">Customer</option>
+              </select>
             </div>
           </div>
         </>

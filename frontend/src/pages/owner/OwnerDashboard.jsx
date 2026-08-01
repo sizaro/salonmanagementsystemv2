@@ -71,6 +71,8 @@ export default function OwnerDashboard() {
     fetchServiceTransactionsApp,
     pendingCount,
     pendingAppointments,
+    activeClockings,
+    fetchActiveClockings,
     fetchSectionById,
     openSalonSession,
     closeSalonSession,
@@ -96,11 +98,7 @@ export default function OwnerDashboard() {
   }, [services, serviceMaterials]);
 
   console.log("services with materials", servicesWithMaterials);
-  const Employees = (users || []).filter(
-    (user) =>
-      `${user.first_name} ${user.last_name}`.toLowerCase() !== "ntege saleh" &&
-      user.role !== "customer",
-  );
+  const Employees = (users || []).filter((user) => ["employee", "manager", "cashier"].includes(user.role) && user.status !== "inactive");
 
   const createdbyID = (users || []).find(
     (user) => `${user.role}`.toLowerCase() === "owner",
@@ -176,15 +174,18 @@ export default function OwnerDashboard() {
 
   const handleClocking = async (type, formData) => {
     try {
-      if (type === "clockin") await sendFormData("createClocking", formData);
-      else if (type === "clockout")
-        await sendFormData("updateClocking", formData);
-      else console.error("Invalid clocking type");
+      let result;
+      if (type === "clockin") result = await sendFormData("createClocking", formData);
+      else if (type === "clockout") result = await sendFormData("updateClocking", formData);
+      else throw new Error("Invalid clocking type");
+      await fetchActiveClockings();
+      return result;
     } catch (err) {
       console.error(
         "Error handling clocking:",
         err.response?.data || err.message,
       );
+      throw err;
     }
   };
 
@@ -231,6 +232,7 @@ export default function OwnerDashboard() {
     fetchServiceDefinitions();
     fetchServiceMaterials();
     fetchServiceTransactions();
+    fetchActiveClockings();
   }, []);
 
   const handleStatusUpdate = async (
@@ -777,6 +779,7 @@ export default function OwnerDashboard() {
               onSubmit={handleClocking}
               onClose={closeModal}
               employees={Employees}
+              activeClockings={activeClockings}
             />
           )}
           {modalType === "tagfee" && (

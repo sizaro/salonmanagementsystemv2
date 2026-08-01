@@ -10,8 +10,6 @@ const CustomerSidebar = () => {
   const menuItems = [
     { path: "/customer/dashboard", label: "Dashboard" },
     { path: "/customer/appointments", label: "My Appointments" },
-    { path: "/customer/notifications", label: "Notifications" },
-    { path: "/customer/profile", label: "Profile" },
   ];
 
   const linkClass = (path) =>

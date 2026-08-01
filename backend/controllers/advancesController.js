@@ -76,7 +76,8 @@ export const createAdvance = async (req, res) => {
 export const updateAdvanceById = async (req, res) => {
   try {
     const salon_id = getSalonId(req);
-    const { id, employee_id, amount, description, created_at } = req.body;
+    const { id } = req.params;
+    const { employee_id, amount, description, advance_date, advance_time } = req.body;
 
     if (!id) return res.status(400).json({ error: "Missing advance ID" });
 
@@ -85,7 +86,8 @@ export const updateAdvanceById = async (req, res) => {
       employee_id,
       amount,
       description,
-      created_at,
+      advance_date,
+      advance_time,
       salon_id
     });
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useData } from "../../context/DataContext.jsx";
+import useOwnerReport from "../../hooks/useOwnerReport.js";
 import "../../styles/IncomeDailyReport.css";
 import Modal from "../../components/Modal.jsx";
 import ServiceForm from "../../components/ServiceForm.jsx";
@@ -7,22 +8,11 @@ import ConfirmModal from "../../components/ConfirmModal.jsx";
 
 const OwnerIncomeReport = () => {
   const {
-    services = [],
     serviceRoles = [],
     serviceMaterials = [],
     serviceDefinitions =[],
-    lateFees = [],
-    tagFees = [],
-    users = [],
-    advances = [],
-    expenses = [],
-    sessions = [],
     sections = [],
     fetchUsers,
-    fetchDailyData,
-    fetchWeeklyData,
-    fetchMonthlyData,
-    fetchYearlyData,
     fetchServiceTransactions,
     fetchServiceTransactionById,
     updateServiceTransactionById,
@@ -30,6 +20,8 @@ const OwnerIncomeReport = () => {
     fetchServiceMaterials,
     fetchServiceDefinitions
   } = useData();
+  const { report, fetchDailyData, fetchWeeklyData, fetchMonthlyData, fetchYearlyData } = useOwnerReport();
+  const { services = [], lateFees = [], tagFees = [], employees: users = [], advances = [], expenses = [], sessions = [] } = report || {};
 
   const servicesWithMaterials = useMemo(() => {
     return (services.data || services || []).map((service) => {

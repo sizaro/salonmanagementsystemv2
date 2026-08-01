@@ -104,6 +104,7 @@ export default function CashierSidebar() {
                 Dashboard
               </Link>
             </li>
+            <li><Link to="/cashier/staff-payments" className={linkClass("/cashier/staff-payments")}>Staff Payments</Link></li>
 
             <li>
               {/* <Link
@@ -133,30 +134,12 @@ export default function CashierSidebar() {
             </li>
 
             <li>
-              <Link
-                to="/cashier/employee-report"
-                className={linkClass("/cashier/employee-report")}
-              >
-                Employee Report
-              </Link>
-            </li>
-
-            <li>
               {/* <Link
                 to="/cashier/advances"
                 className={linkClass("/cashier/advances")}
               >
                 Employees Advances
               </Link> */}
-            </li>
-
-            <li>
-              <Link
-                to="/cashier/staff-performance"
-                className={linkClass("/cashier/staff-performance")}
-              >
-                Staff Performance
-              </Link>
             </li>
 
             {/*
@@ -218,6 +201,7 @@ export default function CashierSidebar() {
                 Dashboard
               </Link>
             </li>
+            <li><Link to="/cashier/staff-payments" onClick={() => setMenuOpen(false)} className={linkClass("/cashier/staff-payments")}>Staff Payments</Link></li>
 
             <li>
               {/* <Link
@@ -267,16 +251,6 @@ export default function CashierSidebar() {
               >
                 Employees Advances
               </Link> */}
-            </li>
-
-            <li>
-              <Link
-                to="/cashier/staff-performance"
-                onClick={() => setMenuOpen(false)}
-                className={linkClass("/cashier/staff-performance")}
-              >
-                Staff Performance
-              </Link>
             </li>
 
             <li className="mt-10">

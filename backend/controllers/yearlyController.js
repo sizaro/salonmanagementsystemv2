@@ -1,50 +1,9 @@
-import yearlyModel from "../models/yearlyModel.js";
-import dotenv from "dotenv";
-dotenv.config();
+import { getReportData } from "../models/reportModel.js";
+import { BUSINESS_TIMEZONE, yearlyPeriod } from "../utils/reportPeriod.js";
 
-export const getYearlyReport = async (req, res) => {
+export async function getYearlyReport(req, res) {
   try {
-    const { year } = req.query;
-    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
-
-    if (!year) {
-      return res.status(400).json({ error: "Year is required" });
-    }
-
-    console.log(
-      "Received in the controller year:",
-      year,
-      "Salon ID:",
-      salon_id,
-    );
-
-    const [services, expenses, advances, tagFees, lateFees, sessions] =
-      await Promise.all([
-        yearlyModel.getServicesByYear(year, salon_id),
-        yearlyModel.getExpensesByYear(year, salon_id),
-        yearlyModel.getAdvancesByYear(year, salon_id),
-        yearlyModel.getTagFeesByYear(year, salon_id),
-        yearlyModel.getLateFeesByYear(year, salon_id),
-        yearlyModel.getSalonSessionsByYear(year, salon_id),
-      ]);
-
-    console.log("Yearly services:", services.length);
-    console.log("Yearly expenses:", expenses.length);
-    console.log("Yearly advances:", advances.length);
-    console.log("Yearly tag fees:", tagFees.length);
-    console.log("Yearly late fees:", lateFees.length);
-    console.log("Yearly sessions:", sessions.length);
-
-    res.json({
-      services,
-      expenses,
-      advances,
-      tagFees,
-      lateFees,
-      sessions,
-    });
-  } catch (err) {
-    console.error("Error fetching yearly report:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-};
+    const period = yearlyPeriod(req.query.year);
+    res.json(await getReportData({ salonId: Number(req.user.salon_id), ...period, timezone: BUSINESS_TIMEZONE }));
+  } catch (error) { res.status(400).json({ error: error.message || "Unable to create yearly report" }); }
+}

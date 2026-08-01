@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useData } from "../../context/DataContext.jsx";
+import useOwnerReport from "../../hooks/useOwnerReport.js";
 import StaffGenderPerformanceSection from "../../components/StaffGenderPerformanceSection.jsx";
 
 const formatDateInput = (date) => {
@@ -36,20 +37,12 @@ const getWeekRange = (weekString) => {
 
 export default function OwnerStaffReport() {
   const {
-    users = [],
-    services = [],
-    advances = [],
-    tagFees = [],
-    lateFees = [],
-    clockings = [],
     serviceDefinitions = [],
     fetchUsers,
-    fetchDailyData,
-    fetchWeeklyData,
-    fetchMonthlyData,
-    fetchYearlyData,
     fetchServiceDefinitions,
   } = useData();
+  const { report, fetchDailyData, fetchWeeklyData, fetchMonthlyData, fetchYearlyData } = useOwnerReport();
+  const { employees: users = [], services = [], advances = [], tagFees = [], lateFees = [], clockings = [] } = report || {};
 
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState(formatDateInput(today));

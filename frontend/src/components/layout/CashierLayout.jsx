@@ -3,25 +3,25 @@ import CashierSidebar from "../sidebars/CashierSidebar.jsx";
 
 // Pages
 import CashierDashboard from "../../pages/cashier/CashierDashboard.jsx";
+import CashierStaffPayments from "../../pages/cashier/CashierStaffPayments.jsx";
 // import CashierIncomeReport from "../../pages/cashier/CashierIncomeReport.jsx";
 // import CashierExpensesReport from "../../pages/cashier/CashierExpensesReport.jsx";
-import CashierEmployeeReport from "../../pages/cashier/CashierEmployeeReport.jsx";
 // import CashierEmployees from "../../pages/cashier/CashierEmployees.jsx";
 // import CashierAdvances from "../../pages/cashier/CashierAdvances.jsx";
-import CashierStaffReport from "../../pages/cashier/CashierStaffReport.jsx";
 // import CashierLateFeesReport from "../../pages/cashier/CashierLateFeesReport.jsx";
 // import CashierTagFeesReport from "../../pages/cashier/CashierTagFeesReport.jsx";
 
 const CashierLayout = () => {
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100">
       <CashierSidebar />
 
-      <main className="flex-1 p-6 overflow-y-auto w-full mt-18 ml-[-10px] md:ml-64 md:mt-6">
+      <main className="min-h-screen w-full overflow-x-hidden p-4 pt-20 md:ml-64 md:w-[calc(100%-16rem)] md:p-6">
         <Routes>
           {/* Dashboard */}
           <Route index element={<CashierDashboard />} />
           <Route path="dashboard" element={<CashierDashboard />} />
+          <Route path="staff-payments" element={<CashierStaffPayments />} />
 
           {/* Income Reports
           <Route
@@ -34,33 +34,6 @@ const CashierLayout = () => {
             path="expenses-report"
             element={<CashierExpensesReport />}
           /> */}
-
-          {/* Employees & Advances */}
-          <Route
-            path="employees"
-            element={<CashierEmployeeReport />}
-          />
-
-          {/* <Route
-            path="advances"
-            element={<CashierAdvances />}
-          /> */}
-
-          {/* <Route
-            path="employees-management"
-            element={<CashierEmployees />}
-          /> */}
-
-          <Route
-            path="employee-report"
-            element={<CashierEmployeeReport />}
-          />
-
-          {/* Staff Performance */}
-          <Route
-            path="staff-performance"
-            element={<CashierStaffReport />}
-          />
 
           {/* Late Fees Reports */}
           {/* <Route

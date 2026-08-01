@@ -96,7 +96,8 @@ export const createExpense = async (req, res) => {
  */
 export const updateExpenseById = async (req, res) => {
   try {
-    const { id, name, amount, description, created_at } = req.body;
+    const { id } = req.params;
+    const { name, amount, description, created_at } = req.body;
     const salon_id = resolveSalonId(req);
 
     if (!id) {

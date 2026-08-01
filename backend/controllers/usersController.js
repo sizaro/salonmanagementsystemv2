@@ -11,6 +11,7 @@ import {
 import { findUserByEmail } from "../models/usersModel.js";
 import dotenv from "dotenv";
 dotenv.config();
+const ALLOWED_ROLES = new Set(["owner", "manager", "cashier", "employee", "customer"]);
 
 export const setupOwnerUser = async (req, res) => {
   try {
@@ -117,6 +118,8 @@ export const createUser = async (req, res) => {
     if (!password) {
       return res.status(400).json({ error: "Password is required" });
     }
+    if (!ALLOWED_ROLES.has(role)) return res.status(400).json({ error: "Invalid role" });
+    if (role === "owner") return res.status(403).json({ error: "Owner accounts can only be created through secure salon setup" });
 
     const hashedPassword = await bcrypt.hash(password, await bcrypt.genSalt(10));
 
@@ -181,11 +184,12 @@ export const updateUserById = async (req, res) => {
     if (!id) {
       return res.status(400).json({ error: "Missing user ID" });
     }
-
     const existingUser = await fetchUserById(id, salon_id);
     if (!existingUser) {
       return res.status(404).json({ error: "User not found" });
     }
+    if (!ALLOWED_ROLES.has(role)) return res.status(400).json({ error: "Invalid role" });
+    if (role === "owner" && existingUser.role !== "owner") return res.status(403).json({ error: "Only secure salon setup can assign the owner role" });
 
     const updatedData = {
       id,

@@ -1,11 +1,17 @@
 import { useState, useEffect, useMemo } from "react";
+import axios from "axios";
+import { DateTime } from "luxon";
 import { useData } from "../../context/DataContext.jsx";
 import Button from "../../components/Button.jsx";
+
+const API_URL = import.meta.env.VITE_API_URL || "/api";
+const formatMoney = (amount) => `${Number(amount || 0).toLocaleString()} UGX`;
 
 export default function EmployeeDashboard() {
   const { user, users, services = [], serviceMaterials = [] } = useData();
   const [activeTab, setActiveTab] = useState("pending");
   const [myAppointments, setMyAppointments] = useState([]);
+  const [paySummary, setPaySummary] = useState(null);
 
   // Enrich services with their materials
   const servicesWithMaterials = useMemo(() => {
@@ -27,6 +33,15 @@ export default function EmployeeDashboard() {
 
     setMyAppointments(assigned);
   }, [servicesWithMaterials, user]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const now = DateTime.now().setZone("Africa/Kampala");
+    axios.get(`${API_URL}/reports/my-payroll`, {
+      params: { period: "monthly", year: now.year, month: now.month },
+      withCredentials: true,
+    }).then(({ data }) => setPaySummary(data.employee)).catch(() => setPaySummary(null));
+  }, [user?.id]);
 
   // Tab filter
   const filteredByStatus = myAppointments.filter(
@@ -76,6 +91,18 @@ export default function EmployeeDashboard() {
       <h1 className="text-3xl font-bold mb-6">
         {user ? `${user.first_name}'s Appointments` : "Your Appointments"}
       </h1>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div><h2 className="text-lg font-semibold text-slate-900">My pay summary</h2><p className="text-sm text-slate-600">Current month’s completed service earnings.</p></div>
+          <span className={`rounded-full px-3 py-1 text-sm font-medium ${paySummary?.isClockedIn ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>{paySummary?.isClockedIn ? "You are clocked in" : "You are clocked out"}</span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Gross earnings</p><p className="mt-1 text-lg font-semibold">{formatMoney(paySummary?.grossSalary)}</p></div>
+          <div className="rounded-xl bg-amber-50 p-3"><p className="text-xs uppercase tracking-wide text-amber-700">Advances</p><p className="mt-1 text-lg font-semibold text-amber-800">{formatMoney(paySummary?.advances)}</p></div>
+          <div className="rounded-xl bg-emerald-50 p-3"><p className="text-xs uppercase tracking-wide text-emerald-700">Net amount</p><p className="mt-1 text-lg font-semibold text-emerald-800">{formatMoney(paySummary?.netSalary)}</p></div>
+        </div>
+      </section>
 
       {/* Tabs */}
       <div className="flex gap-2 mb-4">
