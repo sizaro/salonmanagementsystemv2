@@ -47,15 +47,17 @@ export const DataProvider = ({ children }) => {
   // ---------- Fetch All ----------
   const fetchAllData = async () => {
     try {
-      const [clockingsRes, activeClockingsRes, servicesRes] = await Promise.all([
-        axios.get(`${API_URL}/clockings`, {
-          withCredentials: true,
-        }),
-        axios.get(`${API_URL}/clockings/active`, { withCredentials: true }),
-        axios.get(`${API_URL}/services/service_transactions`, {
-          withCredentials: true,
-        }),
-      ]);
+      const [clockingsRes, activeClockingsRes, servicesRes] = await Promise.all(
+        [
+          axios.get(`${API_URL}/clockings`, {
+            withCredentials: true,
+          }),
+          axios.get(`${API_URL}/clockings/active`, { withCredentials: true }),
+          axios.get(`${API_URL}/services/service_transactions`, {
+            withCredentials: true,
+          }),
+        ],
+      );
       setClockings(clockingsRes.data);
       setActiveClockings(activeClockingsRes.data);
       setServices(servicesRes.data);
@@ -66,7 +68,9 @@ export const DataProvider = ({ children }) => {
   };
 
   const fetchActiveClockings = async () => {
-    const res = await axios.get(`${API_URL}/clockings/active`, { withCredentials: true });
+    const res = await axios.get(`${API_URL}/clockings/active`, {
+      withCredentials: true,
+    });
     setActiveClockings(res.data);
     return res.data;
   };

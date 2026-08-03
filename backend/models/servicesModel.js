@@ -550,38 +550,49 @@ export const fetchServiceTransactionById = async (id, salon_id) => {
 
 
   const query = `
-
-    SELECT 
-
+    SELECT
       st.*,
-
+      st.id AS transaction_id,
       st.service_date::TEXT AS service_date,
-
       st.service_time::TEXT AS service_time,
-
+      st.appointment_date::TEXT AS appointment_date,
       sd.service_name,
-
       sd.description,
-
       sd.service_amount AS full_amount,
-
-      sd.salon_amount
-
-
+      sd.salon_amount,
+      sd.section_id AS definition_section_id,
+      sec.section_name,
+      CONCAT_WS(' ', creator.first_name, creator.last_name) AS recorded_by_name,
+      CONCAT_WS(' ', customer.first_name, customer.last_name) AS customer_name,
+      COALESCE((
+        SELECT json_agg(jsonb_build_object(
+          'role_id', sr.id,
+          'role_name', sr.role_name,
+          'role_amount', sr.earned_amount,
+          'earned_amount', sr.earned_amount,
+          'employee_id', u.id,
+          'first_name', u.first_name,
+          'last_name', u.last_name
+        ))
+        FROM service_performers sp
+        LEFT JOIN service_roles sr ON sr.id = sp.service_role_id
+        LEFT JOIN users u ON u.id = sp.employee_id
+        WHERE sp.service_transaction_id = st.id
+      ), '[]'::json) AS performers,
+      COALESCE((
+        SELECT json_agg(jsonb_build_object(
+          'material_name', sm.material_name,
+          'material_cost', sm.material_cost
+        ))
+        FROM service_materials sm
+        WHERE sm.service_definition_id = sd.id
+      ), '[]'::json) AS materials
     FROM service_transactions st
-
-
-    JOIN service_definitions sd 
-
-      ON sd.id = st.service_definition_id
-
-
-    WHERE 
-
-      st.id=$1 
-
-      AND st.salon_id=$2;
-
+    JOIN service_definitions sd ON sd.id = st.service_definition_id AND sd.salon_id = $2
+    JOIN service_sections sec ON sec.id = sd.section_id AND sec.salon_id = $2
+    LEFT JOIN users creator ON creator.id = st.created_by
+    LEFT JOIN users customer ON customer.id = st.customer_id
+    WHERE st.id = $1 AND st.salon_id = $2;
   `;
 
 
@@ -612,18 +623,17 @@ export const updateServiceTransactionModel = async (id, updates, salon_id) => {
     performers = []
   } = updates;
 
-  try {
-    await db.query("BEGIN");
-
+  return db.transaction(async (client) => {
     // Update transaction safely by salon_id
     const updateTrans = `
       UPDATE service_transactions
       SET service_definition_id=$1, appointment_date=$2, appointment_time=$3, 
-          customer_id=$4, customer_note=$5, status=$6, cancel_reason=$7
+          customer_id=$4, customer_note=$5,
+          status=COALESCE($6, status), cancel_reason=$7
       WHERE id=$8 AND salon_id=$9
       RETURNING *;
     `;
-    const { rows } = await db.query(updateTrans, [
+    const { rows } = await client.query(updateTrans, [
       service_definition_id,
       appointment_date || null,
       appointment_time || null,
@@ -639,7 +649,7 @@ export const updateServiceTransactionModel = async (id, updates, salon_id) => {
     if (!updated) throw new Error("Transaction not found or does not belong to this salon");
 
     // Delete performers only if the transaction belongs to this salon
-    await db.query(`
+    await client.query(`
       DELETE FROM service_performers
       USING service_transactions st
       WHERE service_performers.service_transaction_id = st.id
@@ -649,21 +659,15 @@ export const updateServiceTransactionModel = async (id, updates, salon_id) => {
 
     // Insert new performers safely
     for (const p of performers) {
-      await db.query(`
-        INSERT INTO service_performers (service_transaction_id, service_role_id, employee_id)
-        SELECT st.id, $1, $2
+      await client.query(`
+        INSERT INTO service_performers (salon_id, service_transaction_id, service_role_id, employee_id)
+        SELECT $1, st.id, $2, $3
         FROM service_transactions st
-        WHERE st.id = $3 AND st.salon_id = $4
-      `, [p.role_id, p.employee_id || null, id, salon_id]);
+        WHERE st.id = $4 AND st.salon_id = $1
+      `, [salon_id, p.role_id, p.employee_id || null, id]);
     }
-
-    await db.query("COMMIT");
     return updated;
-  } catch (err) {
-    await db.query("ROLLBACK");
-    console.error("Error updating service transaction:", err);
-    throw err;
-  }
+  });
 };
 
 

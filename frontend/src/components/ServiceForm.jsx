@@ -34,6 +34,7 @@ export default function ServiceForm({
     appointment_date: "",
     appointment_time: "",
     customerNote: "",
+    status: serviceStatus || null,
     performers: [],
   });
 
@@ -42,29 +43,41 @@ export default function ServiceForm({
   // --------------------------
   useEffect(() => {
     if (serviceData) {
+      const sectionId = serviceData.definition_section_id ?? serviceData.section_id;
       setForm({
-        id:serviceData.transaction_id,
-        section_id: serviceData.definition_section_id,
+        id: serviceData.transaction_id ?? serviceData.id,
+        section_id: sectionId,
         service_definition_id: serviceData.service_definition_id,
         appointment_date: serviceData.appointment_date || "",
         appointment_time: serviceData.appointment_time || "",
-        performers: serviceData.performers || [],
+        customerNote: serviceData.customer_note || "",
+        status: serviceData.status || serviceStatus || null,
+        performers: (serviceData.performers || []).map((performer) => ({
+          ...performer,
+          role_id: performer.role_id ?? performer.service_role_id,
+          earned_amount: performer.earned_amount ?? performer.role_amount,
+        })),
       });
 
-      setServices(Services.filter((s) => s.section_id === serviceData.definition_section_id));
+      setServices(Services.filter((s) => Number(s.section_id) === Number(sectionId)));
 
       if (serviceData.service_definition_id) {
         const matchingRoles = Roles.filter(
-          (r) => r.service_definition_id === serviceData.service_definition_id
+          (r) => Number(r.service_definition_id) === Number(serviceData.service_definition_id)
         );
         setRoles(matchingRoles);
+        setServiceAmount(Number(serviceData.full_amount || serviceData.service_amount || 0));
       }
     }
   }, [serviceData, Services, Roles]);
 
+  useEffect(() => {
+    setSections(Sections || []);
+  }, [Sections]);
+
   useEffect(()=>{
-    setEmployees(Employees)
-  }, [])
+    setEmployees(Employees || [])
+  }, [Employees])
 
   // --------------------------
   // When a section is selected
@@ -78,7 +91,7 @@ export default function ServiceForm({
     });
 
     setRoles([]);
-    setServices(Services.filter((s) => s.section_id === id));
+    setServices(Services.filter((s) => Number(s.section_id) === Number(id)));
   };
 
   // --------------------------
@@ -95,7 +108,7 @@ const handleServiceSelect = (e) => {
   console.log("Selected service object:", serviceObj);
 
   const matchingRoles = Roles.filter(
-    (r) => r.service_definition_id === id
+    (r) => Number(r.service_definition_id) === Number(id)
   );
 
   const performers = matchingRoles.map((role) => {
@@ -132,7 +145,7 @@ const handleServiceSelect = (e) => {
   // --------------------------
   const updatePerformer = (roleId, employeeId) => {
     const updated = form.performers.map((p) =>
-      p.role_id === roleId
+      Number(p.role_id) === Number(roleId)
         ? { ...p, employee_id: employeeId === "" ? null : employeeId }
         : p
     );
@@ -169,7 +182,7 @@ const handleServiceSelect = (e) => {
 
   customer_note: form.customerNote,
 
-  status: serviceStatus,
+  status: form.status || serviceStatus || null,
 
   performers: form.performers.map((p) => ({
     role_id: p.role_id,
@@ -184,13 +197,14 @@ const handleServiceSelect = (e) => {
     JSON.stringify(payload, null, 2)
   );
 
-  if (serviceData && serviceData.transaction_id) {
-    onSubmit(serviceData.transaction_id, payload);
+  const transactionId = serviceData?.transaction_id ?? serviceData?.id;
+  if (serviceData && transactionId) {
+    onSubmit(transactionId, payload);
   } else {
     onSubmit(payload);
   }
 
-  onClose();
+    if (onClose) onClose();
 };
 
 
@@ -258,7 +272,7 @@ const handleServiceSelect = (e) => {
                 <select
                   className="overflow-y-auto"
                   value={
-                    form.performers.find((p) => p.role_id === role.id)
+                    form.performers.find((p) => Number(p.role_id) === Number(role.id))
                       ?.employee_id || ""
                   }
                   onChange={(e) => updatePerformer(role.id, e.target.value)}
@@ -323,7 +337,7 @@ const handleServiceSelect = (e) => {
       )}
 
       <button type="submit" className="bg-blue-500 text-white p-2 rounded">
-        Submit
+        {serviceData ? "Save Changes" : "Add Service"}
       </button>
     </form>
   );

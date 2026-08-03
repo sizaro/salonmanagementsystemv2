@@ -5,6 +5,7 @@ import "../../styles/IncomeDailyReport.css";
 import Modal from "../../components/Modal.jsx";
 import ServiceForm from "../../components/ServiceForm.jsx";
 import ConfirmModal from "../../components/ConfirmModal.jsx";
+import { Eye, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 
 const OwnerIncomeReport = () => {
   const {
@@ -18,17 +19,24 @@ const OwnerIncomeReport = () => {
     updateServiceTransactionById,
     deleteServiceTransaction,
     fetchServiceMaterials,
-    fetchServiceDefinitions
+    fetchServiceDefinitions,
+    fetchSections,
+    fetchServiceRoles
   } = useData();
-  const { report, fetchDailyData, fetchWeeklyData, fetchMonthlyData, fetchYearlyData } = useOwnerReport();
+  const { report, loadReport, fetchDailyData, fetchWeeklyData, fetchMonthlyData, fetchYearlyData } = useOwnerReport();
   const { services = [], lateFees = [], tagFees = [], employees: users = [], advances = [], expenses = [], sessions = [] } = report || {};
 
   const servicesWithMaterials = useMemo(() => {
     return (services.data || services || []).map((service) => {
       const matchedMaterials = (serviceMaterials || []).filter(
-        (m) => m.service_definition_id === service.service_definition_id
+        (m) => Number(m.service_definition_id) === Number(service.service_definition_id)
       );
-      return { ...service, materials: matchedMaterials.length > 0 ? matchedMaterials : null };
+      return {
+        ...service,
+        materials: matchedMaterials.length > 0
+          ? matchedMaterials
+          : (Array.isArray(service.materials) ? service.materials : []),
+      };
     });
   }, [services, serviceMaterials]);
 
@@ -73,16 +81,62 @@ const OwnerIncomeReport = () => {
   const [week, setWeek] = useState({ start: null, end: null });
   const [monthYear, setMonthYear] = useState("");
   const [year, setYear] = useState(new Date().getFullYear());
+  const [viewingService, setViewingService] = useState(null);
+  const [servicePage, setServicePage] = useState(1);
+  const servicePageSize = 10;
+  const [activeReportQuery, setActiveReportQuery] = useState({ period: "daily", date: toYMD(today) });
+  const [editOptions, setEditOptions] = useState(null);
+
+  const mergeServiceRecord = (summary, detail) => ({
+    ...(summary || {}),
+    ...(detail || {}),
+    section_name: detail?.section_name || summary?.section_name || "",
+    definition_section_id:
+      detail?.definition_section_id ?? summary?.definition_section_id ?? summary?.section_id,
+    performers: detail?.performers?.length
+      ? detail.performers
+      : (Array.isArray(summary?.performers) ? summary.performers : []),
+    materials: detail?.materials?.length
+      ? detail.materials
+      : (Array.isArray(summary?.materials) ? summary.materials : []),
+  });
+
+  const refreshActiveReport = async () => {
+    await loadReport(activeReportQuery);
+  };
+
+  const handleViewClick = async (id) => {
+    if (!id) return;
+    const summary = servicesWithMaterials.find(
+      (item) => Number(item.transaction_id ?? item.id) === Number(id)
+    );
+    const detail = await fetchServiceTransactionById(id);
+    setViewingService(mergeServiceRecord(summary, detail));
+  };
 
   const handleEditClick = async (id) => {
 
   if (!id) return console.error("No id provided for edit");
-  if (!Employees || Employees.length === 0) {
-    await fetchUsers();
-  }
-  const service = await fetchServiceTransactionById(id);
-  console.log("service transaction to be edited", service)
-  setEditingService(service);
+  const summary = servicesWithMaterials.find(
+    (item) => Number(item.transaction_id ?? item.id) === Number(id)
+  );
+  const [detail, loadedSections, loadedDefinitions, loadedRoles, loadedUsers] = await Promise.all([
+    fetchServiceTransactionById(id),
+    fetchSections(),
+    fetchServiceDefinitions(),
+    fetchServiceRoles(),
+    fetchUsers(),
+  ]);
+  const employeeOptions = (Array.isArray(loadedUsers) ? loadedUsers : []).filter(
+    (user) => user && user.role !== "customer"
+  );
+  setEditOptions({
+    sections: loadedSections || [],
+    services: loadedDefinitions || [],
+    roles: loadedRoles || [],
+    employees: employeeOptions,
+  });
+  setEditingService(mergeServiceRecord(summary, detail));
   setShowModal(true);
 };
 
@@ -90,7 +144,7 @@ const OwnerIncomeReport = () => {
   const handleEditServiceSubmit = async (id, updatedService) => {
     console.log("received service to be edited in parent", updatedService)
     await updateServiceTransactionById(id, updatedService);
-    await fetchDailyData(selectedDate);
+    await refreshActiveReport();
     setShowModal(false);
     setEditingService(null);
   };
@@ -104,7 +158,7 @@ const OwnerIncomeReport = () => {
     if (serviceToDelete) {
       try {
         await deleteServiceTransaction(serviceToDelete); 
-        await fetchDailyData(selectedDate);
+        await refreshActiveReport();
       } catch (err) {
         console.error("Failed to delete service:", err);
       } finally {
@@ -235,6 +289,8 @@ const OwnerIncomeReport = () => {
   const handleDayChange = (e) => {
   console.log("handleDayChange called with value:", e.target.value);
   setSelectedDate(e.target.value);
+  setActiveReportQuery({ period: "daily", date: e.target.value });
+  setServicePage(1);
   fetchDailyData(e.target.value);
   fetchUsers();
 };
@@ -268,6 +324,12 @@ const handleWeekChange = (e) => {
   console.log("Computed weekly range in UTC:", monday, "→", sunday);
 
   setWeek({ start: monday, end: sunday });
+  setActiveReportQuery({
+    period: "weekly",
+    startDate: monday.toISOString().slice(0, 10),
+    endDate: sunday.toISOString().slice(0, 10),
+  });
+  setServicePage(1);
   setReportLabel(
     `${monday.toLocaleDateString("en-UG", { timeZone: "Africa/Kampala" })} → ${sunday.toLocaleDateString("en-UG", { timeZone: "Africa/Kampala" })}`
   );
@@ -284,6 +346,8 @@ const handleMonthChange = (e) => {
 
     const [year, month] = value.split("-").map(Number);
     setMonthYear(value);
+    setActiveReportQuery({ period: "monthly", year, month });
+    setServicePage(1);
     setReportLabel(
       `${new Date(year, month - 1, 1).toLocaleDateString("en-US", {
         month: "long",
@@ -298,6 +362,8 @@ const handleYearChange = (e) => {
   console.log("handleYearChange called with value:", e.target.value);
   const selectedYear = parseInt(e.target.value, 10);
     setYear(selectedYear);
+    setActiveReportQuery({ period: "yearly", year: selectedYear });
+    setServicePage(1);
     setReportLabel(`Year ${selectedYear}`);
     fetchYearlyData(selectedYear)
 };
@@ -315,6 +381,9 @@ const handleYearChange = (e) => {
   useEffect(() => {
     fetchDailyData(selectedDate);
     fetchUsers();
+    fetchSections();
+    fetchServiceDefinitions();
+    fetchServiceRoles();
     fetchServiceMaterials();
   }, []);
 
@@ -359,6 +428,13 @@ const serviceNameCounts = useMemo(() => {
   });
   return Array.from(map.entries()); // [["Scrub", 2], ["Hair Cut", 1]]
 }, [servicesWithMaterials]);
+
+const totalServicePages = Math.max(1, Math.ceil(servicesWithMaterials.length / servicePageSize));
+const currentServicePage = Math.min(servicePage, totalServicePages);
+const paginatedServices = servicesWithMaterials.slice(
+  (currentServicePage - 1) * servicePageSize,
+  currentServicePage * servicePageSize,
+);
 
 
 console.log("Employees in te income daily report", Employees)
@@ -556,13 +632,71 @@ console.log("Employees in te income daily report", Employees)
       <h2 className="text-lg font-semibold text-gray-700 mb-3">Service Details</h2>
 
       {servicesWithMaterials.length === 0 ? (
-        <p className="text-gray-500">No services available.</p>
+        <p className="text-gray-500">No services were recorded for the selected period.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <div className="max-h-[300px] overflow-y-auto">
-            <table className="min-w-full border-collapse table-auto">
-              {/* unchanged table body */}
+        <div>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-600">
+            <span>
+              Showing {(currentServicePage - 1) * servicePageSize + 1}–{Math.min(currentServicePage * servicePageSize, servicesWithMaterials.length)} of {servicesWithMaterials.length} services
+            </span>
+            <span>Page {currentServicePage} of {totalServicePages}</span>
+          </div>
+          <div className="max-h-[520px] overflow-auto rounded-lg border border-gray-200">
+            <table className="min-w-[980px] w-full border-collapse text-sm">
+              <thead className="sticky top-0 z-10 bg-gray-100 text-left text-xs uppercase tracking-wide text-gray-600">
+                <tr>
+                  <th className="px-4 py-3">Date & time</th>
+                  <th className="px-4 py-3">Service</th>
+                  <th className="px-4 py-3">Section</th>
+                  <th className="px-4 py-3">Performed by</th>
+                  <th className="px-4 py-3 text-right">Service amount</th>
+                  <th className="px-4 py-3 text-right">Salon amount</th>
+                  <th className="sticky right-0 bg-gray-100 px-4 py-3 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 bg-white">
+                {paginatedServices.map((service) => {
+                  const transactionId = service.transaction_id ?? service.id;
+                  const performers = Array.isArray(service.performers)
+                    ? service.performers.filter((performer) => performer.employee_id || performer.first_name || performer.last_name)
+                    : [];
+                  return (
+                    <tr key={transactionId} className="hover:bg-blue-50/50">
+                      <td className="whitespace-nowrap px-4 py-3 text-gray-600">
+                        <div className="font-medium text-gray-800">{service.service_date || "—"}</div>
+                        <div className="text-xs">{String(service.service_time || "").slice(0, 8) || "—"}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-gray-900">{service.service_name || "Unnamed service"}</div>
+                        {service.status && <div className="mt-1 text-xs capitalize text-gray-500">{service.status}</div>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">{service.section_name || "—"}</td>
+                      <td className="px-4 py-3 text-gray-700">
+                        {performers.length > 0 ? performers.map((performer, index) => (
+                          <div key={`${transactionId}-${performer.employee_id || index}`}>
+                            {[performer.first_name, performer.last_name].filter(Boolean).join(" ") || "Salon"}
+                            {performer.role_name ? <span className="text-xs text-gray-500"> · {performer.role_name}</span> : null}
+                          </div>
+                        )) : "Salon"}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-gray-900">{Number(service.full_amount || service.service_amount || 0).toLocaleString()} UGX</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right text-gray-700">{Number(service.salon_amount || 0).toLocaleString()} UGX</td>
+                      <td className="sticky right-0 bg-white px-4 py-3">
+                        <div className="flex items-center justify-center gap-1">
+                          <button type="button" onClick={() => handleViewClick(transactionId)} className="rounded-lg p-2 text-blue-700 hover:bg-blue-100" title="View service details" aria-label="View service details"><Eye size={17} /></button>
+                          <button type="button" onClick={() => handleEditClick(transactionId)} className="rounded-lg p-2 text-amber-700 hover:bg-amber-100" title="Edit service" aria-label="Edit service"><Pencil size={17} /></button>
+                          <button type="button" onClick={() => handleDelete(transactionId)} className="rounded-lg p-2 text-red-700 hover:bg-red-100" title="Delete service" aria-label="Delete service"><Trash2 size={17} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
             </table>
+          </div>
+          <div className="mt-4 flex items-center justify-end gap-3">
+            <button type="button" disabled={currentServicePage <= 1} onClick={() => setServicePage((page) => Math.max(1, page - 1))} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40"><ChevronLeft size={16} />Previous</button>
+            <button type="button" disabled={currentServicePage >= totalServicePages} onClick={() => setServicePage((page) => Math.min(totalServicePages, page + 1))} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40">Next<ChevronRight size={16} /></button>
           </div>
         </div>
       )}
@@ -573,11 +707,65 @@ console.log("Employees in te income daily report", Employees)
       <ServiceForm
         serviceData={editingService}
         onSubmit={handleEditServiceSubmit}
-        Sections={sections}
-        Services={serviceDefinitions}
-        Roles={serviceRoles}
-        Employees={Employees}
+        onClose={() => { setShowModal(false); setEditingService(null); setEditOptions(null); }}
+        Sections={editOptions?.sections || sections}
+        Services={editOptions?.services || serviceDefinitions}
+        Roles={editOptions?.roles || serviceRoles}
+        Employees={editOptions?.employees || Employees}
+        serviceStatus={editingService?.status}
       />
+    </Modal>
+
+    <Modal isOpen={Boolean(viewingService)} onClose={() => setViewingService(null)} sizeClass="max-w-3xl">
+      {viewingService && (
+        <div className="max-h-[75vh] overflow-y-auto p-1">
+          <div className="mb-5 border-b pb-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Service transaction</p>
+            <h2 className="mt-1 text-2xl font-bold text-gray-900">{viewingService.service_name || "Service details"}</h2>
+            <p className="mt-1 text-sm text-gray-500">Transaction #{viewingService.transaction_id ?? viewingService.id}</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              ["Section", viewingService.section_name],
+              ["Date", viewingService.service_date],
+              ["Time", String(viewingService.service_time || "").slice(0, 8)],
+              ["Status", viewingService.status || "Completed"],
+              ["Service amount", `${Number(viewingService.full_amount || viewingService.service_amount || 0).toLocaleString()} UGX`],
+              ["Salon amount", `${Number(viewingService.salon_amount || 0).toLocaleString()} UGX`],
+              ["Entry type", viewingService.entry_type],
+              ["Recorded by", viewingService.recorded_by_name || viewingService.created_by],
+              ["Customer", viewingService.customer_name || viewingService.customer_id],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-lg bg-gray-50 p-3">
+                <div className="text-xs font-semibold uppercase text-gray-500">{label}</div>
+                <div className="mt-1 font-medium text-gray-900">{value || "—"}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 grid gap-5 md:grid-cols-2">
+            <div>
+              <h3 className="font-bold text-gray-900">Employees and roles</h3>
+              <div className="mt-2 space-y-2">
+                {(viewingService.performers || []).length > 0 ? viewingService.performers.map((performer, index) => (
+                  <div key={performer.role_id || index} className="rounded-lg border p-3 text-sm">
+                    <div className="font-semibold">{[performer.first_name, performer.last_name].filter(Boolean).join(" ") || "Salon"}</div>
+                    <div className="text-gray-500">{performer.role_name || "Role not specified"} · {Number(performer.role_amount || performer.earned_amount || 0).toLocaleString()} UGX</div>
+                  </div>
+                )) : <p className="text-sm text-gray-500">No employee performers recorded.</p>}
+              </div>
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900">Materials</h3>
+              <div className="mt-2 space-y-2">
+                {(viewingService.materials || []).length > 0 ? viewingService.materials.map((material, index) => (
+                  <div key={`${material.material_name}-${index}`} className="flex justify-between rounded-lg border p-3 text-sm"><span className="font-semibold">{material.material_name}</span><span>{Number(material.material_cost || 0).toLocaleString()} UGX</span></div>
+                )) : <p className="text-sm text-gray-500">No materials recorded for this service.</p>}
+              </div>
+            </div>
+          </div>
+          {viewingService.customer_note && <div className="mt-5 rounded-lg bg-yellow-50 p-4"><h3 className="font-bold text-gray-900">Customer note</h3><p className="mt-1 text-sm text-gray-700">{viewingService.customer_note}</p></div>}
+        </div>
+      )}
     </Modal>
 
     {confirmModalOpen && (

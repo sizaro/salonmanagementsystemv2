@@ -5,12 +5,12 @@ const serviceQuery = `
     st.service_date::text AS service_date, st.service_time::text AS service_time, st.status,
     sd.service_name, sd.description, sd.service_amount AS full_amount, sd.salon_amount,
     sd.section_id AS definition_section_id, sec.section_name,
-    COALESCE((SELECT json_agg(jsonb_build_object('role_name', sr.role_name, 'role_amount', sr.earned_amount, 'employee_id', u.id, 'first_name', u.first_name, 'last_name', u.last_name))
-      FROM service_performers sp LEFT JOIN service_roles sr ON sr.id = sp.service_role_id AND sr.salon_id = $3
-      LEFT JOIN users u ON u.id = sp.employee_id AND u.salon_id = $3
-      WHERE sp.service_transaction_id = st.id AND sp.salon_id = $3), '[]'::json) AS performers,
+    COALESCE((SELECT json_agg(jsonb_build_object('role_id', sr.id, 'role_name', sr.role_name, 'role_amount', sr.earned_amount, 'earned_amount', sr.earned_amount, 'employee_id', u.id, 'first_name', u.first_name, 'last_name', u.last_name))
+      FROM service_performers sp LEFT JOIN service_roles sr ON sr.id = sp.service_role_id
+      LEFT JOIN users u ON u.id = sp.employee_id
+      WHERE sp.service_transaction_id = st.id), '[]'::json) AS performers,
     COALESCE((SELECT json_agg(jsonb_build_object('material_name', sm.material_name, 'material_cost', sm.material_cost))
-      FROM service_materials sm WHERE sm.service_definition_id = sd.id AND sm.salon_id = $3), '[]'::json) AS materials
+      FROM service_materials sm WHERE sm.service_definition_id = sd.id), '[]'::json) AS materials
   FROM service_transactions st
   JOIN service_definitions sd ON sd.id = st.service_definition_id AND sd.salon_id = $3
   JOIN service_sections sec ON sec.id = sd.section_id AND sec.salon_id = $3
