@@ -1,0 +1,7 @@
+import { CalendarDays, Megaphone } from "lucide-react";
+import { upcomingEvents } from "../../content/publicContent.js";
+import SectionHeading from "../public/SectionHeading.jsx";
+
+export default function EventsBoard() {
+  return <section className="salon-section"><div className="salon-container"><SectionHeading eyebrow="Upcoming at Salehish" title="A clear space for news, offers and occasions." description="Use this board to announce guest events, team celebrations, member birthdays, learning sessions and seasonal promotions." /><div className="mt-12 grid gap-6 lg:grid-cols-3">{upcomingEvents.map((event, index) => <article key={event.id} data-aos="fade-up" data-aos-delay={index * 80} className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm"><img src={event.image} alt="" className="aspect-[16/10] w-full object-cover" /><div className="p-6"><div className="flex items-center justify-between gap-3"><span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold uppercase tracking-[.12em] text-amber-900">{event.type}</span><Megaphone size={18} className="text-[var(--salon-copper)]" /></div><p className="mt-5 flex items-center gap-2 text-xs font-semibold text-slate-500"><CalendarDays size={15} /> {event.date}</p><h2 className="mt-3 font-serif text-2xl font-semibold">{event.title}</h2><p className="mt-3 text-sm leading-7 text-slate-600">{event.description}</p></div></article>)}</div></div></section>;
+}

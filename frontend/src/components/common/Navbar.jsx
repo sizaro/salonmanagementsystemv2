@@ -1,271 +1,111 @@
-// src/components/common/Navbar.jsx
-import React, { useState, useRef, useEffect } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
-import Modal from "../../components/Modal.jsx";
-import LoginForm from "../../components/auth/login.jsx";
-import UserForm from "../../components/UserForm.jsx";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown, Menu, Scissors, Sparkles, X } from "lucide-react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import Modal from "../Modal.jsx";
+import LoginForm from "../auth/login.jsx";
+import ForgotPasswordForm from "../auth/ForgotPasswordForm.jsx";
+import UserForm from "../UserForm.jsx";
+import ToastModal from "../ToastModal.jsx";
 import { useData } from "../../context/DataContext.jsx";
-import ForgotPasswordForm from "../../components/auth/ForgotPasswordForm.jsx";
-import ToastModal from "../../components/ToastModal.jsx";
+
+const links = [
+  { to: "/", label: "Home", end: true },
+  { to: "/about", label: "About" },
+  { to: "/services", label: "Services" },
+  { to: "/gallery", label: "Gallery" },
+  { to: "/salon-life", label: "Salon Life" },
+  { to: "/events-news", label: "News" },
+  { to: "/contact", label: "Contact" },
+];
+
+const linkClass = ({ isActive }) => `relative py-2 text-sm font-semibold transition ${isActive ? "text-[var(--salon-copper)]" : "text-slate-700 hover:text-[var(--salon-copper)]"}`;
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [authForm, setAuthForm] = useState("login");
   const [loading, setLoading] = useState(false);
   const [loginError, setLoginError] = useState(null);
-  const [accountOptions, setAccountOptions] = useState(false);
-  const [authForm, setAuthForm] = useState("login");
   const [toast, setToast] = useState({ message: "", type: "success" });
-
-
-
-  const { loginUser, createUser, checkAuth, forgotPassword } = useData();
-  const navigate = useNavigate();
-
   const accountRef = useRef(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { loginUser, createUser, checkAuth, forgotPassword } = useData();
 
+  useEffect(() => { setMenuOpen(false); setAccountOpen(false); }, [location.pathname]);
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (accountRef.current && !accountRef.current.contains(event.target)) {
-        setAccountOptions(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    const close = (event) => { if (accountRef.current && !accountRef.current.contains(event.target)) setAccountOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
   }, []);
-
   useEffect(() => {
-    if (loginOpen || registerOpen) {
-      setAccountOptions(false);
-    }
-  }, [loginOpen, registerOpen]);
+    document.body.style.overflow = menuOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [menuOpen]);
 
-  // -------------------
-  // LOGIN
-  // -------------------
   const handleLogin = async ({ email, password }) => {
-    setLoading(true);
-    setLoginError(null);
+    setLoading(true); setLoginError(null);
     try {
-      const res = await loginUser({ email, password });
+      const response = await loginUser({ email, password });
       await checkAuth();
       setLoginOpen(false);
-
-      if (res.role === "owner") navigate("/owner");
-      else if (res.role === "manager") navigate("/manager");
-      else if (res.role === "employee") navigate("/employee");
-      else if (res.role === "customer") navigate("/customer");
-      else if (res.role === "cashier") navigate("/cashier");
-      else navigate("/");
-    } catch (err) {
-      setLoginError(err?.response?.data?.message || "Sign in failed");
-    } finally {
-      setLoading(false);
-    }
+      const routes = { owner: "/owner", manager: "/manager", employee: "/employee", customer: "/customer", cashier: "/cashier" };
+      navigate(routes[response.role] || "/");
+    } catch (error) {
+      setLoginError(error?.response?.data?.message || "Sign in failed. Check your details and try again.");
+    } finally { setLoading(false); }
   };
 
-  // -------------------
-  // REGISTER
-  // -------------------
-  const handleCustomerRegister = async (formData) => {
-    try {
-      await createUser(formData);
-      setRegisterOpen(false);
-      setLoginOpen(true);
-    } catch (err) {
-      alert("Account creation failed");
-    }
+  const register = async (formData) => {
+    try { await createUser(formData); setRegisterOpen(false); setLoginOpen(true); }
+    catch { setToast({ message: "Account creation failed. Please try again.", type: "error" }); }
   };
 
-  const handleForgotPasswordSubmit = async (email) => {
-  setLoading(true);
-  const res = await forgotPassword(email);
-  setLoading(false);
+  const submitForgotPassword = async (email) => {
+    setLoading(true);
+    const response = await forgotPassword(email);
+    setLoading(false);
+    setToast({ message: response.success ? `Reset link sent to ${email}` : response.message || "Unable to send reset link", type: response.success ? "success" : "error" });
+    if (response.success) setTimeout(() => { setLoginOpen(false); setAuthForm("login"); }, 3500);
+  };
 
-  if (res.success) {
-    setToast({
-      message: `Reset link sent to ${email}`,
-      type: "success",
-    });
-
-    setTimeout(() => {
-      setLoginOpen(false);
-      setAuthForm("login");
-      setToast({ message: "", type: "success" });
-    }, 5000);
-  } else {
-    setToast({
-      message: res.message || "Something went wrong",
-      type: "error",
-    });
-
-    setTimeout(() => {
-      setToast({ message: "", type: "error" });
-    }, 5000);
-  }
-};
-
-
-const handleForgotPassword = () => {
-  setAuthForm("forgot");
-};
-
-const handleBackToLogin = () => {
-  setAuthForm("login");
-};
-
+  const openLogin = () => { setAuthForm("login"); setLoginError(null); setMenuOpen(false); setLoginOpen(true); };
+  const openRegister = () => { setMenuOpen(false); setRegisterOpen(true); };
 
   return (
-    <nav className="bg-white shadow-md sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-        <NavLink to="/" className="md:text-2xl text-l font-bold text-blue-700">
-          Salehish Beauty Parlour & Spa
-        </NavLink>
-
-        {/* Hamburger Mobile */}
-        <button
-          className="sm:hidden text-blue-700 text-2xl"
-          onClick={() => setMenuOpen(!menuOpen)}
-        >
-          ☰
-        </button>
-
-        <div
-          className={`${
-            menuOpen ? "block" : "hidden"
-          } absolute sm:static top-13 left-0 w-full sm:w-auto bg-white sm:flex sm:space-x-6 shadow sm:shadow-none`}
-        >
-          {/* NAV LINKS */}
-          <NavLink
-            to="/"
-            className={({ isActive }) =>
-  `block px-2 py-2 rounded-md font-medium transition border-b-2 ${
-    isActive
-      ? "border-blue-500"
-      : "border-transparent hover:border-blue-500"
-  } text-gray-700 hover:text-blue-600`
-}
-
-          >
-            Home
+    <>
+      <nav className="sticky top-0 z-50 border-b border-stone-200/80 bg-[var(--salon-cream)]/95 backdrop-blur-xl">
+        <div className="salon-container flex h-20 items-center justify-between gap-5">
+          <NavLink to="/" className="group flex min-w-0 items-center gap-3" aria-label="Salehish home">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--salon-ink)] text-amber-300 transition group-hover:rotate-6"><Scissors size={20} /></span>
+            <span className="min-w-0"><span className="block truncate font-serif text-xl font-semibold text-[var(--salon-ink)]">Salehish</span><span className="block truncate text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--salon-copper)]">Beauty Parlour & Spa</span></span>
           </NavLink>
 
-          <NavLink
-            to="/about"
-           className={({ isActive }) =>
-  `block px-2 py-2 rounded-md font-medium transition border-b-2 ${
-    isActive
-      ? "border-blue-500"
-      : "border-transparent hover:border-blue-500"
-  } text-gray-700 hover:text-blue-600`
-}
-
-          >
-            About
-          </NavLink>
-
-          <NavLink
-            to="/services"
-            className={({ isActive }) =>
-  `block px-2 py-2 rounded-md font-medium transition border-b-2 ${
-    isActive
-      ? "border-blue-500"
-      : "border-transparent hover:border-blue-500"
-  } text-gray-700 hover:text-blue-600`
-}
-
-          >
-            Services
-          </NavLink>
-
-          <NavLink
-            to="/contact"
-            className={({ isActive }) =>
-  `block px-2 py-2 rounded-md font-medium transition border-b-2 ${
-    isActive
-      ? "border-blue-500"
-      : "border-transparent hover:border-blue-500"
-  } text-gray-700 hover:text-blue-600`
-}
-
-          >
-            Contact
-          </NavLink>
-
-          {/* ----------------------------- */}
-          {/* ACCOUNT DROPDOWN (with outside close) */}
-          {/* ----------------------------- */}
-          <div className="relative" ref={accountRef}>
-            <button
-              onClick={() => setAccountOptions(!accountOptions)}
-              className="block bg-blue-600 text-white mx-4 my-2 px-4 py-2 rounded hover:bg-blue-700 transition"
-            >
-              Account
-            </button>
-
-            {accountOptions && (
-              <div className="absolute left-0 w-40 bg-white shadow rounded">
-                <button
-                  className="block w-full text-left px-4 py-2 hover:bg-gray-100"
-                  onClick={() => setLoginOpen(true)}
-                >
-                  Login
-                </button>
-                <button
-                  className="block w-full text-left px-4 py-2 hover:bg-gray-100"
-                  onClick={() => setRegisterOpen(true)}
-                >
-                  Create Account
-                </button>
-              </div>
-            )}
+          <div className="hidden items-center gap-5 xl:flex">
+            {links.map((link) => <NavLink key={link.to} {...link} className={linkClass}>{link.label}</NavLink>)}
           </div>
+
+          <div className="hidden items-center gap-3 xl:flex" ref={accountRef}>
+            <NavLink to="/contact" className="salon-button-secondary">How to book</NavLink>
+            <div className="relative"><button type="button" onClick={() => setAccountOpen((value) => !value)} className="salon-button-primary">Portal <ChevronDown size={16} className={`transition ${accountOpen ? "rotate-180" : ""}`} /></button>{accountOpen && <div className="absolute right-0 mt-3 w-52 overflow-hidden rounded-2xl border border-stone-200 bg-white p-2 shadow-2xl"><button onClick={openLogin} className="w-full rounded-xl px-4 py-3 text-left text-sm font-semibold hover:bg-stone-100">Sign in</button><button onClick={openRegister} className="w-full rounded-xl px-4 py-3 text-left text-sm font-semibold hover:bg-stone-100">Create customer account</button></div>}</div>
+          </div>
+
+          <button type="button" onClick={() => setMenuOpen(true)} className="grid h-11 w-11 place-items-center rounded-full border border-stone-300 text-[var(--salon-ink)] xl:hidden" aria-label="Open navigation"><Menu size={21} /></button>
         </div>
-      </div>
+      </nav>
 
-      {/* LOGIN MODAL */}
-      
-      <Modal isOpen={loginOpen} onClose={() => setLoginOpen(false)}>
-  {authForm === "login" ? (
-    <LoginForm
-      onSubmit={handleLogin}
-      onCancel={() => setLoginOpen(false)}
-      loading={loading}
-      error={loginError}
-      onForgotPassword={handleForgotPassword}
-    />
-  ) : (
-    <ForgotPasswordForm
-      onSubmit={handleForgotPasswordSubmit}
-      onCancel={handleBackToLogin}
-      loading={loading}
-      message={null}
-      error={null}
-    />
-  )}
-</Modal>
+      <button type="button" aria-label="Close navigation" onClick={() => setMenuOpen(false)} className={`fixed inset-0 z-[60] bg-slate-950/55 backdrop-blur-sm transition xl:hidden ${menuOpen ? "visible opacity-100" : "invisible opacity-0"}`} />
+      <aside className={`fixed inset-y-0 right-0 z-[70] flex w-[min(88vw,390px)] flex-col overflow-y-auto bg-[var(--salon-cream)] p-6 shadow-2xl transition-transform duration-500 xl:hidden ${menuOpen ? "translate-x-0" : "translate-x-full"}`}>
+        <div className="flex items-center justify-between"><div className="flex items-center gap-3"><Sparkles className="text-[var(--salon-copper)]" /><span className="font-serif text-xl font-semibold">Explore Salehish</span></div><button onClick={() => setMenuOpen(false)} className="grid h-10 w-10 place-items-center rounded-full border" aria-label="Close navigation"><X size={19} /></button></div>
+        <div className="mt-12 flex flex-col gap-2">{links.map((link, index) => <NavLink key={link.to} {...link} className={({ isActive }) => `rounded-2xl px-5 py-4 text-lg font-semibold transition ${isActive ? "bg-[var(--salon-ink)] text-white" : "hover:bg-stone-200/70"}`}><span className="mr-4 text-xs text-[var(--salon-copper)]">0{index + 1}</span>{link.label}</NavLink>)}</div>
+        <div className="mt-auto grid gap-3"><button onClick={openLogin} className="salon-button-primary justify-center">Sign in to portal</button><button onClick={openRegister} className="salon-button-secondary justify-center">Create account</button><p className="text-center text-xs text-slate-500">Professional beauty, grooming and wellness in one welcoming space.</p></div>
+      </aside>
 
-
-      {/* REGISTER MODAL */}
-      <Modal isOpen={registerOpen} onClose={() => setRegisterOpen(false)}>
-        <UserForm
-          role="customer"
-          onSubmit={handleCustomerRegister}
-          onClose={() => setRegisterOpen(false)}
-        />
-      </Modal>
-
-      {toast.message && (
-  <ToastModal
-    message={toast.message}
-    type={toast.type}
-    duration={5000}
-    onClose={() => setToast({ message: "", type: toast.type })}
-  />
-)}
-
-    </nav>
+      <Modal isOpen={loginOpen} onClose={() => setLoginOpen(false)}>{authForm === "login" ? <LoginForm onSubmit={handleLogin} onCancel={() => setLoginOpen(false)} loading={loading} error={loginError} onForgotPassword={() => setAuthForm("forgot")} /> : <ForgotPasswordForm onSubmit={submitForgotPassword} onCancel={() => setAuthForm("login")} loading={loading} message={null} error={null} />}</Modal>
+      <Modal isOpen={registerOpen} onClose={() => setRegisterOpen(false)}><UserForm role="customer" onSubmit={register} onClose={() => setRegisterOpen(false)} /></Modal>
+      {toast.message && <ToastModal message={toast.message} type={toast.type} duration={5000} onClose={() => setToast({ message: "", type: toast.type })} />}
+    </>
   );
 }

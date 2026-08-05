@@ -22,7 +22,7 @@ export default function ManagerDashboard() {
   const [activeTab, setActiveTab] = useState("pending");
 
   const {
-    services,
+    transactions,
     sendFormData,
     activeClockings,
     fetchActiveClockings,
@@ -66,13 +66,13 @@ export default function ManagerDashboard() {
 
   
     const servicesWithMaterials = useMemo(() => {
-      return (services.data || services || []).map((service) => {
+      return (transactions || []).map((service) => {
         const matchedMaterials = (serviceMaterials || []).filter(
           (m) => m.service_definition_id === service.service_definition_id
         );
         return { ...service, materials: matchedMaterials.length > 0 ? matchedMaterials : null };
       });
-    }, [services, serviceMaterials]);
+    }, [transactions, serviceMaterials]);
   
     console.log("services with materials", servicesWithMaterials)
   const Employees = (users || []).filter(

@@ -1,0 +1,6 @@
+import { ArrowUpRight, CalendarCheck } from "lucide-react";
+import { Link } from "react-router-dom";
+
+export default function AppointmentCta() {
+  return <section className="salon-section"><div data-aos="zoom-in" className="salon-container"><div className="relative overflow-hidden rounded-[2.5rem] bg-[var(--salon-copper)] px-6 py-14 text-slate-950 sm:px-12 lg:px-16"><div className="absolute -right-24 -top-24 h-72 w-72 rounded-full border-[50px] border-white/10" /><p className="salon-eyebrow text-slate-900/60"><CalendarCheck size={15} /> Your next appointment</p><div className="relative mt-4 flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between"><div><h2 className="max-w-3xl font-serif text-4xl font-semibold leading-tight sm:text-5xl">Ready for a look—and a feeling—you can carry confidently?</h2><p className="mt-4 max-w-2xl text-sm font-medium leading-7 text-slate-900/70">Create your customer account, sign in to the portal and submit your appointment request.</p></div><Link to="/contact" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[var(--salon-ink)] px-6 py-3.5 text-sm font-bold text-white transition hover:-translate-y-1">How to book <ArrowUpRight size={17} /></Link></div></div></div></section>;
+}

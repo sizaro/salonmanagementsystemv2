@@ -1,7 +1,6 @@
-import { createContext, useContext, useState, useEffect, useMemo } from "react";
+import { createContext, useContext, useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { io } from "socket.io-client";
 import { DateTime } from "luxon";
 
 axios.defaults.withCredentials = true;
@@ -20,12 +19,14 @@ export const DataProvider = ({ children }) => {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [isDataLoaded] = useState(false);
   const [sections, setSections] = useState([]);
   const [serviceDefinitions, setServiceDefinitions] = useState([]);
   const [serviceRoles, setServiceRoles] = useState([]);
   const [serviceMaterials, setServiceMaterials] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const activeReportRef = useRef(null);
+  const reportRequestIdRef = useRef(0);
 
   const pendingAppointments = useMemo(() => {
     return (transactions || []).filter((s) => s.status === "pending");
@@ -43,29 +44,6 @@ export const DataProvider = ({ children }) => {
   //   transports: ["websocket"],
   //   secure: true
   // });
-
-  // ---------- Fetch All ----------
-  const fetchAllData = async () => {
-    try {
-      const [clockingsRes, activeClockingsRes, servicesRes] = await Promise.all(
-        [
-          axios.get(`${API_URL}/clockings`, {
-            withCredentials: true,
-          }),
-          axios.get(`${API_URL}/clockings/active`, { withCredentials: true }),
-          axios.get(`${API_URL}/services/service_transactions`, {
-            withCredentials: true,
-          }),
-        ],
-      );
-      setClockings(clockingsRes.data);
-      setActiveClockings(activeClockingsRes.data);
-      setServices(servicesRes.data);
-      console.log("all services in the data context:", servicesRes.data);
-    } catch (err) {
-      console.error("Error fetching static data:", err);
-    }
-  };
 
   const fetchActiveClockings = async () => {
     const res = await axios.get(`${API_URL}/clockings/active`, {
@@ -90,6 +68,17 @@ export const DataProvider = ({ children }) => {
   // ---------- Reports ----------
 
   const TIMEZONE = "Africa/Kampala";
+
+  const applyReportData = (data) => {
+    setServices(data.services ?? []);
+    setExpenses(data.expenses ?? []);
+    setAdvances(data.advances ?? []);
+    setClockings(data.clockings ?? []);
+    setUsers(data.users ?? data.employees ?? []);
+    setTagFees(data.tagFees ?? []);
+    setLateFees(data.lateFees ?? []);
+    setSessions(data.sessions ?? []);
+  };
 
   // =====================================
   // FORMAT DATE SAFELY WITH LUXON
@@ -130,6 +119,8 @@ export const DataProvider = ({ children }) => {
   const fetchDailyData = async (date) => {
     try {
       const formattedDate = formatReportDate(date);
+      const requestId = ++reportRequestIdRef.current;
+      activeReportRef.current = { type: "daily", args: [formattedDate] };
 
       console.log("Fetching daily report for:", formattedDate);
 
@@ -142,15 +133,7 @@ export const DataProvider = ({ children }) => {
 
       const data = res.data;
 
-      setServices(data.services ?? []);
-      setExpenses(data.expenses ?? []);
-      setAdvances(data.advances ?? []);
-      setClockings(data.clockings ?? []);
-      setUsers(data.users ?? data.employees ?? []);
-      setTagFees(data.tagFees ?? []);
-      setLateFees(data.lateFees ?? []);
-
-      setSessions(data.sessions ?? []);
+      if (requestId === reportRequestIdRef.current) applyReportData(data);
 
       console.log("Daily salon sessions:", data.sessions);
 
@@ -176,6 +159,8 @@ export const DataProvider = ({ children }) => {
 
       const startDate = formatReportDate(start);
       const endDate = formatReportDate(end);
+      const requestId = ++reportRequestIdRef.current;
+      activeReportRef.current = { type: "weekly", args: [startDate, endDate] };
 
       console.log("Fetching weekly report:", {
         startDate,
@@ -192,15 +177,7 @@ export const DataProvider = ({ children }) => {
 
       const data = res.data;
 
-      setServices(data.services ?? []);
-      setExpenses(data.expenses ?? []);
-      setAdvances(data.advances ?? []);
-      setClockings(data.clockings ?? []);
-      setUsers(data.users ?? data.employees ?? []);
-      setTagFees(data.tagFees ?? []);
-      setLateFees(data.lateFees ?? []);
-
-      setSessions(data.sessions ?? []);
+      if (requestId === reportRequestIdRef.current) applyReportData(data);
 
       console.log("Weekly salon sessions:", data.sessions);
 
@@ -235,6 +212,8 @@ export const DataProvider = ({ children }) => {
       ) {
         throw new Error("A valid month from 1 to 12 is required");
       }
+      const requestId = ++reportRequestIdRef.current;
+      activeReportRef.current = { type: "monthly", args: [selectedYear, selectedMonth] };
 
       console.log("Fetching monthly report:", {
         year: selectedYear,
@@ -251,15 +230,7 @@ export const DataProvider = ({ children }) => {
 
       const data = res.data;
 
-      setServices(data.services ?? []);
-      setExpenses(data.expenses ?? []);
-      setAdvances(data.advances ?? []);
-      setClockings(data.clockings ?? []);
-      setUsers(data.users ?? data.employees ?? []);
-      setTagFees(data.tagFees ?? []);
-      setLateFees(data.lateFees ?? []);
-
-      setSessions(data.sessions ?? []);
+      if (requestId === reportRequestIdRef.current) applyReportData(data);
 
       console.log("Monthly salon sessions:", data.sessions);
 
@@ -284,6 +255,8 @@ export const DataProvider = ({ children }) => {
       if (!selectedYear || Number.isNaN(selectedYear)) {
         throw new Error("A valid year is required");
       }
+      const requestId = ++reportRequestIdRef.current;
+      activeReportRef.current = { type: "yearly", args: [selectedYear] };
 
       console.log("Fetching yearly report for:", selectedYear);
 
@@ -296,15 +269,7 @@ export const DataProvider = ({ children }) => {
 
       const data = res.data;
 
-      setServices(data.services ?? []);
-      setExpenses(data.expenses ?? []);
-      setAdvances(data.advances ?? []);
-      setClockings(data.clockings ?? []);
-      setUsers(data.users ?? data.employees ?? []);
-      setTagFees(data.tagFees ?? []);
-      setLateFees(data.lateFees ?? []);
-
-      setSessions(data.sessions ?? []);
+      if (requestId === reportRequestIdRef.current) applyReportData(data);
 
       console.log("Yearly salon sessions:", data.sessions);
 
@@ -317,6 +282,16 @@ export const DataProvider = ({ children }) => {
 
       throw err;
     }
+  };
+
+  const refreshActiveReport = async () => {
+    const active = activeReportRef.current;
+    if (!active) return null;
+    if (active.type === "daily") return fetchDailyData(...active.args);
+    if (active.type === "weekly") return fetchWeeklyData(...active.args);
+    if (active.type === "monthly") return fetchMonthlyData(...active.args);
+    if (active.type === "yearly") return fetchYearlyData(...active.args);
+    return null;
   };
 
   // ---------- Services CRUD ----------
@@ -333,7 +308,7 @@ export const DataProvider = ({ children }) => {
   const updateService = async (id, formData) => {
     try {
       const res = await axios.put(`${API_URL}/services/${id}`, formData);
-      await fetchAllData();
+      await refreshActiveReport();
       return res.data;
     } catch (err) {
       console.error("Error updating service:", err);
@@ -344,7 +319,7 @@ export const DataProvider = ({ children }) => {
   const updateServicet = async (id, formData) => {
     try {
       const res = await axios.put(`${API_URL}/servicet/${id}`, formData);
-      await fetchAllData();
+      await refreshActiveReport();
       return res.data;
     } catch (err) {
       console.error("Error updating service:", err);
@@ -355,7 +330,7 @@ export const DataProvider = ({ children }) => {
   const deleteService = async (id) => {
     try {
       await axios.delete(`${API_URL}/services/${id}`);
-      await fetchAllData();
+      await refreshActiveReport();
     } catch (err) {
       console.error("Error deleting service:", err);
       throw err;
@@ -822,7 +797,7 @@ export const DataProvider = ({ children }) => {
         { withCredentials: true },
       );
 
-      await fetchServiceTransactions();
+      await Promise.all([fetchServiceTransactionsApp(), refreshActiveReport()]);
 
       return res.data;
     } catch (err) {
@@ -844,7 +819,7 @@ export const DataProvider = ({ children }) => {
         `${API_URL}/services/service_transactions/${id}`,
         payload,
       );
-      await fetchServiceTransactions(); // refresh list
+      await Promise.all([fetchServiceTransactionsApp(), refreshActiveReport()]);
       return res.data;
     } catch (err) {
       console.error("Error updating service transaction:", err);
@@ -859,7 +834,7 @@ export const DataProvider = ({ children }) => {
         `${API_URL}/services/service_transactions_appointment/${id}`,
         payload,
       );
-      await fetchServiceTransactions(); // refresh list
+      await Promise.all([fetchServiceTransactionsApp(), refreshActiveReport()]);
       return res.data;
     } catch (err) {
       console.error("Error updating service transaction:", err);
@@ -871,8 +846,7 @@ export const DataProvider = ({ children }) => {
   const fetchServiceTransactions = async () => {
     try {
       const res = await axios.get(`${API_URL}/services/service_transactions`);
-      setServices(res.data.data);
-      console.log("service transactions in the data context", res.data.data);
+      setTransactions(res.data.data ?? []);
       return res.data;
     } catch (err) {
       console.error("Error fetching service transactions:", err);
@@ -910,7 +884,7 @@ export const DataProvider = ({ children }) => {
       await axios.delete(`${API_URL}/services/service_transactions/${id}`, {
         withCredentials: true,
       });
-      await fetchServiceDefinitions(); // refresh after deletion
+      await Promise.all([fetchServiceTransactionsApp(), refreshActiveReport()]);
     } catch (err) {
       console.error("Error deleting service transaction:", err);
       throw err;
@@ -946,7 +920,7 @@ export const DataProvider = ({ children }) => {
       });
       console.log("🔹 auth check response:", res.data);
       setUser(res.data.user);
-    } catch (err) {
+    } catch {
       setUser(null);
     } finally {
       setLoading(false);
@@ -1041,23 +1015,23 @@ export const DataProvider = ({ children }) => {
       switch (formIdentifier) {
         case "createService":
           res = await axios.post(`${API_URL}/services`, formData);
-          await fetchAllData();
+          await refreshActiveReport();
           break;
         case "createAdvance":
           res = await axios.post(`${API_URL}/advances`, formData);
-          await fetchAllData();
+          await refreshActiveReport();
           break;
         case "createExpense":
           res = await axios.post(`${API_URL}/expenses`, formData);
-          await fetchAllData();
+          await refreshActiveReport();
           break;
         case "createClocking":
           res = await axios.post(`${API_URL}/clockings`, formData);
-          await fetchAllData();
+          await Promise.all([fetchActiveClockings(), refreshActiveReport()]);
           break;
         case "updateClocking":
           res = await axios.put(`${API_URL}/clockings`, formData);
-          await fetchAllData();
+          await Promise.all([fetchActiveClockings(), refreshActiveReport()]);
           break;
         default:
           throw new Error("Unknown form identifier: " + formIdentifier);
@@ -1073,6 +1047,8 @@ export const DataProvider = ({ children }) => {
   // ---------- useEffect ----------
   useEffect(() => {
     checkAuth();
+    // Authentication is checked once when the provider mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -1088,9 +1064,7 @@ export const DataProvider = ({ children }) => {
           fetchServiceTransactionsApp(),
         ]);
 
-        if (["owner", "manager"].includes(user.role)) {
-          await Promise.all([fetchSessions(), fetchAllData()]);
-        }
+        if (["owner", "manager"].includes(user.role)) await fetchSessions();
       } catch (err) {
         console.error("Error loading authorised dashboard data:", err);
       }
@@ -1101,6 +1075,8 @@ export const DataProvider = ({ children }) => {
 
     const interval = setInterval(fetchSessions, 60 * 1000);
     return () => clearInterval(interval);
+    // The role bootstrap deliberately reruns only when the authenticated user changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   //   useEffect(() => {
@@ -1137,6 +1113,7 @@ export const DataProvider = ({ children }) => {
         serviceMaterials,
         pendingAppointments,
         pendingCount,
+        transactions,
         fetchServiceRoles,
         fetchServiceMaterials,
         fetchSections,
@@ -1156,8 +1133,8 @@ export const DataProvider = ({ children }) => {
         updateServiceTransactionById,
         updateServiceTransactionAppointment,
         deleteServiceTransaction,
-        fetchAllData,
         fetchActiveClockings,
+        refreshActiveReport,
         sendFormData,
         fetchDailyData,
         fetchWeeklyData,
@@ -1206,6 +1183,8 @@ export const DataProvider = ({ children }) => {
   );
 };
 
+// This provider and its consumer hook intentionally share one module.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useData = () => useContext(DataContext);
 
 // import { createContext, useContext, useState, useEffect, useMemo } from "react";

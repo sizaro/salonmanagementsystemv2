@@ -31,7 +31,7 @@ export default function OwnerDashboard() {
   const [activeTab, setActiveTab] = useState("pending");
 
   const {
-    services,
+    transactions,
     sendFormData,
     sessions,
     users,
@@ -86,7 +86,7 @@ export default function OwnerDashboard() {
   );
 
   const servicesWithMaterials = useMemo(() => {
-    return (services.data || services || []).map((service) => {
+    return (transactions || []).map((service) => {
       const matchedMaterials = (serviceMaterials || []).filter(
         (m) => m.service_definition_id === service.service_definition_id,
       );
@@ -95,7 +95,7 @@ export default function OwnerDashboard() {
         materials: matchedMaterials.length > 0 ? matchedMaterials : null,
       };
     });
-  }, [services, serviceMaterials]);
+  }, [transactions, serviceMaterials]);
 
   console.log("services with materials", servicesWithMaterials);
   const Employees = (users || []).filter((user) => ["employee", "manager", "cashier"].includes(user.role) && user.status !== "inactive");

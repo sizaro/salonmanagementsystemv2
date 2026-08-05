@@ -1,0 +1,7 @@
+import { motion } from "framer-motion";
+import SectionHeading from "../public/SectionHeading.jsx";
+import { serviceCategories } from "./homeData.js";
+
+export default function ServiceCategories() {
+  return <section className="salon-section"><div className="salon-container"><SectionHeading eyebrow="Made for real life" title="One destination. Many ways to feel renewed." description="From everyday maintenance to an occasion-ready transformation, choose the care that fits your day." align="center" /><div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{serviceCategories.map(({ title, description, image, icon: Icon }, index) => <motion.article key={title} initial={{ opacity: 0, scale: .96 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true, amount: .2 }} transition={{ duration: .5, delay: index * .07 }} whileHover="hover" className="group relative min-h-80 overflow-hidden rounded-[2rem]"><motion.img variants={{ hover: { scale: 1.07 } }} transition={{ duration: .65 }} src={image} alt={title} className="absolute inset-0 h-full w-full object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/45 to-transparent" /><div className="absolute inset-x-0 bottom-0 p-6 text-white"><Icon className="text-amber-300" /><h3 className="mt-4 font-serif text-2xl font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-white/70">{description}</p></div></motion.article>)}</div></div></section>;
+}

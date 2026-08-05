@@ -42,6 +42,10 @@
 }
 
 :root {
+  --salon-cream: #f7f3ed;
+  --salon-ink: #171614;
+  --salon-copper: #b8763f;
+  --salon-gold: #f2c66d;
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -116,6 +120,162 @@
   }
   body {
     @apply bg-background text-foreground;
+    margin: 0;
+    min-width: 320px;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+.font-serif {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+::selection {
+  background: var(--salon-gold);
+  color: var(--salon-ink);
+}
+
+@layer components {
+  .salon-container {
+    width: min(100% - 2rem, 80rem);
+    margin-inline: auto;
+  }
+
+  .salon-section {
+    padding-block: clamp(4.5rem, 9vw, 8rem);
+  }
+
+  .salon-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  .salon-button-primary,
+  .salon-button-secondary,
+  .salon-button-gold,
+  .salon-button-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    padding: 0.78rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 750;
+    transition: transform 220ms ease, background-color 220ms ease, color 220ms ease, border-color 220ms ease;
+  }
+
+  .salon-button-primary {
+    background: var(--salon-ink);
+    color: white;
+  }
+
+  .salon-button-secondary {
+    border: 1px solid #d6d3d1;
+    color: var(--salon-ink);
+  }
+
+  .salon-button-gold {
+    background: var(--salon-gold);
+    color: var(--salon-ink);
+  }
+
+  .salon-button-ghost {
+    border: 1px solid rgb(255 255 255 / 0.32);
+    color: white;
+  }
+
+  .salon-button-primary:hover,
+  .salon-button-secondary:hover,
+  .salon-button-gold:hover,
+  .salon-button-ghost:hover {
+    transform: translateY(-2px);
+  }
+
+  .salon-button-secondary:hover {
+    border-color: var(--salon-copper);
+    color: var(--salon-copper);
+  }
+
+  .salon-button-gold:hover {
+    background: #f7d58e;
+  }
+
+  .salon-button-ghost:hover {
+    background: white;
+    color: var(--salon-ink);
+  }
+
+  .footer-social {
+    display: grid;
+    height: 2.75rem;
+    width: 2.75rem;
+    place-items: center;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.08);
+    color: white;
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+
+  .footer-social:hover {
+    background: var(--salon-gold);
+    color: var(--salon-ink);
+  }
+
+  .footer-title {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: white;
+  }
+
+  .contact-label {
+    display: block;
+    margin-bottom: 0.55rem;
+    font-size: 0.78rem;
+    font-weight: 750;
+    color: #334155;
+  }
+
+  .contact-input {
+    width: 100%;
+    border: 1px solid #d6d3d1;
+    border-radius: 1rem;
+    background: white;
+    padding: 0.85rem 1rem;
+    color: var(--salon-ink);
+    outline: none;
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+  }
+
+  .contact-input:focus {
+    border-color: var(--salon-copper);
+    box-shadow: 0 0 0 3px rgb(184 118 63 / 0.12);
+  }
+}
+
+@media (min-width: 640px) {
+  .salon-container {
+    width: min(100% - 3rem, 80rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

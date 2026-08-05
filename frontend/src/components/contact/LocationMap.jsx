@@ -1,0 +1,7 @@
+import { MapPin, Navigation } from "lucide-react";
+import { business } from "../../content/publicContent.js";
+import SectionHeading from "../public/SectionHeading.jsx";
+
+export default function LocationMap() {
+  return <section className="salon-section bg-white"><div className="salon-container grid gap-10 lg:grid-cols-[.75fr_1.25fr] lg:items-center"><div data-aos="fade-right"><SectionHeading eyebrow="Find Salehish" title="Just off the Jinja-Tororo Highway." description="Turn at Bugembe Stage onto Cathedral Road. Open Google directions for a route from your current location." /><div className="mt-7 rounded-3xl bg-[var(--salon-cream)] p-6"><MapPin className="text-[var(--salon-copper)]" /><p className="mt-4 font-serif text-xl font-semibold">{business.address}</p><p className="mt-2 text-sm leading-7 text-slate-600">Cathedral Road, immediately after turning from the highway at Bugembe Stage.</p></div><a href={business.directionsUrl} target="_blank" rel="noreferrer" className="salon-button-primary mt-6"><Navigation size={17} /> Follow Google directions</a></div><div data-aos="fade-left" className="overflow-hidden rounded-[2rem] border border-stone-200 bg-stone-100 shadow-sm"><iframe title="Map showing Salehish Beauty Parlour and Spa near Cathedral Road in Bugembe" src={business.mapEmbedUrl} className="h-[460px] w-full" loading="lazy" referrerPolicy="no-referrer-when-downgrade" /></div></div></section>;
+}

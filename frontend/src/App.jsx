@@ -1,10 +1,13 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./components/common/ProtectedRoute.jsx";
-
-import Home from "./pages/landing/Home.jsx";
-import About from "./pages/landing/About.jsx";
-import Services from "./pages/landing/Services.jsx";
-import Contact from "./pages/landing/Contact.jsx";
+import PublicLayout from "./layouts/PublicLayout.jsx";
+import Home from "./pages/home/index.jsx";
+import About from "./pages/about/index.jsx";
+import Services from "./pages/services/index.jsx";
+import Contact from "./pages/contact/index.jsx";
+import Gallery from "./pages/gallery/index.jsx";
+import SalonLife from "./pages/salon-life/index.jsx";
+import EventsNews from "./pages/events-news/index.jsx";
 
 import ResetPassword from "./pages/landing/ResetPassword.jsx";
 
@@ -20,10 +23,15 @@ function App() {
   return (
       <Routes>
         {/* Public Landing Routes */}
-        <Route path="/" element={<Home />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/services" element={<Services />} />
-        <Route path="/contact" element={<Contact />} />
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/gallery" element={<Gallery />} />
+          <Route path="/salon-life" element={<SalonLife />} />
+          <Route path="/events-news" element={<EventsNews />} />
+        </Route>
         {/* Reset Password (public) */}
       <Route path="/reset-password/:token" element={<ResetPassword />} />
         

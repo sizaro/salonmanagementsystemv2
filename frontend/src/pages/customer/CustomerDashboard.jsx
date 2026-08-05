@@ -18,7 +18,7 @@ export default function customerDashboard() {
   const { 
     user, 
     users, 
-    services, 
+    transactions, 
     serviceMaterials = [],
     sections,
     serviceDefinitions,
@@ -50,13 +50,13 @@ export default function customerDashboard() {
 
   // Services enriched with their materials
   const servicesWithMaterials = useMemo(() => {
-    return (services || []).map((service) => {
+    return (transactions || []).map((service) => {
       const matchedMaterials = (serviceMaterials || []).filter(
         (m) => m.service_definition_id === service.service_definition_id
       );
       return { ...service, materials: matchedMaterials.length > 0 ? matchedMaterials : [] };
     });
-  }, [services, serviceMaterials]);
+  }, [transactions, serviceMaterials]);
 
   console.log("services with materials in the customer dashboard", servicesWithMaterials)
 
