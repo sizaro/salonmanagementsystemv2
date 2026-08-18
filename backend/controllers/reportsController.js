@@ -61,6 +61,39 @@ export async function getCashierPayroll(req, res) {
   }
 }
 
+export async function getCashierIncomeReview(req, res) {
+  try {
+    const period = resolveReportPeriod(req.query);
+    const report = await getReportData({ salonId: Number(req.user.salon_id), ...period, timezone: BUSINESS_TIMEZONE });
+    const services = report.services
+      .filter((service) => service.status === "completed")
+      .map((service) => ({
+        id: service.transaction_id,
+        serviceName: service.service_name,
+        sectionName: service.section_name,
+        serviceDate: service.service_date,
+        serviceTime: service.service_time,
+        amount: Number(service.service_amount || 0),
+        customerName: service.customer_name || "Walk-in customer",
+        performers: (service.performers || []).map((performer) => ({
+          name: `${performer.first_name || ""} ${performer.last_name || ""}`.trim(),
+          role: performer.role_name,
+        })),
+      }));
+
+    res.json({
+      period: { ...period, timezone: BUSINESS_TIMEZONE },
+      summary: {
+        totalServices: services.length,
+        totalCollected: services.reduce((total, service) => total + service.amount, 0),
+      },
+      services,
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message || "Unable to load the cashier income review" });
+  }
+}
+
 export async function getMyPayroll(req, res) {
   try {
     const period = resolveReportPeriod(req.query);

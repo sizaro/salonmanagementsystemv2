@@ -13,10 +13,10 @@ const CustomerSidebar = () => {
   ];
 
   const linkClass = (path) =>
-    `block p-2 rounded-lg transition-colors ${
+    `dashboard-nav-link ${
       location.pathname === path
-        ? "bg-blue-600 text-white"
-        : "text-gray-700 hover:bg-gray-200"
+        ? "dashboard-nav-active"
+        : ""
     }`;
 
   useEffect(() => {
@@ -36,7 +36,7 @@ const CustomerSidebar = () => {
   return (
     <>
       {/* Top Mobile Header */}
-      <div className="md:hidden bg-blue-600 p-4 flex justify-between items-center text-white fixed top-0 left-0 right-0 z-50">
+      <div className="dashboard-sidebar md:hidden p-4 flex justify-between items-center fixed top-0 left-0 right-0 z-50">
         <span className="font-bold text-lg">Customer Panel</span>
         <button
           onClick={() => setMenuOpen(true)}
@@ -47,9 +47,9 @@ const CustomerSidebar = () => {
       </div>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 h-screen bg-white shadow-md fixed top-0 left-0 flex-col">
-        <div className="p-4 border-b">
-          <h2 className="text-xl font-semibold text-gray-700">
+      <aside className="dashboard-sidebar hidden md:flex w-64 h-screen shadow-xl fixed top-0 left-0 flex-col">
+        <div className="p-6 border-b border-white/10">
+          <h2 className="text-xl font-semibold text-white">
             Customer Panel
           </h2>
         </div>
@@ -70,12 +70,12 @@ const CustomerSidebar = () => {
       {/* Mobile Slide-Out Menu */}
       <div
         ref={menuRef}
-        className={`fixed top-0 left-0 h-screen w-full bg-white z-50 transform transition-transform duration-300 pt-16 px-4 md:hidden ${
+        className={`dashboard-sidebar fixed top-0 left-0 h-screen w-[min(88vw,22rem)] z-50 transform transition-transform duration-300 pt-16 px-4 md:hidden shadow-2xl ${
           menuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="p-4 border-b">
-          <h2 className="text-xl font-semibold text-gray-700">
+        <div className="p-4 border-b border-white/10">
+          <h2 className="text-xl font-semibold text-white">
             Customer Panel
           </h2>
           <button

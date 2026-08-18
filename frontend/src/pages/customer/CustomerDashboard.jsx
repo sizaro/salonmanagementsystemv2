@@ -5,7 +5,10 @@ import Button from "../../components/Button.jsx";
 import ConfirmModal from "../../components/ConfirmModal.jsx";
 import { useData } from "../../context/DataContext.jsx";
 
-const TIME_SLOTS = Array.from({ length: 16 }, (_, i) => `${8 + i}:00`);
+const TIME_SLOTS = Array.from({ length: 32 }, (_, index) => {
+  const totalMinutes = 8 * 60 + index * 30;
+  return `${String(Math.floor(totalMinutes / 60)).padStart(2, "0")}:${String(totalMinutes % 60).padStart(2, "0")}`;
+});
 
 export default function CustomerDashboard() {
   const [modalOpen, setModalOpen] = useState(false);
@@ -50,8 +53,6 @@ export default function CustomerDashboard() {
       return { ...service, materials: matchedMaterials.length > 0 ? matchedMaterials : [] };
     });
   }, [transactions, serviceMaterials]);
-
-  console.log("services with materials in the customer dashboard", servicesWithMaterials)
 
   // Modal controls
   const openModal = () => setModalOpen(true);
@@ -102,9 +103,10 @@ export default function CustomerDashboard() {
       if (!involvedIds.includes(selectedEmployee.id)) return;
       if (!map[date]) return;
 
-      const hour = time.split(":")[0] + ":00";
-      if (TIME_SLOTS.includes(hour)) {
-        map[date][hour] = s;
+      const [hour, minute] = time.split(":");
+      const slot = `${hour.padStart(2, "0")}:${Number(minute) < 30 ? "00" : "30"}`;
+      if (TIME_SLOTS.includes(slot)) {
+        map[date][slot] = s;
       }
     });
 
@@ -152,22 +154,26 @@ export default function CustomerDashboard() {
   // Wait until user and users are loaded
   if (!user || !user.id || users.length === 0) {
     return (
-      <div className="flex justify-center items-center h-screen text-gray-600">
-        Loading your dashboard...
+      <div className="dashboard-page grid min-h-[60vh] place-items-center">
+        <div className="dashboard-card text-center"><div className="mx-auto mb-3 h-9 w-9 animate-spin rounded-full border-4 border-stone-200 border-t-[var(--salon-copper)]" /><p>Preparing your dashboard…</p></div>
       </div>
     );
   }
 
   return (
-    <div className="p-8 space-y-10">
-      <h1 className="text-2xl font-bold">Welcome to Your Dashboard {user.last_name}</h1>
+    <div className="dashboard-page space-y-8">
+      <header className="dashboard-hero">
+        <p className="salon-eyebrow text-[var(--salon-copper)]">Customer portal</p>
+        <h1 className="relative z-10 mt-2 font-serif text-3xl font-semibold sm:text-4xl">Welcome, {user.first_name} {user.last_name}</h1>
+        <p className="relative z-10 mt-2 max-w-2xl text-stone-600">Book your next visit, check your barber’s availability, and follow every appointment from one place.</p>
+      </header>
 
       {/* Special Offers */}
-      <section className="space-y-4">
+      <section className="dashboard-panel space-y-4">
         <h2 className="text-xl font-semibold">Special Offers</h2>
         <div className="grid md:grid-cols-2 gap-4">
           {adverts.map((ad) => (
-            <div key={ad.id} className="border p-4 rounded-xl shadow-sm bg-gray-50">
+            <div key={ad.id} className="dashboard-card bg-gradient-to-br from-white to-amber-50">
               <h3 className="text-lg font-semibold">{ad.title}</h3>
               <p className="text-gray-600">{ad.desc}</p>
             </div>
@@ -176,21 +182,21 @@ export default function CustomerDashboard() {
       </section>
 
       {/* Employee Availability */}
-      <section className="space-y-4">
+      <section className="dashboard-panel space-y-4">
         <h2 className="text-xl font-semibold">Check Employee Availability</h2>
         <div className="flex overflow-x-auto space-x-4 pb-3">
           {employees.map((emp) => (
             <div
               key={emp.id}
               onClick={() => setSelectedEmployee(emp)}
-              className={`cursor-pointer border rounded-xl p-3 min-w-[150px] text-center shadow-sm ${
+              className={`dashboard-card min-w-[160px] cursor-pointer text-center ${
                 selectedEmployee?.id === emp.id
-                  ? "bg-blue-100 border-blue-400"
-                  : "bg-white hover:bg-gray-50"
+                  ? "border-[var(--salon-copper)] bg-amber-50 ring-2 ring-[var(--salon-gold)]"
+                  : ""
               }`}
             >
               <img
-                src={`${staticBaseUrl}${emp.image_url}` || "/default-avatar.png"}
+                src={emp.image_url ? `${staticBaseUrl}${emp.image_url}` : "/default-avatar.png"}
                 alt={emp.first_name}
                 className="w-16 h-16 rounded-full mx-auto object-cover"
               />
@@ -205,11 +211,11 @@ export default function CustomerDashboard() {
         </div>
 
         {selectedEmployee && (
-          <div className="overflow-auto max-h-[400px] max-w-full border">
+          <div className="dashboard-table-wrap max-h-[30rem]">
             <h3 className="text-lg font-semibold mt-4">
               {selectedEmployee.first_name}'s Weekly Schedule
             </h3>
-            <table className="min-w-full border text-sm text-left">
+            <table className="dashboard-table text-sm">
               <thead className="bg-gray-100 sticky top-0">
                 <tr>
                   <th className="px-2 py-1 border">Time</th>
@@ -237,10 +243,11 @@ export default function CustomerDashboard() {
       </section>
 
       {/* Appointment Button */}
-      <div className="text-center">
+      <div className="dashboard-panel flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+        <div><h2 className="font-serif text-2xl font-semibold">Ready for your next look?</h2><p className="text-sm text-stone-600">Choose a service, date, time, and professional.</p></div>
         <Button
           onClick={openModal}
-          className="bg-blue-500 hover:bg-blue-400 text-white px-6 py-2 rounded-xl"
+          className="salon-button-primary"
         >
           Book an Appointment
         </Button>

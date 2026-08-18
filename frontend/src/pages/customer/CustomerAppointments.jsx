@@ -85,26 +85,22 @@ export default function CustomerAppointments() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">
+    <div className="dashboard-page space-y-6">
+      <header className="dashboard-hero"><p className="salon-eyebrow text-[var(--salon-copper)]">Your visits</p><h1 className="relative z-10 mt-2 font-serif text-3xl font-semibold sm:text-4xl">
         {user ? `${user.first_name}'s Appointments` : "Your Appointments"}
-      </h1>
+      </h1><p className="relative z-10 mt-2 text-stone-600">Review upcoming visits and keep a clear record of completed or cancelled bookings.</p></header>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-4 flex-wrap">
+      <div className="dashboard-tabs">
         {["pending", "confirmed", "completed", "cancelled"].map((status) => {
           const count = myAppointments.filter((appointment) => appointment.status === status).length;
           return (
           <button
             key={status}
-            className={`px-4 py-2 rounded ${
-              activeTab === status
-                ? "bg-blue-500 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
+            className={`dashboard-tab ${activeTab === status ? "dashboard-tab-active" : ""}`}
             onClick={() => setActiveTab(status)}
           >
-            {status.charAt(0).toUpperCase() + status.slice(1)} ({count})
+            {status.charAt(0).toUpperCase() + status.slice(1)} <span className="dashboard-count">{count}</span>
           </button>
           );
         })}
@@ -113,13 +109,13 @@ export default function CustomerAppointments() {
       {actionError && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{actionError}</p>}
 
       {filteredByStatus.length === 0 ? (
-        <p className="text-gray-600">
+        <div className="dashboard-panel text-center text-gray-600">
           You have no {activeTab} appointments at the moment.
-        </p>
+        </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white border border-gray-200 shadow-sm rounded-lg">
-            <thead className="bg-gray-100">
+        <div className="dashboard-table-wrap">
+          <table className="dashboard-table">
+            <thead>
               <tr>
                 <th className="py-3 px-4 text-left font-medium text-gray-700 border-b">
                   Service

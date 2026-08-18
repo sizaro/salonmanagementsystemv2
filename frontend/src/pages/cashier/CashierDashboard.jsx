@@ -325,7 +325,7 @@ export default function CashierDashboard() {
 
   return (
     <>
-      <div className="space-y-1 md:space-y-10">
+      <div className="dashboard-page space-y-6">
         <div className="space-y-1 md:space-y-10">
         </div>
 
@@ -342,26 +342,23 @@ export default function CashierDashboard() {
           <Button onClick={() => setModalType("new_service_definition")}>Add New Service</Button>
         </div> */}
 
-        <section className="bg-white shadow-md rounded-lg p-4 mb-6">
-  <h2 className="text-xl font-semibold text-blue-700 mb-4">Appointments</h2>
+        <section className="dashboard-panel">
+  <h2 className="mb-4 text-xl font-semibold text-[var(--salon-ink)]">Appointments</h2>
 
-  <div className="flex gap-2 mb-4 flex-wrap">
+  <div className="dashboard-tabs mb-4">
     {["pending", "confirmed", "completed", "cancelled"].map((status) => (
       <button
         key={status}
-        className={`px-4 py-2 rounded ${
-          activeTab === status
-            ? "bg-blue-500 text-white"
-            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-        }`}
+        className={`dashboard-tab ${activeTab === status ? "dashboard-tab-active" : ""}`}
         onClick={() => setActiveTab(status)}
       >
         {status.charAt(0).toUpperCase() + status.slice(1)}
+        <span className="dashboard-count">{appointmentsByStatus[status]?.length || 0}</span>
       </button>
     ))}
   </div>
 
-  <div className="flex flex-wrap gap-4">
+  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
     {appointmentsByStatus[activeTab].length > 0 ? (
       appointmentsByStatus[activeTab].map((s) => {
         const assigned = (s.performers || []).map((p) => ({
@@ -374,7 +371,7 @@ export default function CashierDashboard() {
         return (
           <div
             key={s.id}
-            className={`border rounded-lg p-4 w-[calc(33.333%-1rem)] min-w-[180px] ${
+            className={`dashboard-card ${
               activeTab === "pending"
                 ? "bg-yellow-50 border-yellow-200"
                 : activeTab === "confirmed"
@@ -458,38 +455,10 @@ export default function CashierDashboard() {
 </section>
 
 
-        <section className="mt-6">
-          <h3 className="text-md font-semibold mb-2">Sections</h3>
-          <table className="min-w-full border border-gray-300">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border px-4 py-2 text-left">Name</th>
-                <th className="border px-4 py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sections && sections.length > 0 ? (
-                sections.map((section) => (
-                  <tr key={section.id}>
-                    <td className="border px-4 py-2">{section.section_name}</td>
-                    <td className="border px-4 py-2 flex gap-2">
-                      <Button onClick={() => handleEditSection(section.id)}>Edit</Button>
-                      <Button onClick={() => handleDeleteSectionClick(section.id)}>Delete</Button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td className="border px-4 py-2" colSpan={2}>No sections available</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </section>
-
-        <section className="mt-6">
+        <section className="dashboard-panel mt-6">
           <h3 className="text-md font-semibold mb-2">Service Definitions</h3>
-          <table className="min-w-full border border-gray-300">
+          <p className="mb-4 text-sm text-stone-600">Reference prices and service requirements. Setup changes are managed by the owner or manager.</p>
+          <div className="dashboard-table-wrap"><table className="dashboard-table">
             <thead>
               <tr className="bg-gray-100">
                 <th className="border px-4 py-2 text-left">Name</th>
@@ -501,7 +470,6 @@ export default function CashierDashboard() {
                 <th className="border px-4 py-2 text-left">Other services Total Costs</th>
                 <th className="border px-4 py-2 text-left">Salon Amount</th>
                 <th className="border px-4 py-2 text-left">Full Amount</th>
-                <th className="border px-4 py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -554,10 +522,6 @@ export default function CashierDashboard() {
                       <td className="border px-4 py-2 align-top font-semibold">{totalMaterials}</td>
                       <td className="border px-4 py-2 align-top font-semibold">{displaySalon}</td>
                       <td className="border px-4 py-2 align-top font-semibold">{displayFull}</td>
-                      <td className="border px-4 py-2 flex gap-2 align-top">
-                        <Button onClick={() => handleEditServiceDefinition(service.id)}>Edit</Button>
-                        <Button onClick={() => handleDeleteServiceDefinitionClick(service.id)}>Delete</Button>
-                      </td>
                     </tr>
                   );
                 })
@@ -567,7 +531,7 @@ export default function CashierDashboard() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></div>
         </section>
 
         <Modal isOpen={modalType !== null} onClose={closeModal}>
@@ -589,10 +553,6 @@ export default function CashierDashboard() {
           {modalType === "clocking" && <ClockForm onSubmit={handleClocking} onClose={closeModal} employees={Employees} activeClockings={activeClockings} />}
           {modalType === "tagfee" && <TagFeeForm onSubmit={CreateTagFee} onClose={closeModal} feeData={selectedFee} employees={Employees || []} />}
           {modalType === "latefee" && <LateFeeForm onSubmit={CreateLateFee} onClose={closeModal} feeData={selectedFee} employees={Employees || []} />}
-          {modalType === "new_section" && <SectionForm onSubmit={createSection} onClose={closeModal} sectionData={null} />}
-          {modalType === "edit_section" && <SectionForm onSubmit={handleUpdateSection} onClose={closeModal} existingSection={edittingSection} />}
-          {modalType === "new_service_definition" && <NewServiceForm onSubmit={handleAddServiceDefinition} onClose={closeModal} Sections={sections} />}
-          {modalType === "edit_service_definition" && <NewServiceForm onSubmit={handleUpdateServiceDefinition} onClose={closeModal} Sections={sections} serviceData={edittingServiceDefinition} />}
         </Modal>
 
         <Modal isOpen={showCancelModal} onClose={() => setShowCancelModal(false)}>

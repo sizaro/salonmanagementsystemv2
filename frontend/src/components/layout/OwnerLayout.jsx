@@ -15,9 +15,9 @@ import OwnerSalonReport from "../../pages/owner/OwnerSalonReport.jsx";
 
 const OwnerLayout = () => {
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="dashboard-shell">
       <OwnerSidebar />
-      <main className="min-h-screen w-full overflow-x-hidden p-4 pt-20 md:ml-64 md:w-[calc(100%-16rem)] md:p-6">
+      <main className="dashboard-main">
         <Routes>
           {/* Dashboard */}
           <Route index element={<OwnerDashboard />} />

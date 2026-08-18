@@ -5,6 +5,7 @@ import SalonOpeningGate from "../common/SalonOpeningGate.jsx";
 // Pages
 import CashierDashboard from "../../pages/cashier/CashierDashboard.jsx";
 import CashierStaffPayments from "../../pages/cashier/CashierStaffPayments.jsx";
+import CashierIncomeReview from "../../pages/cashier/CashierIncomeReview.jsx";
 // import CashierIncomeReport from "../../pages/cashier/CashierIncomeReport.jsx";
 // import CashierExpensesReport from "../../pages/cashier/CashierExpensesReport.jsx";
 // import CashierEmployees from "../../pages/cashier/CashierEmployees.jsx";
@@ -14,15 +15,16 @@ import CashierStaffPayments from "../../pages/cashier/CashierStaffPayments.jsx";
 
 const CashierLayout = () => {
   return (
-    <SalonOpeningGate><div className="min-h-screen bg-gray-100">
+    <SalonOpeningGate><div className="dashboard-shell">
       <CashierSidebar />
 
-      <main className="min-h-screen w-full overflow-x-hidden p-4 pt-20 md:ml-64 md:w-[calc(100%-16rem)] md:p-6">
+      <main className="dashboard-main">
         <Routes>
           {/* Dashboard */}
           <Route index element={<CashierDashboard />} />
           <Route path="dashboard" element={<CashierDashboard />} />
           <Route path="staff-payments" element={<CashierStaffPayments />} />
+          <Route path="income-review" element={<CashierIncomeReview />} />
 
           {/* Income Reports
           <Route

@@ -378,7 +378,7 @@ export default function OwnerDashboard() {
 
   return (
     <>
-      <div className="space-y-1 md:space-y-10">
+      <div className="dashboard-page space-y-6">
         <div className="space-y-1 md:space-y-10">
           {salonStatus === "closed" ? (
             <Button
@@ -425,30 +425,27 @@ export default function OwnerDashboard() {
           </Button>
         </div>
 
-        <section className="bg-white shadow-md rounded-lg p-4 mb-6">
-          <h2 className="text-xl font-semibold text-blue-700 mb-4">
+        <section className="dashboard-panel">
+          <h2 className="mb-4 text-xl font-semibold text-[var(--salon-ink)]">
             Appointments
           </h2>
 
-          <div className="flex gap-2 mb-4 flex-wrap">
+          <div className="dashboard-tabs mb-4">
             {["pending", "confirmed", "completed", "cancelled"].map(
               (status) => (
                 <button
                   key={status}
-                  className={`px-4 py-2 rounded ${
-                    activeTab === status
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
+                  className={`dashboard-tab ${activeTab === status ? "dashboard-tab-active" : ""}`}
                   onClick={() => setActiveTab(status)}
                 >
                   {status.charAt(0).toUpperCase() + status.slice(1)}
+                  <span className="dashboard-count">{appointmentsByStatus[status]?.length || 0}</span>
                 </button>
               ),
             )}
           </div>
 
-          <div className="flex flex-wrap gap-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {appointmentsByStatus[activeTab].length > 0 ? (
               appointmentsByStatus[activeTab].map((s) => {
                 const assigned = (s.performers || [])
@@ -463,7 +460,7 @@ export default function OwnerDashboard() {
                 return (
                   <div
                     key={s.id}
-                    className={`border rounded-lg p-4 w-[calc(33.333%-1rem)] min-w-[180px] ${
+                    className={`dashboard-card ${
                       activeTab === "pending"
                         ? "bg-yellow-50 border-yellow-200"
                         : activeTab === "confirmed"

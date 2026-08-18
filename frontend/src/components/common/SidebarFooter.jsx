@@ -1,5 +1,4 @@
 // components/common/SidebarFooter.jsx
-import React, { useContext } from "react";
 import { useData } from "../../context/DataContext.jsx";
 import { useNavigate } from "react-router-dom";
 
@@ -13,10 +12,10 @@ const SidebarFooter = () => {
   };
 
   return (
-    <div className=" fixed bottom-0 left-0 md:w-64 w-full bg-gray-800 text-white py-3 flex justify-center border-t border-gray-700">
+    <div className="mt-auto border-t border-white/10 p-4">
       <button
         onClick={handleLogout}
-        className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg transition-colors"
+        className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 font-semibold text-white transition hover:border-[var(--salon-gold)] hover:bg-[var(--salon-gold)] hover:text-[var(--salon-ink)]"
       >
         Logout
       </button>

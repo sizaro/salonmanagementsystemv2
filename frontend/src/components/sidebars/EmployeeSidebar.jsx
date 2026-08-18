@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import SidebarFooter from "../common/SidebarFooter";
 import { useData } from "../../context/DataContext";
@@ -11,8 +11,8 @@ export default function EmployeeSidebar() {
 
   const isActive = (path) => location.pathname === path;
   const linkClass = (path) =>
-    `block px-4 py-2 rounded transition-colors ${
-      isActive(path) ? "bg-gray-700 font-semibold" : "hover:bg-gray-700"
+    `dashboard-nav-link ${
+      isActive(path) ? "dashboard-nav-active" : ""
     }`;
 
   // Close mobile on outside click
@@ -46,7 +46,7 @@ export default function EmployeeSidebar() {
   return (
     <>
       {/* Top Mobile Header */}
-      <div className="md:hidden bg-gray-900 p-4 flex justify-between items-center text-white fixed top-0 left-0 right-0 z-50">
+      <div className="dashboard-sidebar md:hidden p-4 flex justify-between items-center fixed top-0 left-0 right-0 z-50">
         <span className="font-bold text-lg">{user.last_name} Dashboard</span>
         <button
           onClick={() => setMenuOpen(true)}
@@ -57,7 +57,7 @@ export default function EmployeeSidebar() {
       </div>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 h-screen bg-gray-900 text-white fixed top-0 left-0 flex-col shadow-lg pt-16">
+      <aside className="dashboard-sidebar hidden md:flex w-64 h-screen fixed top-0 left-0 flex-col shadow-xl pt-12">
         <div className="px-6 font-bold text-xl mb-4">
           {user.last_name} Dashboard
         </div>
@@ -91,7 +91,7 @@ export default function EmployeeSidebar() {
       {/* Mobile Slide-Out Menu */}
       <div
         ref={menuRef}
-        className={`fixed top-0 left-0 h-screen w-full bg-gray-900 text-white z-50 transform transition-transform duration-300 pt-16 px-4 md:hidden ${
+        className={`dashboard-sidebar fixed top-0 left-0 h-screen w-[min(88vw,22rem)] z-50 transform transition-transform duration-300 pt-16 px-4 md:hidden shadow-2xl ${
           menuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >

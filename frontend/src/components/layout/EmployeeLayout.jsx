@@ -6,10 +6,10 @@ import EmployeeIncomeReport from "../../pages/employee/EmployeeIncomeReport.jsx"
 
 const EmployeeLayout = () => {
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="dashboard-shell">
       <EmployeeSidebar />
 
-      <main className="min-h-screen w-full overflow-x-hidden p-4 pt-20 md:ml-64 md:w-[calc(100%-16rem)] md:p-6">
+      <main className="dashboard-main">
         <Routes>
           <Route index element={<EmployeeDashboard />} />
           <Route path="dashboard" element={<EmployeeDashboard />} />
