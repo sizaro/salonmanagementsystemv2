@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import {
   saveUser,
   fetchAllUsers,
+  fetchBookableStaff,
   fetchUserById,
   UpdateUserById,
   DeleteUserById,
@@ -12,6 +13,69 @@ import { findUserByEmail } from "../models/usersModel.js";
 import dotenv from "dotenv";
 dotenv.config();
 const ALLOWED_ROLES = new Set(["owner", "manager", "cashier", "employee", "customer"]);
+
+const normalizedEmail = (email) => String(email || "").trim().toLowerCase();
+
+const createCustomerAccount = async ({ body, file, salon_id }) => {
+  const first_name = String(body.first_name || "").trim();
+  const middle_name = String(body.middle_name || "").trim() || null;
+  const last_name = String(body.last_name || "").trim();
+  const email = normalizedEmail(body.email);
+  const password = String(body.password || "");
+
+  if (!salon_id) {
+    const error = new Error("Customer registration is not configured for this salon");
+    error.statusCode = 503;
+    throw error;
+  }
+  if (!first_name || !last_name || !email || !password) {
+    const error = new Error("First name, last name, email, and password are required");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const existingUser = await findUserByEmail(email, salon_id);
+  if (existingUser) {
+    const error = new Error("An account with this email already exists");
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const hashedPassword = await bcrypt.hash(password, await bcrypt.genSalt(10));
+  return saveUser({
+    salon_id,
+    first_name,
+    middle_name,
+    last_name,
+    email,
+    password: hashedPassword,
+    contact: body.contact,
+    role: "customer",
+    status: "active",
+    gender: body.gender,
+    image_url: file ? `/uploads/images/${file.filename}` : null,
+  });
+};
+
+/** Public self-registration. Role and account status are forced server-side. */
+export const registerCustomer = async (req, res) => {
+  try {
+    const customer = await createCustomerAccount({
+      body: req.body,
+      file: req.file,
+      salon_id: Number(process.env.DEFAULT_SALON_ID),
+    });
+    res.status(201).json({
+      message: "Customer account created successfully",
+      data: customer,
+    });
+  } catch (err) {
+    console.error("Error registering customer:", err);
+    res.status(err.statusCode || 500).json({
+      error: err.statusCode ? err.message : "Failed to create customer account",
+    });
+  }
+};
 
 export const setupOwnerUser = async (req, res) => {
   try {
@@ -73,6 +137,17 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
+export const getBookableStaff = async (req, res) => {
+  try {
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+    const staff = await fetchBookableStaff(salon_id);
+    res.status(200).json(staff);
+  } catch (err) {
+    console.error("Error fetching bookable staff:", err);
+    res.status(500).json({ error: "Failed to fetch bookable staff" });
+  }
+};
+
 /**
  * Get single user by ID
  */
@@ -102,7 +177,7 @@ export const createUser = async (req, res) => {
       first_name,
       middle_name,
       last_name,
-      email,
+      email: submittedEmail,
       password,
       birthdate,
       contact,
@@ -115,11 +190,20 @@ export const createUser = async (req, res) => {
       bio,
     } = req.body;
 
+    const email = normalizedEmail(submittedEmail);
+
     if (!password) {
       return res.status(400).json({ error: "Password is required" });
     }
     if (!ALLOWED_ROLES.has(role)) return res.status(400).json({ error: "Invalid role" });
     if (role === "owner") return res.status(403).json({ error: "Owner accounts can only be created through secure salon setup" });
+
+    if (!salon_id) return res.status(503).json({ error: "Salon context is not configured" });
+    if (!first_name?.trim() || !last_name?.trim() || !email) {
+      return res.status(400).json({ error: "First name, last name, and email are required" });
+    }
+    const existingUser = await findUserByEmail(email, salon_id);
+    if (existingUser) return res.status(409).json({ error: "An account with this email already exists" });
 
     const hashedPassword = await bcrypt.hash(password, await bcrypt.genSalt(10));
 
@@ -274,6 +358,7 @@ export default {
   getAllUsers,
   getUserById,
   createUser,
+  registerCustomer,
   updateUserById,
   deleteUserById,
 };

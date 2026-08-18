@@ -32,6 +32,7 @@ export const leadership = teamMembers.slice(0, 2);
 export const teamProfessionals = teamMembers.slice(2);
 
 export const placeholderVideoUrl = "https://player.cloudinary.com/embed/?cloud_name=dp76nuyie&public_id=mhstrial_geiacr";
+export const placeholderVideoFileUrl = "https://res.cloudinary.com/dp76nuyie/video/upload/mhstrial_geiacr.mp4";
 
 export const salonMilestones = [
   { value: 2020, suffix: "", label: "Year our story began" },
@@ -61,16 +62,16 @@ export const upcomingEvents = [
 export const galleryMedia = [
   { id: 1, type: "image", src: "/images/western cuts.jpg", poster: "/images/western cuts.jpg", title: "Precision in progress", category: "Grooming", publishedAt: "2026-08-05" },
   { id: 2, type: "image", src: "/images/women plaiting.jpg", poster: "/images/women plaiting.jpg", title: "Braiding artistry", category: "Hair", publishedAt: "2026-08-04" },
-  { id: 3, type: "video", src: placeholderVideoUrl, poster: "/images/washing after shave.jpg", title: "Inside a grooming session", category: "Service video", publishedAt: "2026-08-03" },
+  { id: 3, type: "video", src: placeholderVideoUrl, backgroundSrc: placeholderVideoFileUrl, poster: "/images/washing after shave.jpg", title: "Inside a grooming session", category: "Service video", publishedAt: "2026-08-03" },
   { id: 4, type: "image", src: "/images/skin treatment.webp", poster: "/images/skin treatment.webp", title: "Restorative skin care", category: "Wellness", publishedAt: "2026-08-02" },
   { id: 5, type: "image", src: "/images/kids service.jpg", poster: "/images/kids service.jpg", title: "Patient family care", category: "Family", publishedAt: "2026-08-01" },
-  { id: 6, type: "video", src: placeholderVideoUrl, poster: "/images/salon_interior1.jpg", title: "Life at Salehish", category: "Salon video", publishedAt: "2026-07-31" },
+  { id: 6, type: "video", src: placeholderVideoUrl, backgroundSrc: placeholderVideoFileUrl, poster: "/images/salon_interior1.jpg", title: "Life at Salehish", category: "Salon video", publishedAt: "2026-07-31" },
   { id: 7, type: "image", src: "/images/feet care.jpg", poster: "/images/feet care.jpg", title: "Care in every detail", category: "Wellness", publishedAt: "2026-07-30" },
   { id: 8, type: "image", src: "/images/salon tools.jpg", poster: "/images/salon tools.jpg", title: "Prepared with care", category: "Standards", publishedAt: "2026-07-29" },
-  { id: 9, type: "video", src: placeholderVideoUrl, poster: "/images/professional cuts.jpg", title: "A professional service moment", category: "Service video", publishedAt: "2026-07-28" },
+  { id: 9, type: "video", src: placeholderVideoUrl, backgroundSrc: placeholderVideoFileUrl, poster: "/images/professional cuts.jpg", title: "A professional service moment", category: "Service video", publishedAt: "2026-07-28" },
   { id: 10, type: "image", src: "/images/beard clippers.jpg", poster: "/images/beard clippers.jpg", title: "Tools of the craft", category: "Grooming", publishedAt: "2026-07-27" },
   { id: 11, type: "image", src: "/images/salon towels.jpg", poster: "/images/salon towels.jpg", title: "Ready for every guest", category: "Standards", publishedAt: "2026-07-26" },
-  { id: 12, type: "video", src: placeholderVideoUrl, poster: "/images/women plaiting2.jpg", title: "Creative styling in motion", category: "Hair video", publishedAt: "2026-07-25" },
+  { id: 12, type: "video", src: placeholderVideoUrl, backgroundSrc: placeholderVideoFileUrl, poster: "/images/women plaiting2.jpg", title: "Creative styling in motion", category: "Hair video", publishedAt: "2026-07-25" },
 ];
 
 export const detailedServices = [

@@ -29,7 +29,7 @@ import sectionsRoutes from "./routes/sectionsRoutes.js"
 import salonRoutes from "./routes/salonRoutes.js";
 import salonProfileRoutes from "./routes/salonProfileRoutes.js";
 import mobileAuthRoutes from "./routes/mobileAuth.js";
-import { requireAuth, requireRole, requireSalonContext } from "./middleware/auth.js";
+import { requireAuth, requireRole, requireSalonContext, requireOpenSalon } from "./middleware/auth.js";
 
 
 
@@ -132,13 +132,13 @@ app.use("/uploads/images", express.static(path.join(__dirname, "/uploads/images"
 // after other app.use routes
 app.use("/api/salon-profile", salonProfileRoutes);
 app.use("/api/services", servicesRoutes);
-app.use("/api/servicet", requireAuth, requireSalonContext, requireRole("owner", "manager", "cashier"), serviceRoutet);
-app.use("/api/expenses", requireAuth, requireSalonContext, requireRole("owner", "manager", "cashier"), expensesRoutes);
-app.use("/api/advances", requireAuth, requireSalonContext, requireRole("owner", "manager", "cashier"), advancesRoutes);
-app.use("/api/clockings", requireAuth, requireSalonContext, requireRole("owner", "manager", "cashier"), clockingsRoutes);
-app.use("/api/sessions", requireAuth, requireSalonContext, requireRole("owner", "manager"), sessionsRoutes);
+app.use("/api/servicet", requireAuth, requireSalonContext, requireRole("owner", "manager", "cashier"), requireOpenSalon, serviceRoutet);
+app.use("/api/expenses", requireAuth, requireSalonContext, requireRole("owner", "manager", "cashier"), requireOpenSalon, expensesRoutes);
+app.use("/api/advances", requireAuth, requireSalonContext, requireRole("owner", "manager", "cashier"), requireOpenSalon, advancesRoutes);
+app.use("/api/clockings", requireAuth, requireSalonContext, requireRole("owner", "manager", "cashier"), requireOpenSalon, clockingsRoutes);
+app.use("/api/sessions", requireAuth, requireSalonContext, sessionsRoutes);
 app.use("/api/users", usersRoutes);
-app.use("/api/reports", requireAuth, requireSalonContext, reportsRoutes);
+app.use("/api/reports", requireAuth, requireSalonContext, requireOpenSalon, reportsRoutes);
 app.use("/api/fees", requireAuth, requireSalonContext, requireRole("owner"), feesRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/sections", sectionsRoutes)

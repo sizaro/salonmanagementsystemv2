@@ -1,48 +1,40 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useData } from "../../context/DataContext.jsx";
+import Modal from "../../components/Modal.jsx";
+import CancelReasonForm from "../../components/CancelReasonForm.jsx";
 
 export default function CustomerAppointments() {
-  const { user, users, services = [], serviceMaterials = [] } = useData();
-  const [myAppointments, setMyAppointments] = useState([]);
+  const { user, users, transactions = [], serviceMaterials = [], updateServiceTransactionAppointment } = useData();
   const [activeTab, setActiveTab] = useState("pending");
+  const [actionId, setActionId] = useState(null);
+  const [actionError, setActionError] = useState("");
+  const [cancelAppointmentId, setCancelAppointmentId] = useState(null);
 
   // Enrich services with their materials
   const servicesWithMaterials = useMemo(() => {
-    return services.map((service) => {
+    return transactions.map((service) => {
       const matchedMaterials = serviceMaterials.filter(
         (m) => m.service_definition_id === service.service_definition_id
       );
       return { ...service, materials: matchedMaterials.length > 0 ? matchedMaterials : [] };
     });
-  }, [services, serviceMaterials]);
+  }, [transactions, serviceMaterials]);
 
-  console.log("service transactions inside customer appointments page", servicesWithMaterials)
-
-  // Filter services for the logged-in customer
-  useEffect(() => {
-    if (user && servicesWithMaterials.length > 0) {
-      const filtered = servicesWithMaterials.filter(
-        (service) => service.customer_id === user.id
-      );
-      setMyAppointments(filtered);
-    }
-  }, [servicesWithMaterials, user]);
+  // The API already limits customer sessions to their own transactions. Avoid
+  // comparing portal and legacy transaction IDs a second time in the browser.
+  const myAppointments = servicesWithMaterials;
 
   const formatDate = (dateString) => {
-  console.log("date in the page for customer", dateString);
   if (!dateString) return "N/A";
 
   const [year, month, day] = dateString.split("-").map(Number);
 
   const date = new Date(year, month - 1, day);
-  console.log("date in the customer page", date)
-
   return date.toLocaleDateString("en-UG");
 };
 
 
   const formatTime12h = (time24) => {
-    console.log("Time inside the customer appointment", time24)
     if (!time24) return "N/A";
     let [hour, minute] = time24.split(":").map(Number);
     const ampm = hour >= 12 ? "PM" : "AM";
@@ -57,7 +49,7 @@ export default function CustomerAppointments() {
 
     return appointment.performers
       .map((p) => {
-        const emp = users.find((u) => u.id === p.employee_id);
+        const emp = users.find((u) => Number(u.id) === Number(p.employee_id));
         return emp ? `${p.role_name}: ${emp.first_name} ${emp.last_name}` : null;
       })
       .filter(Boolean)
@@ -67,10 +59,30 @@ export default function CustomerAppointments() {
   // Get a readable list of materials for the service
   const getMaterialsList = (appointment) => {
     if (!appointment.materials || appointment.materials.length === 0) return "None";
-    return appointment.materials.map((m) => m.name).join(", ");
+    return appointment.materials
+      .map((material) => material.material_name || material.name)
+      .filter(Boolean)
+      .join(", ") || "None";
   };
 
   const filteredByStatus = myAppointments.filter((a) => a.status === activeTab);
+
+  const cancelAppointment = async (appointmentId, status, reason) => {
+    try {
+      setActionError("");
+      setActionId(appointmentId);
+      await updateServiceTransactionAppointment(appointmentId, {
+        status,
+        cancel_reason: reason,
+      });
+      setActiveTab("cancelled");
+    } catch (error) {
+      setActionError(error?.response?.data?.message || "The appointment could not be cancelled.");
+      throw error;
+    } finally {
+      setActionId(null);
+    }
+  };
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -80,7 +92,9 @@ export default function CustomerAppointments() {
 
       {/* Tabs */}
       <div className="flex gap-2 mb-4 flex-wrap">
-        {["pending", "confirmed", "completed", "cancelled"].map((status) => (
+        {["pending", "confirmed", "completed", "cancelled"].map((status) => {
+          const count = myAppointments.filter((appointment) => appointment.status === status).length;
+          return (
           <button
             key={status}
             className={`px-4 py-2 rounded ${
@@ -90,10 +104,13 @@ export default function CustomerAppointments() {
             }`}
             onClick={() => setActiveTab(status)}
           >
-            {status.charAt(0).toUpperCase() + status.slice(1)}
+            {status.charAt(0).toUpperCase() + status.slice(1)} ({count})
           </button>
-        ))}
+          );
+        })}
       </div>
+
+      {actionError && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{actionError}</p>}
 
       {filteredByStatus.length === 0 ? (
         <p className="text-gray-600">
@@ -126,8 +143,9 @@ export default function CustomerAppointments() {
                   Status
                 </th>
                 <th className="py-3 px-4 text-left font-medium text-gray-700 border-b">
-                {activeTab === "cancelled" ? "Cancel Reason" : "Customer Note"}
-              </th>
+                  {activeTab === "cancelled" ? "Cancel Reason" : "Customer Note"}
+                </th>
+                {(activeTab === "pending" || activeTab === "confirmed") && <th className="py-3 px-4 text-left font-medium text-gray-700 border-b">Action</th>}
 
               </tr>
             </thead>
@@ -150,6 +168,18 @@ export default function CustomerAppointments() {
                       ? appointment.cancel_reason || "N/A"
                       : appointment.customer_note || "N/A"}
                   </td>
+                  {(activeTab === "pending" || activeTab === "confirmed") && (
+                    <td className="py-3 px-4 border-b">
+                      <button
+                        type="button"
+                        disabled={actionId === appointment.transaction_id}
+                        onClick={() => setCancelAppointmentId(appointment.transaction_id)}
+                        className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {actionId === appointment.transaction_id ? "Cancelling…" : "Cancel"}
+                      </button>
+                    </td>
+                  )}
 
                 </tr>
               ))}
@@ -157,6 +187,14 @@ export default function CustomerAppointments() {
           </table>
         </div>
       )}
+
+      <Modal isOpen={Boolean(cancelAppointmentId)} onClose={() => setCancelAppointmentId(null)}>
+        <CancelReasonForm
+          serviceId={cancelAppointmentId}
+          onSubmit={cancelAppointment}
+          onClose={() => setCancelAppointmentId(null)}
+        />
+      </Modal>
     </div>
   );
 }

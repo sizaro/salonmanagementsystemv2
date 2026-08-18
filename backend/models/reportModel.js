@@ -1,9 +1,10 @@
 import db from "./database.js";
+import { servicePricingSelect } from "../utils/servicePricingSql.js";
 
 const serviceQuery = `
   SELECT st.id AS transaction_id, st.service_definition_id, st.customer_id, st.customer_note, st.created_by,
     st.service_date::text AS service_date, st.service_time::text AS service_time, st.status,
-    sd.service_name, sd.description, sd.service_amount AS full_amount, sd.salon_amount,
+    sd.service_name, sd.description, ${servicePricingSelect},
     sd.section_id AS definition_section_id, sec.section_name,
     COALESCE((SELECT json_agg(jsonb_build_object('role_id', sr.id, 'role_name', sr.role_name, 'role_amount', sr.earned_amount, 'earned_amount', sr.earned_amount, 'employee_id', u.id, 'first_name', u.first_name, 'last_name', u.last_name))
       FROM service_performers sp LEFT JOIN service_roles sr ON sr.id = sp.service_role_id

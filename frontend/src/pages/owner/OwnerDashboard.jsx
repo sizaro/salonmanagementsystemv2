@@ -458,7 +458,7 @@ export default function OwnerDashboard() {
                   }))
                   .filter(Boolean);
 
-                const customer = Customers.find((c) => c.id === s.customer_id);
+                const customer = Customers.find((c) => Number(c.id) === Number(s.active_customer_id || s.customer_id));
 
                 return (
                   <div
@@ -477,9 +477,9 @@ export default function OwnerDashboard() {
 
                     <p>
                       Customer:{" "}
-                      {customer
+                      {s.customer_name || (customer
                         ? `${customer.first_name} ${customer.last_name}`
-                        : "N/A"}
+                        : "N/A")}
                     </p>
 
                     <p>Date: {formatDate(s.appointment_date)}</p>

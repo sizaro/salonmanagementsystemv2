@@ -18,7 +18,7 @@ export const openSalonSession = async (req, res) => {
     const salon_id = resolveSalonId(req);
     if (!salon_id) return res.status(400).json({ error: "Salon context missing" });
 
-    const { status } = req.body;
+    const status = "open";
     console.log("🔹 Opening salon session:", status, "for salon:", salon_id);
 
     const session = await saveSalonSession(salon_id, status);
@@ -29,7 +29,8 @@ export const openSalonSession = async (req, res) => {
     });
   } catch (error) {
     console.error("Error opening salon session:", error);
-    res.status(500).json({ message: "Failed to open salon session" });
+    const alreadyOpen = error.message === "Salon already has an open session";
+    res.status(alreadyOpen ? 409 : 500).json({ message: alreadyOpen ? error.message : "Failed to open salon session" });
   }
 };
 
@@ -39,7 +40,7 @@ export const closeSalonSession = async (req, res) => {
     const salon_id = resolveSalonId(req);
     if (!salon_id) return res.status(400).json({ error: "Salon context missing" });
 
-    const { status } = req.body;
+    const status = "closed";
     console.log("🔹 Closing salon session:", status, "for salon:", salon_id);
 
     const session = await updateSalonSession(salon_id, status);

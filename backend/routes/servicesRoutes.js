@@ -4,7 +4,7 @@ import express from 'express';
 const router = express.Router();
 
 import upload from "../middleware/upload.js"; // Multer middleware for file uploads
-import { requireAuth, requireRole, requireSalonContext } from "../middleware/auth.js";
+import { requireAuth, requireRole, requireSalonContext, requireOpenSalon } from "../middleware/auth.js";
 
 import {
   // Service definitions
@@ -23,13 +23,14 @@ import {
   createServiceTransaction,
   getAllServiceTransactions,
   getServiceTransactionById,
+  getAppointmentAvailability,
   updateServiceTransaction,
   updateServiceTransactiont,
   deleteServiceTransaction,
   updateServiceTransactionAppointment
 } from '../controllers/servicesController.js';
 
-router.use(requireAuth, requireSalonContext);
+router.use(requireAuth, requireSalonContext, requireOpenSalon);
 
 // ===============================
 // 🔵 SERVICE DEFINITIONS
@@ -63,6 +64,9 @@ router.post('/service_transactions', requireRole('owner', 'manager', 'cashier', 
 // 👉 fetch all service transactions (with performers)
 router.get('/service_transactions', getAllServiceTransactions);
 
+// Privacy-safe availability: returns employee IDs only, never customer details.
+router.get('/appointment-availability', getAppointmentAvailability);
+
 // 👉 fetch single service transaction by ID
 router.get('/service_transactions/:id', getServiceTransactionById);
 
@@ -70,7 +74,7 @@ router.get('/service_transactions/:id', getServiceTransactionById);
 router.put('/service_transactions/:id', requireRole('owner', 'manager', 'cashier'), updateServiceTransaction);
 
 // 👉 update a service transaction appointment
-router.put('/service_transactions_appointment/:id', requireRole('owner', 'manager', 'cashier'), updateServiceTransactionAppointment);
+router.put('/service_transactions_appointment/:id', requireRole('owner', 'manager', 'cashier', 'customer'), updateServiceTransactionAppointment);
 
 // 👉 update only the service timestamp for a transaction
 router.put('/service_transactionst/:id', requireRole('owner', 'manager', 'cashier'), updateServiceTransactiont);

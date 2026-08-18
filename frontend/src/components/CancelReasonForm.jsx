@@ -3,12 +3,28 @@ import Button from "./Button";
 
 export default function CancelReasonForm({ serviceId, onSubmit, onClose }) {
   const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!reason.trim()) return alert("Please enter a reason for cancellation.");
-    onSubmit(serviceId, "cancelled", reason);
-    onClose();
+    if (!reason.trim()) {
+      setError("Please enter a reason for cancellation.");
+      return;
+    }
+    try {
+      setError("");
+      setSubmitting(true);
+      await onSubmit(serviceId, "cancelled", reason.trim());
+      onClose();
+    } catch (submitError) {
+      setError(
+        submitError?.response?.data?.message ||
+        "The appointment could not be cancelled.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -28,6 +44,8 @@ export default function CancelReasonForm({ serviceId, onSubmit, onClose }) {
         onChange={(e) => setReason(e.target.value)}
       />
 
+      {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+
       <div className="flex justify-end gap-2">
         <Button
           type="button"
@@ -36,8 +54,8 @@ export default function CancelReasonForm({ serviceId, onSubmit, onClose }) {
         >
           Cancel
         </Button>
-        <Button type="submit" className="bg-red-500 hover:bg-red-400">
-          Submit Reason
+        <Button type="submit" disabled={submitting} className="bg-red-500 hover:bg-red-400 disabled:opacity-60">
+          {submitting ? "Cancelling…" : "Submit Reason"}
         </Button>
       </div>
     </form>

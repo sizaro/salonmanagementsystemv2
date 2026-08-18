@@ -8,9 +8,9 @@ import {
   updateSection,
   deleteSection,
 } from '../controllers/sectionsController.js';
-import { requireAuth, requireRole, requireSalonContext } from "../middleware/auth.js";
+import { requireAuth, requireRole, requireSalonContext, requireOpenSalon } from "../middleware/auth.js";
 
-router.use(requireAuth, requireSalonContext);
+router.use(requireAuth, requireSalonContext, requireOpenSalon);
 
 // Fetch all sections
 router.get('/', getSections);

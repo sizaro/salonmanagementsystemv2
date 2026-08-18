@@ -1,4 +1,5 @@
 import db from "./database.js";
+import { servicePricingSelect } from "../utils/servicePricingSql.js";
 
 // ===============================
 // SERVICES (week model similar to daily model)
@@ -23,8 +24,7 @@ export const getServicesByDateRange = async (startDate, endDate, salon_id) => {
 
       sd.service_name,
       sd.description,
-      sd.service_amount AS full_amount,
-      sd.salon_amount,
+      ${servicePricingSelect},
       sd.section_id AS definition_section_id,
       sec.section_name,
 

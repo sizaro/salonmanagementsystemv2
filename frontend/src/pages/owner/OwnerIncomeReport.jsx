@@ -6,6 +6,7 @@ import Modal from "../../components/Modal.jsx";
 import ServiceForm from "../../components/ServiceForm.jsx";
 import ConfirmModal from "../../components/ConfirmModal.jsx";
 import { Eye, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import ReportLoadingState from "../../components/common/ReportLoadingState.jsx";
 
 const OwnerIncomeReport = () => {
   const {
@@ -23,7 +24,7 @@ const OwnerIncomeReport = () => {
     fetchSections,
     fetchServiceRoles
   } = useData();
-  const { report, loadReport, fetchDailyData, fetchWeeklyData, fetchMonthlyData, fetchYearlyData } = useOwnerReport();
+  const { report, loading: reportLoading, error: reportError, loadReport, fetchDailyData, fetchWeeklyData, fetchMonthlyData, fetchYearlyData } = useOwnerReport();
   const { services = [], lateFees = [], tagFees = [], employees: users = [], advances = [], expenses = [], sessions = [] } = report || {};
 
   const servicesWithMaterials = useMemo(() => {
@@ -439,11 +440,16 @@ const paginatedServices = servicesWithMaterials.slice(
 
 console.log("Employees in te income daily report", Employees)
   // ---------- Render ----------
+  if (reportLoading && !report) {
+    return <div className="income-page mx-auto max-w-6xl p-6"><ReportLoadingState message="Loading the salon income report and service details..." /></div>;
+  }
   return (
   <div className="income-page max-w-6xl mx-auto p-6">
     <h1 className="text-3xl font-extrabold text-center mb-6 text-gray-800">
       {reportDate} Report
     </h1>
+    {reportError && <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{reportError}</p>}
+    {reportLoading && report ? <div className="mb-5"><ReportLoadingState compact message="Updating the report for the selected period..." /></div> : null}
 
     {/* Period Pickers */}
     <div className="mb-6 flex flex-wrap gap-4 items-end">

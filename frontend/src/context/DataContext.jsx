@@ -1,4 +1,11 @@
-import { createContext, useContext, useState, useEffect, useMemo, useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { DateTime } from "luxon";
@@ -60,6 +67,7 @@ export const DataProvider = ({ children }) => {
         withCredentials: true,
       });
       setSessions(res.data);
+      return res.data;
     } catch (err) {
       console.error("Error fetching sessions:", err);
     }
@@ -213,7 +221,10 @@ export const DataProvider = ({ children }) => {
         throw new Error("A valid month from 1 to 12 is required");
       }
       const requestId = ++reportRequestIdRef.current;
-      activeReportRef.current = { type: "monthly", args: [selectedYear, selectedMonth] };
+      activeReportRef.current = {
+        type: "monthly",
+        args: [selectedYear, selectedMonth],
+      };
 
       console.log("Fetching monthly report:", {
         year: selectedYear,
@@ -349,6 +360,17 @@ export const DataProvider = ({ children }) => {
     }
   };
 
+  const fetchBookableStaff = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/users/bookable-staff`);
+      setUsers(Array.isArray(res.data) ? res.data : []);
+      return res.data;
+    } catch (err) {
+      console.error("Error fetching bookable staff:", err);
+      throw err;
+    }
+  };
+
   const fetchUserById = async (id) => {
     try {
       const res = await axios.get(`${API_URL}/users/${id}`);
@@ -361,11 +383,17 @@ export const DataProvider = ({ children }) => {
 
   const createUser = async (userData) => {
     try {
-      const res = await axios.post(`${API_URL}/users`, userData);
-      await fetchUsers(); // ✅ fetchUsers handles loading
+      const submittedRole =
+        userData instanceof FormData ? userData.get("role") : userData?.role;
+      const isCustomerRegistration = submittedRole === "customer";
+      const endpoint = isCustomerRegistration
+        ? `${API_URL}/users/register-customer`
+        : `${API_URL}/users`;
+      const res = await axios.post(endpoint, userData);
+      if (!isCustomerRegistration) await fetchUsers();
       return res.data;
     } catch (err) {
-      console.error(`error creating ${userData.role}`, err);
+      console.error("Error creating user:", err);
       throw err;
     }
   };
@@ -866,6 +894,16 @@ export const DataProvider = ({ children }) => {
     }
   };
 
+  const fetchAppointmentAvailability = async (date, time) => {
+    const res = await axios.get(
+      `${API_URL}/services/appointment-availability`,
+      {
+        params: { date, time },
+      },
+    );
+    return res.data?.data?.busyEmployeeIds ?? [];
+  };
+
   // ---------- FETCH SINGLE ----------
   const fetchServiceTransactionById = async (id) => {
     try {
@@ -1054,27 +1092,49 @@ export const DataProvider = ({ children }) => {
   useEffect(() => {
     if (!user) return;
 
+    let appointmentRefreshInterval;
+
     const loadRoleData = async () => {
       try {
+        if (["owner", "manager", "cashier"].includes(user.role)) {
+          const salonSession = await fetchSessions();
+          const sessionIsOpen = Array.isArray(salonSession)
+            ? salonSession.some((session) => session?.status === "open")
+            : salonSession?.status === "open";
+          if (["manager", "cashier"].includes(user.role) && !sessionIsOpen)
+            return;
+        }
+
         await Promise.all([
           fetchSections(),
           fetchServiceDefinitions(),
           fetchServiceRoles(),
-          fetchUsers(),
+          fetchServiceMaterials(),
+          user.role === "customer" ? fetchBookableStaff() : fetchUsers(),
           fetchServiceTransactionsApp(),
         ]);
 
-        if (["owner", "manager"].includes(user.role)) await fetchSessions();
+        appointmentRefreshInterval = setInterval(() => {
+          void fetchServiceTransactionsApp().catch((err) => {
+            console.error("Unable to refresh appointments:", err);
+          });
+        }, 30_000);
       } catch (err) {
         console.error("Error loading authorised dashboard data:", err);
       }
     };
 
     void loadRoleData();
-    if (!["owner", "manager"].includes(user.role)) return undefined;
+    const sessionRefreshInterval = ["owner", "manager", "cashier"].includes(
+      user.role,
+    )
+      ? setInterval(fetchSessions, 60 * 1000)
+      : null;
 
-    const interval = setInterval(fetchSessions, 60 * 1000);
-    return () => clearInterval(interval);
+    return () => {
+      if (appointmentRefreshInterval) clearInterval(appointmentRefreshInterval);
+      if (sessionRefreshInterval) clearInterval(sessionRefreshInterval);
+    };
     // The role bootstrap deliberately reruns only when the authenticated user changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -1129,6 +1189,7 @@ export const DataProvider = ({ children }) => {
         createServiceTransaction,
         fetchServiceTransactions,
         fetchServiceTransactionsApp,
+        fetchAppointmentAvailability,
         fetchServiceTransactionById,
         updateServiceTransactionById,
         updateServiceTransactionAppointment,
@@ -1145,6 +1206,7 @@ export const DataProvider = ({ children }) => {
         updateServicet,
         deleteService,
         fetchUsers,
+        fetchBookableStaff,
         fetchUserById,
         createUser,
         updateUser,

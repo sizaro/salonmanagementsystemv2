@@ -60,7 +60,9 @@ export default function ManagerDashboard() {
     fetchServiceMaterials,
     fetchServiceRoles,
     createServiceTransaction,
-    fetchServiceTransactions
+    fetchServiceTransactions,
+    openSalonSession,
+    closeSalonSession,
   } = useData();
 
 
@@ -104,16 +106,11 @@ export default function ManagerDashboard() {
 
   const handleSalonSession = async (status) => {
     try {
-      let formData;
       if (status === "open") {
-        formData = { openTime: new Date().toISOString(), closeTime: null, status: "open" };
-        const res = await sendFormData("openSalon", formData);
-        console.log("Salon opened:", res.data);
+        await openSalonSession();
         setSalonStatus("open");
       } else if (status === "closed") {
-        formData = { closeTime: new Date().toISOString(), status: "closed" };
-        const res = await sendFormData("closeSalon", formData);
-        console.log("Salon closed:", res.data);
+        await closeSalonSession();
         setSalonStatus("closed");
       }
     } catch (err) {
@@ -194,8 +191,8 @@ export default function ManagerDashboard() {
   };
 
   useEffect(() => {
-    if (sessions && sessions.length > 0) setSalonStatus(sessions[0].status);
-    else setSalonStatus("closed");
+    const session = Array.isArray(sessions) ? sessions[0] : sessions;
+    setSalonStatus(session?.status || "closed");
   }, [sessions]);
 
   useEffect(() => {
@@ -347,7 +344,7 @@ export default function ManagerDashboard() {
           })
           .filter(Boolean);
 
-        const customer = Customers.find((c) => c.id === s.customer_id);
+        const customer = Customers.find((c) => Number(c.id) === Number(s.active_customer_id || s.customer_id));
 
         return (
           <div
@@ -366,9 +363,9 @@ export default function ManagerDashboard() {
 
             <p>
               Customer:{" "}
-              {customer
+              {s.customer_name || (customer
                 ? `${customer.first_name} ${customer.last_name}`
-                : "N/A"}
+                : "N/A")}
             </p>
 
             <p>Date: {formatDate(s.appointment_date)}</p>

@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { redisClient } from "../config/redis.js";
 import { DateTime } from "luxon";
+import { resolveLegacyUserId } from "../models/usersModel.js";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -19,8 +20,24 @@ import {
   updateServiceTransactionModelt,
   DeleteServiceTransaction,
   fetchServiceMaterialsModel,
-  updateServiceTransactionAppointmentModel
+  updateServiceTransactionAppointmentModel,
+  validateAppointmentRequestModel,
+  fetchAppointmentBusyEmployeeIdsModel,
 } from "../models/servicesModel.js";
+
+const KAMPALA_ZONE = "Africa/Kampala";
+const APPOINTMENT_TRANSITIONS = {
+  pending: new Set(["confirmed", "cancelled"]),
+  confirmed: new Set(["completed", "cancelled"]),
+  completed: new Set(),
+  cancelled: new Set(),
+};
+
+const requestError = (message, statusCode = 400) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
 
 // =========================================================
 // SERVICE DEFINITIONS CONTROLLER
@@ -242,12 +259,51 @@ export const createServiceTransaction = async (req, res) => {
       service_time: finalServiceTime
     };
 
+    // The active login system uses `users`, while this legacy transaction
+    // table still references `usermain`. Resolve rather than trusting IDs sent
+    // by the browser.
+    data.created_by = await resolveLegacyUserId(req.user.id, salon_id);
+    if (req.user?.role !== "customer" && data.customer_id) {
+      data.customer_id = await resolveLegacyUserId(data.customer_id, salon_id);
+    }
+
     // A customer may only create an appointment for their own account. Never
     // trust a customer_id or created_by value submitted by the browser.
     if (req.user?.role === "customer") {
-      data.customer_id = req.user.id;
-      data.created_by = req.user.id;
+      data.customer_id = data.created_by;
       data.status = "pending";
+
+      if (!data.service_definition_id) {
+        throw requestError("Select a service before requesting an appointment");
+      }
+      if (!data.appointment_date || !data.appointment_time) {
+        throw requestError("Appointment date and time are required");
+      }
+
+      const requestedAt = DateTime.fromISO(
+        `${data.appointment_date}T${data.appointment_time}`,
+        { zone: KAMPALA_ZONE },
+      );
+      if (!requestedAt.isValid) {
+        throw requestError("Enter a valid appointment date and time");
+      }
+      if (requestedAt <= DateTime.now().setZone(KAMPALA_ZONE)) {
+        throw requestError("Appointment time must be in the future");
+      }
+      if (![0, 30].includes(requestedAt.minute) || requestedAt.second !== 0) {
+        throw requestError("Appointments must start on a 30-minute time slot");
+      }
+      if (requestedAt.hour < 8 || requestedAt.hour > 23) {
+        throw requestError("Choose an appointment time between 08:00 and 23:30");
+      }
+
+      await validateAppointmentRequestModel({
+        salon_id,
+        service_definition_id: Number(data.service_definition_id),
+        appointment_date: data.appointment_date,
+        appointment_time: data.appointment_time,
+        performers: data.performers,
+      });
     }
 
 
@@ -290,9 +346,9 @@ export const createServiceTransaction = async (req, res) => {
     );
 
 
-    return res.status(500).json({
+    return res.status(err.statusCode || 500).json({
       success: false,
-      message: "Failed to create service transaction"
+      message: err.statusCode ? err.message : "Failed to create service transaction"
     });
 
   }
@@ -305,8 +361,11 @@ export const getAllServiceTransactions = async (req, res) => {
     const transactions = await fetchAllServiceTransactions(salon_id);
     const role = req.user?.role;
     const userId = Number(req.user?.id);
+    const transactionUserId = role === "customer"
+      ? await resolveLegacyUserId(userId, salon_id)
+      : userId;
     const visibleTransactions = role === "customer"
-      ? transactions.filter((transaction) => Number(transaction.customer_id) === userId)
+      ? transactions.filter((transaction) => Number(transaction.customer_id) === transactionUserId)
       : role === "employee"
         ? transactions.filter((transaction) =>
             transaction.performers?.some((performer) => Number(performer.employee_id) === userId),
@@ -331,10 +390,13 @@ export const getServiceTransactionById = async (req, res) => {
 
     const role = req.user?.role;
     const userId = Number(req.user?.id);
+    const transactionUserId = role === "customer"
+      ? await resolveLegacyUserId(userId, salon_id)
+      : userId;
     const canView = role !== "customer" && role !== "employee"
       ? true
       : role === "customer"
-        ? Number(transaction.customer_id) === userId
+        ? Number(transaction.customer_id) === transactionUserId
         : transaction.performers?.some((performer) => Number(performer.employee_id) === userId);
     if (!canView) return res.status(403).json({ success: false, message: "You cannot view this transaction" });
 
@@ -417,13 +479,51 @@ export const updateServiceTransactionAppointment = async (req, res) => {
     const { id } = req.params;
     const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
 
-    const { status, cancel_reason } = req.body;
+    const status = req.body.status?.trim().toLowerCase();
+    const cancel_reason = req.body.cancel_reason?.trim() || null;
+    if (!status) throw requestError("Appointment status is required");
+
+    const appointment = await fetchServiceTransactionById(id, salon_id);
+    if (!appointment) throw requestError("Appointment not found", 404);
+
+    if (req.user?.role === "customer") {
+      const transactionUserId = await resolveLegacyUserId(req.user.id, salon_id);
+      if (Number(appointment.customer_id) !== transactionUserId) {
+        throw requestError("You cannot change another customer's appointment", 403);
+      }
+      if (status !== "cancelled") {
+        throw requestError("Customers may only cancel their own appointment", 403);
+      }
+    }
+
+    const currentStatus = appointment.status?.trim().toLowerCase();
+    if (!APPOINTMENT_TRANSITIONS[currentStatus]?.has(status)) {
+      throw requestError(`Appointment cannot move from ${currentStatus || "unknown"} to ${status}`, 409);
+    }
+    if (status === "cancelled" && !cancel_reason) {
+      throw requestError("A cancellation reason is required");
+    }
+
+    if (status === "confirmed" || status === "completed") {
+      await validateAppointmentRequestModel({
+        salon_id,
+        service_definition_id: Number(appointment.service_definition_id),
+        appointment_date: appointment.appointment_date,
+        appointment_time: appointment.appointment_time,
+        performers: appointment.performers,
+        exclude_transaction_id: Number(id),
+      });
+    }
+
+    const completedAt = status === "completed"
+      ? DateTime.now().setZone(KAMPALA_ZONE)
+      : null;
 
     const updates = {
       status,
       cancel_reason,
-      id,
-      salon_id
+      service_date: completedAt?.toISODate() || null,
+      service_time: completedAt?.toFormat("HH:mm:ss") || null,
     };
 
     const updated = await updateServiceTransactionAppointmentModel(
@@ -432,12 +532,40 @@ export const updateServiceTransactionAppointment = async (req, res) => {
       salon_id
     );
 
-    res.json({ success: true, data: updated });
+    const refreshed = await fetchServiceTransactionById(updated.id, salon_id);
+    res.json({ success: true, data: refreshed });
   } catch (err) {
     console.error(err);
-    res.status(500).json({
+    res.status(err.statusCode || 500).json({
       success: false,
-      message: "Failed to update transaction"
+      message: err.statusCode ? err.message : "Failed to update transaction"
+    });
+  }
+};
+
+export const getAppointmentAvailability = async (req, res) => {
+  try {
+    const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+    const appointment_date = req.query.date?.trim();
+    const appointment_time = req.query.time?.trim();
+    if (!appointment_date || !appointment_time) {
+      throw requestError("Appointment date and time are required");
+    }
+    const requestedAt = DateTime.fromISO(`${appointment_date}T${appointment_time}`, {
+      zone: KAMPALA_ZONE,
+    });
+    if (!requestedAt.isValid) throw requestError("Enter a valid appointment date and time");
+
+    const busyEmployeeIds = await fetchAppointmentBusyEmployeeIdsModel(
+      salon_id,
+      appointment_date,
+      appointment_time,
+    );
+    res.json({ success: true, data: { busyEmployeeIds } });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.statusCode ? err.message : "Unable to check appointment availability",
     });
   }
 };

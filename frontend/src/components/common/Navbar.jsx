@@ -29,6 +29,7 @@ export default function Navbar() {
   const [loading, setLoading] = useState(false);
   const [loginError, setLoginError] = useState(null);
   const [toast, setToast] = useState({ message: "", type: "success" });
+  const [registrationCountdown, setRegistrationCountdown] = useState(null);
   const accountRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -44,6 +45,20 @@ export default function Navbar() {
     document.body.style.overflow = menuOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [menuOpen]);
+  useEffect(() => {
+    if (registrationCountdown === null) return undefined;
+    if (registrationCountdown <= 0) {
+      setRegistrationCountdown(null);
+      setAuthForm("login");
+      setLoginOpen(true);
+      return undefined;
+    }
+    const timer = window.setTimeout(
+      () => setRegistrationCountdown((value) => value - 1),
+      1000,
+    );
+    return () => window.clearTimeout(timer);
+  }, [registrationCountdown]);
 
   const handleLogin = async ({ email, password }) => {
     setLoading(true); setLoginError(null);
@@ -59,8 +74,15 @@ export default function Navbar() {
   };
 
   const register = async (formData) => {
-    try { await createUser(formData); setRegisterOpen(false); setLoginOpen(true); }
-    catch { setToast({ message: "Account creation failed. Please try again.", type: "error" }); }
+    try {
+      await createUser(formData);
+      setRegisterOpen(false);
+      setRegistrationCountdown(5);
+    }
+    catch (error) {
+      setToast({ message: error?.response?.data?.error || "Account creation failed. Please try again.", type: "error" });
+      throw error;
+    }
   };
 
   const submitForgotPassword = async (email) => {
@@ -105,6 +127,18 @@ export default function Navbar() {
 
       <Modal isOpen={loginOpen} onClose={() => setLoginOpen(false)}>{authForm === "login" ? <LoginForm onSubmit={handleLogin} onCancel={() => setLoginOpen(false)} loading={loading} error={loginError} onForgotPassword={() => setAuthForm("forgot")} /> : <ForgotPasswordForm onSubmit={submitForgotPassword} onCancel={() => setAuthForm("login")} loading={loading} message={null} error={null} />}</Modal>
       <Modal isOpen={registerOpen} onClose={() => setRegisterOpen(false)}><UserForm role="customer" onSubmit={register} onClose={() => setRegisterOpen(false)} /></Modal>
+      <Modal isOpen={registrationCountdown !== null} onClose={() => {}}>
+        <div className="mx-auto max-w-md p-6 text-center">
+          <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-100 text-2xl text-emerald-700">✓</span>
+          <h2 className="mt-5 font-serif text-2xl font-semibold text-[var(--salon-ink)]">Account created successfully</h2>
+          <p className="mt-3 leading-7 text-slate-600">
+            Your customer account is ready. Redirecting you to sign in in {registrationCountdown} second{registrationCountdown === 1 ? "" : "s"}.
+          </p>
+          <button type="button" onClick={() => setRegistrationCountdown(0)} className="salon-button-primary mt-6 justify-center">
+            Continue to sign in now
+          </button>
+        </div>
+      </Modal>
       {toast.message && <ToastModal message={toast.message} type={toast.type} duration={5000} onClose={() => setToast({ message: "", type: toast.type })} />}
     </>
   );

@@ -1,4 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { DateTime } from "luxon";
+
+const APPOINTMENT_TIME_SLOTS = Array.from({ length: 32 }, (_, index) => {
+  const totalMinutes = (8 * 60) + (index * 30);
+  const hour = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+  const minute = String(totalMinutes % 60).padStart(2, "0");
+  return `${hour}:${minute}`;
+});
 
 export default function ServiceForm({
   isCustomer = false,
@@ -8,6 +16,8 @@ export default function ServiceForm({
   Services,
   Roles,
   Employees,
+  Appointments = [],
+  getAppointmentAvailability,
   createdBy,
   customerId = null,
   serviceStatus,
@@ -25,6 +35,10 @@ export default function ServiceForm({
   const [roles, setRoles] = useState([]);
   const [employees, setEmployees] = useState(Employees);
   const [serviceAmount, setServiceAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [remoteBusyEmployeeIds, setRemoteBusyEmployeeIds] = useState([]);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
   console.log("employees to be edited in the service form", Employees)
 
   const [form, setForm] = useState({
@@ -69,7 +83,7 @@ export default function ServiceForm({
         setServiceAmount(Number(serviceData.full_amount || serviceData.service_amount || 0));
       }
     }
-  }, [serviceData, Services, Roles]);
+  }, [serviceData, Services, Roles, serviceStatus]);
 
   useEffect(() => {
     setSections(Sections || []);
@@ -153,12 +167,98 @@ const handleServiceSelect = (e) => {
     setForm({ ...form, performers: updated });
   };
 
+  const busyEmployeeIds = useMemo(() => {
+    if (!isCustomer || !form.appointment_date || !form.appointment_time) {
+      return new Set();
+    }
+
+    const requestedTime = form.appointment_time.slice(0, 5);
+    const currentId = Number(form.id);
+    return new Set([
+      ...remoteBusyEmployeeIds,
+      ...(
+      (Appointments || [])
+        .filter((appointment) => {
+          const appointmentId = Number(appointment.transaction_id ?? appointment.id);
+          return appointmentId !== currentId &&
+            ["pending", "confirmed"].includes(String(appointment.status).toLowerCase()) &&
+            appointment.appointment_date?.slice(0, 10) === form.appointment_date &&
+            appointment.appointment_time?.slice(0, 5) === requestedTime;
+        })
+        .flatMap((appointment) => appointment.performers || [])
+        .map((performer) => Number(performer.employee_id))
+        .filter(Number.isInteger)
+      ),
+    ]);
+  }, [Appointments, form.appointment_date, form.appointment_time, form.id, isCustomer, remoteBusyEmployeeIds]);
+
+  useEffect(() => {
+    if (!isCustomer || busyEmployeeIds.size === 0) return;
+    setForm((current) => {
+      let changed = false;
+      const performers = current.performers.map((performer) => {
+        if (!busyEmployeeIds.has(Number(performer.employee_id))) return performer;
+        changed = true;
+        return { ...performer, employee_id: "" };
+      });
+      return changed ? { ...current, performers } : current;
+    });
+  }, [busyEmployeeIds, isCustomer]);
+
+  useEffect(() => {
+    if (!isCustomer || !form.appointment_date || !form.appointment_time || !getAppointmentAvailability) {
+      setRemoteBusyEmployeeIds([]);
+      return;
+    }
+
+    let active = true;
+    setCheckingAvailability(true);
+    const timer = setTimeout(() => {
+      getAppointmentAvailability(form.appointment_date, form.appointment_time)
+        .then((ids) => {
+          if (active) setRemoteBusyEmployeeIds(Array.isArray(ids) ? ids : []);
+        })
+        .catch(() => {
+          if (active) setSubmitError("Availability could not be checked. Try again before submitting.");
+        })
+        .finally(() => {
+          if (active) setCheckingAvailability(false);
+        });
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [form.appointment_date, form.appointment_time, getAppointmentAvailability, isCustomer]);
+
   // --------------------------
   // SUBMIT (create or update)
   // --------------------------
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
   e.preventDefault();
+  setSubmitError("");
+
+  if (!form.section_id || !form.service_definition_id) {
+    setSubmitError("Select a section and service.");
+    return;
+  }
+  if (isCustomer && (!form.appointment_date || !form.appointment_time)) {
+    setSubmitError("Select an appointment date and time.");
+    return;
+  }
+
+  const missingRole = roles.find((role) => {
+    if (role.role_name?.trim().toLowerCase() === "salon") return false;
+    return !form.performers.find(
+      (performer) => Number(performer.role_id) === Number(role.id) && performer.employee_id,
+    );
+  });
+  if (missingRole) {
+    setSubmitError(`Select an employee for ${missingRole.role_name}.`);
+    return;
+  }
 
   const payload = {
   id: form.id || null,
@@ -198,13 +298,22 @@ const handleServiceSelect = (e) => {
   );
 
   const transactionId = serviceData?.transaction_id ?? serviceData?.id;
-  if (serviceData && transactionId) {
-    onSubmit(transactionId, payload);
-  } else {
-    onSubmit(payload);
-  }
-
+  try {
+    setSubmitting(true);
+    if (serviceData && transactionId) {
+      await onSubmit(transactionId, payload);
+    } else {
+      await onSubmit(payload);
+    }
     if (onClose) onClose();
+  } catch (error) {
+    setSubmitError(
+      error?.response?.data?.message || error?.response?.data?.error ||
+      "The appointment could not be submitted. Please try again.",
+    );
+  } finally {
+    setSubmitting(false);
+  }
 };
 
 
@@ -225,6 +334,7 @@ const handleServiceSelect = (e) => {
         <select
           value={form.section_id}
           onChange={(e) => handleSectionSelect(Number(e.target.value))}
+          required
         >
           <option value="">Select Section</option>
           {sections.map((s) => (
@@ -242,6 +352,7 @@ const handleServiceSelect = (e) => {
           <select
             value={form.service_definition_id}
             onChange={handleServiceSelect}
+            required
           >
             <option value="">Select Service</option>
             {services.map((s) => (
@@ -260,7 +371,8 @@ const handleServiceSelect = (e) => {
 
       {/* PERFORMERS (Salon hidden) */}
       {roles.length > 0 && (
-        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2">
+          {checkingAvailability && <p className="text-xs text-blue-600">Checking employee availability…</p>}
           {roles.map((role) => {
             const isSalon =
               role.role_name && role.role_name.toLowerCase() === "salon";
@@ -276,11 +388,12 @@ const handleServiceSelect = (e) => {
                       ?.employee_id || ""
                   }
                   onChange={(e) => updatePerformer(role.id, e.target.value)}
+                  required
                 >
                   <option value="">select employee</option>
                   {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.last_name}
+                    <option key={emp.id} value={emp.id} disabled={busyEmployeeIds.has(Number(emp.id))}>
+                      {emp.first_name} {emp.last_name}{busyEmployeeIds.has(Number(emp.id)) ? " — booked" : ""}
                     </option>
                   ))}
                 </select>
@@ -297,22 +410,32 @@ const handleServiceSelect = (e) => {
             <label>Appointment Date</label>
             <input
               type="date"
+              min={DateTime.now().setZone("Africa/Kampala").toISODate()}
               value={form.appointment_date}
               onChange={(e) =>
                 setForm({ ...form, appointment_date: e.target.value })
               }
+              required
             />
           </div>
 
           <div className="flex flex-col">
             <label>Appointment Time</label>
-            <input
-              type="time"
+            <select
               value={form.appointment_time}
               onChange={(e) =>
                 setForm({ ...form, appointment_time: e.target.value })
               }
-            />
+              required
+            >
+              <option value="">Select a time</option>
+              {APPOINTMENT_TIME_SLOTS.map((time) => (
+                <option key={time} value={time}>{time}</option>
+              ))}
+            </select>
+            <span className="mt-1 text-xs text-gray-500">
+              24-hour time, available in 30-minute intervals.
+            </span>
           </div>
 
           <div className="flex flex-col">
@@ -328,16 +451,20 @@ const handleServiceSelect = (e) => {
 
           {
             form.service_definition_id && (
-              <p className="text-gray-700 font-medium">
-                The total amount for this service is <span className="text-green-700">UGX {serviceAmount}</span>
+              <p className="rounded-lg bg-green-50 p-3 text-gray-700 font-medium">
+                Online booking price: <span className="text-green-700">UGX {Math.max(0, Math.round(Number(serviceAmount || 0) * 0.95)).toLocaleString()}</span>
+                <span className="ml-2 text-sm text-gray-500 line-through">UGX {Number(serviceAmount || 0).toLocaleString()}</span>
+                <span className="mt-1 block text-xs text-green-700">5% online booking discount</span>
           </p>
             )
           }
         </>
       )}
 
-      <button type="submit" className="bg-blue-500 text-white p-2 rounded">
-        {serviceData ? "Save Changes" : "Add Service"}
+      {submitError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{submitError}</p>}
+
+      <button type="submit" disabled={submitting} className="bg-blue-500 text-white p-2 rounded disabled:cursor-not-allowed disabled:opacity-60">
+        {submitting ? "Submitting…" : serviceData ? "Save Changes" : isCustomer ? "Request Appointment" : "Add Service"}
       </button>
     </form>
   );

@@ -369,7 +369,7 @@ export default function CashierDashboard() {
   name: `${p.first_name} ${p.last_name}`,
 })).filter(Boolean);
 
-        const customer = Customers.find((c) => c.id === s.customer_id);
+        const customer = Customers.find((c) => Number(c.id) === Number(s.active_customer_id || s.customer_id));
 
         return (
           <div
@@ -388,9 +388,9 @@ export default function CashierDashboard() {
 
             <p>
               Customer:{" "}
-              {customer
+              {s.customer_name || (customer
                 ? `${customer.first_name} ${customer.last_name}`
-                : "N/A"}
+                : "N/A")}
             </p>
 
             <p>Date: {formatDate(s.appointment_date)}</p>

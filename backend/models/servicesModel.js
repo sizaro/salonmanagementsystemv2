@@ -1,4 +1,5 @@
 import db from "./database.js";
+import { servicePricingSelect } from "../utils/servicePricingSql.js";
 
 // =========================================================
 // SERVICE DEFINITIONS CRUD
@@ -297,9 +298,29 @@ export const saveServiceTransaction = async (data) => {
   }
 
 
-  try {
-    await db.query("BEGIN");
-
+  return db.transaction(async (client) => {
+    if (
+      String(status || "").toLowerCase() === "pending" &&
+      appointment_date &&
+      appointment_time
+    ) {
+      // Serialize bookings for the same salon and slot, then re-check
+      // availability inside the transaction. This prevents two customers
+      // from booking the same employee at the same time concurrently.
+      const bookingLockKey = `${salon_id}:${appointment_date}:${appointment_time}`;
+      await client.query(
+        "SELECT pg_advisory_xact_lock(hashtext($1))",
+        [bookingLockKey],
+      );
+      await validateAppointmentRequestModel({
+        salon_id,
+        service_definition_id,
+        appointment_date,
+        appointment_time,
+        performers,
+        queryable: client,
+      });
+    }
 
     const insertTrans = `
       INSERT INTO service_transactions
@@ -338,7 +359,7 @@ export const saveServiceTransaction = async (data) => {
     `;
 
 
-    const { rows } = await db.query(insertTrans, [
+    const { rows } = await client.query(insertTrans, [
 
       salon_id,
 
@@ -370,7 +391,7 @@ export const saveServiceTransaction = async (data) => {
 
     for (const p of performers) {
 
-      await db.query(
+      await client.query(
         `
         INSERT INTO service_performers
         (
@@ -394,24 +415,133 @@ export const saveServiceTransaction = async (data) => {
     }
 
 
-    await db.query("COMMIT");
-
-
     return transaction;
+  });
+};
 
+export const validateAppointmentRequestModel = async ({
+  salon_id,
+  service_definition_id,
+  appointment_date,
+  appointment_time,
+  performers = [],
+  exclude_transaction_id = null,
+  queryable = db,
+}) => {
+  const { rows: roleRows } = await queryable.query(
+    `SELECT id, role_name
+     FROM service_roles
+     WHERE salon_id = $1 AND service_definition_id = $2
+     ORDER BY id`,
+    [salon_id, service_definition_id],
+  );
 
-  } catch (err) {
+  if (roleRows.length === 0) {
+    const error = new Error("The selected service has no configured service roles");
+    error.statusCode = 400;
+    throw error;
+  }
 
-    await db.query("ROLLBACK");
+  const submittedByRole = new Map(
+    performers.map((performer) => [Number(performer.role_id), performer]),
+  );
+  const submittedRoleIds = performers.map((performer) => Number(performer.role_id));
+  const configuredRoleIds = new Set(roleRows.map((role) => Number(role.id)));
 
-    console.error(
-      "Error saving service transaction:",
-      err
+  if (new Set(submittedRoleIds).size !== submittedRoleIds.length) {
+    const error = new Error("A service role can only be assigned once");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (submittedRoleIds.some((roleId) => !configuredRoleIds.has(roleId))) {
+    const error = new Error("One or more selected roles do not belong to this service");
+    error.statusCode = 400;
+    throw error;
+  }
+  const requiredRoles = roleRows.filter(
+    (role) => role.role_name?.trim().toLowerCase() !== "salon",
+  );
+
+  for (const role of requiredRoles) {
+    const performer = submittedByRole.get(Number(role.id));
+    if (!performer?.employee_id) {
+      const error = new Error(`Select an employee for ${role.role_name}`);
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  const employeeIds = [...new Set(
+    performers
+      .map((performer) => Number(performer.employee_id))
+      .filter(Number.isInteger),
+  )];
+
+  if (employeeIds.length > 0) {
+    const { rows: employeeRows } = await queryable.query(
+      `SELECT id
+       FROM users
+       WHERE salon_id = $1
+         AND id = ANY($2::int[])
+         AND role <> 'customer'
+         AND LOWER(COALESCE(status, 'active')) = 'active'`,
+      [salon_id, employeeIds],
     );
 
-    throw err;
+    if (employeeRows.length !== employeeIds.length) {
+      const error = new Error("One or more selected employees are unavailable");
+      error.statusCode = 400;
+      throw error;
+    }
 
+    const { rows: conflicts } = await queryable.query(
+      `SELECT DISTINCT sp.employee_id, u.first_name, u.last_name
+       FROM service_transactions st
+       JOIN service_performers sp ON sp.service_transaction_id = st.id
+       LEFT JOIN users u ON u.id = sp.employee_id
+       WHERE st.salon_id = $1
+         AND st.appointment_date = $2::date
+         AND st.appointment_time = $3::time
+         AND LOWER(COALESCE(st.status, '')) IN ('pending', 'confirmed')
+         AND sp.employee_id = ANY($4::int[])
+         AND ($5::int IS NULL OR st.id <> $5::int)`,
+      [salon_id, appointment_date, appointment_time, employeeIds, exclude_transaction_id],
+    );
+
+    if (conflicts.length > 0) {
+      const names = conflicts
+        .map((row) => `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim())
+        .filter(Boolean)
+        .join(", ");
+      const error = new Error(
+        names ? `${names} already has an appointment at that time` : "The selected employee is already booked at that time",
+      );
+      error.statusCode = 409;
+      throw error;
+    }
   }
+
+  return true;
+};
+
+export const fetchAppointmentBusyEmployeeIdsModel = async (
+  salon_id,
+  appointment_date,
+  appointment_time,
+) => {
+  const { rows } = await db.query(
+    `SELECT DISTINCT sp.employee_id
+     FROM service_transactions st
+     JOIN service_performers sp ON sp.service_transaction_id = st.id
+     WHERE st.salon_id = $1
+       AND st.appointment_date = $2::date
+       AND st.appointment_time = $3::time
+       AND LOWER(COALESCE(st.status, '')) IN ('pending', 'confirmed')
+       AND sp.employee_id IS NOT NULL`,
+    [salon_id, appointment_date, appointment_time],
+  );
+  return rows.map((row) => Number(row.employee_id)).filter(Number.isInteger);
 };
 
 // FETCH ALL SERVICE TRANSACTIONS
@@ -430,10 +560,12 @@ export const fetchAllServiceTransactions = async (salon_id) => {
       -- appointment values
       st.appointment_date::TEXT AS appointment_date,
 
+      active_customer.id AS active_customer_id,
+      CONCAT_WS(' ', active_customer.first_name, active_customer.last_name) AS customer_name,
+
       sd.service_name,
       sd.description,
-      sd.service_amount AS full_amount,
-      sd.salon_amount,
+      ${servicePricingSelect},
       sd.section_id AS definition_section_id,
 
       sec.section_name,
@@ -456,6 +588,13 @@ export const fetchAllServiceTransactions = async (salon_id) => {
 
     JOIN service_sections sec
       ON sec.id = sd.section_id
+
+    LEFT JOIN usermain legacy_customer
+      ON legacy_customer.id = st.customer_id
+
+    LEFT JOIN users active_customer
+      ON active_customer.salon_id = st.salon_id
+     AND LOWER(active_customer.email) = LOWER(legacy_customer.email)
 
 
 
@@ -556,14 +695,14 @@ export const fetchServiceTransactionById = async (id, salon_id) => {
       st.service_date::TEXT AS service_date,
       st.service_time::TEXT AS service_time,
       st.appointment_date::TEXT AS appointment_date,
+      active_customer.id AS active_customer_id,
       sd.service_name,
       sd.description,
-      sd.service_amount AS full_amount,
-      sd.salon_amount,
+      ${servicePricingSelect},
       sd.section_id AS definition_section_id,
       sec.section_name,
       CONCAT_WS(' ', creator.first_name, creator.last_name) AS recorded_by_name,
-      CONCAT_WS(' ', customer.first_name, customer.last_name) AS customer_name,
+      CONCAT_WS(' ', active_customer.first_name, active_customer.last_name) AS customer_name,
       COALESCE((
         SELECT json_agg(jsonb_build_object(
           'role_id', sr.id,
@@ -590,8 +729,14 @@ export const fetchServiceTransactionById = async (id, salon_id) => {
     FROM service_transactions st
     JOIN service_definitions sd ON sd.id = st.service_definition_id AND sd.salon_id = $2
     JOIN service_sections sec ON sec.id = sd.section_id AND sec.salon_id = $2
-    LEFT JOIN users creator ON creator.id = st.created_by
-    LEFT JOIN users customer ON customer.id = st.customer_id
+    LEFT JOIN usermain legacy_creator ON legacy_creator.id = st.created_by
+    LEFT JOIN users creator
+      ON creator.salon_id = st.salon_id
+     AND LOWER(creator.email) = LOWER(legacy_creator.email)
+    LEFT JOIN usermain legacy_customer ON legacy_customer.id = st.customer_id
+    LEFT JOIN users active_customer
+      ON active_customer.salon_id = st.salon_id
+     AND LOWER(active_customer.email) = LOWER(legacy_customer.email)
     WHERE st.id = $1 AND st.salon_id = $2;
   `;
 
@@ -673,30 +818,32 @@ export const updateServiceTransactionModel = async (id, updates, salon_id) => {
 
 // UPDATE APPOINTMENT (STATUS / CANCEL REASON)
 export const updateServiceTransactionAppointmentModel = async (id, updates, salon_id) => {
-  const { status, cancel_reason } = updates;
+  const { status, cancel_reason, service_date, service_time } = updates;
 
   if (!status && !cancel_reason) throw new Error("No valid fields to update");
 
-  try {
-    await db.query("BEGIN");
-
+  return db.transaction(async (client) => {
     const query = `
       UPDATE service_transactions
-      SET status = COALESCE($1, status), cancel_reason = COALESCE($2, cancel_reason)
+      SET status = COALESCE($1, status),
+          cancel_reason = CASE WHEN LOWER($1) = 'cancelled' THEN $2 ELSE NULL END,
+          service_date = CASE WHEN LOWER($1) = 'completed' THEN $5::date ELSE service_date END,
+          service_time = CASE WHEN LOWER($1) = 'completed' THEN $6::time ELSE service_time END
       WHERE id = $3 AND salon_id = $4
       RETURNING *;
     `;
-    const { rows } = await db.query(query, [status || null, cancel_reason || null, id, salon_id]);
+    const { rows } = await client.query(query, [
+      status || null,
+      cancel_reason || null,
+      id,
+      salon_id,
+      service_date || null,
+      service_time || null,
+    ]);
 
     if (rows.length === 0) throw new Error("Transaction not found");
-
-    await db.query("COMMIT");
     return rows[0];
-  } catch (err) {
-    await db.query("ROLLBACK");
-    console.error("Error updating appointment:", err);
-    throw err;
-  }
+  });
 };
 
 // UPDATE TRANSACTION TIME ONLY

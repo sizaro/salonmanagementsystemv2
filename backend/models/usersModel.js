@@ -5,7 +5,10 @@ import db from './database.js';
  */
 export const fetchAllUsers = async (salon_id) => {
   const query = `
-    SELECT u.*,
+    SELECT u.id, u.salon_id, u.first_name, u.middle_name, u.last_name,
+           u.email, u.birthdate, u.contact, u.next_of_kin,
+           u.next_of_kin_contact, u.role, u.gender, u.specialty,
+           u.status, u.bio, u.image_url, u.created_at,
            (u.created_at AT TIME ZONE 'Africa/Kampala') AS user_time
     FROM users u
     WHERE u.salon_id = $1
@@ -15,11 +18,28 @@ export const fetchAllUsers = async (salon_id) => {
   return result.rows;
 };
 
+export const fetchBookableStaff = async (salon_id) => {
+  const { rows } = await db.query(
+    `SELECT id, first_name, last_name, specialty, status, image_url
+     FROM users
+     WHERE salon_id = $1
+       AND role <> 'customer'
+       AND LOWER(COALESCE(status, 'active')) = 'active'
+     ORDER BY first_name, last_name`,
+    [salon_id],
+  );
+  return rows;
+};
+
 /**
  * Fetch single user by ID for a given salon
  */
 export const fetchUserById = async (id, salon_id) => {
-  const query = `SELECT * FROM users WHERE id = $1 AND salon_id = $2;`;
+  const query = `SELECT id, salon_id, first_name, middle_name, last_name,
+                        email, birthdate, contact, next_of_kin,
+                        next_of_kin_contact, role, gender, specialty,
+                        status, bio, image_url, created_at
+                 FROM users WHERE id = $1 AND salon_id = $2;`;
   const result = await db.query(query, [id, salon_id]);
   return result.rows[0];
 };
@@ -54,7 +74,9 @@ export const saveUser = async ({
       ) 
     VALUES 
       ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW())
-    RETURNING *;
+    RETURNING id, salon_id, first_name, middle_name, last_name, email,
+              birthdate, contact, next_of_kin, next_of_kin_contact,
+              role, gender, specialty, status, bio, image_url, created_at;
   `;
 
   const values = [
@@ -112,7 +134,7 @@ export const UpdateUserById = async (data) => {
     "middle_name = $2",
     "last_name = $3",
     "email = $4",
-    "password = $5",
+    "password = COALESCE($5, password)",
     "birthdate = $6",
     "contact = $7",
     "next_of_kin = $8",
@@ -153,7 +175,9 @@ export const UpdateUserById = async (data) => {
     UPDATE users
     SET ${fields.join(", ")}
     WHERE id = $${values.length - 1} AND salon_id = $${values.length}
-    RETURNING *;
+    RETURNING id, salon_id, first_name, middle_name, last_name, email,
+              birthdate, contact, next_of_kin, next_of_kin_contact,
+              role, gender, specialty, status, bio, image_url, created_at;
   `;
 
   const result = await db.query(query, values);
@@ -192,6 +216,65 @@ export const findUserById = async (id, salon_id) => {
   return result.rows[0];
 };
 
+/**
+ * service_transactions still has legacy foreign keys to usermain. Resolve the
+ * active users identity to its legacy counterpart until that table is retired.
+ */
+export const resolveLegacyUserId = async (user_id, salon_id) => {
+  return db.transaction(async (client) => {
+    const { rows: activeRows } = await client.query(
+      `SELECT id, salon_id, first_name, middle_name, last_name, email, password,
+              birthdate, contact, next_of_kin, next_of_kin_contact, role,
+              specialty, status, bio, image_url
+       FROM users
+       WHERE id = $1 AND salon_id = $2`,
+      [user_id, salon_id],
+    );
+    const activeUser = activeRows[0];
+    if (!activeUser) throw new Error("Active user account not found");
+
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtext($1))",
+      [`legacy-user:${salon_id}:${activeUser.email.toLowerCase()}`],
+    );
+
+    const { rows: existingRows } = await client.query(
+      `SELECT id FROM usermain
+       WHERE salon_id = $1 AND LOWER(email) = LOWER($2)
+       ORDER BY id LIMIT 1`,
+      [salon_id, activeUser.email],
+    );
+    if (existingRows[0]) return Number(existingRows[0].id);
+
+    const { rows: insertedRows } = await client.query(
+      `INSERT INTO usermain
+        (first_name, middle_name, last_name, email, password, birthdate,
+         contact, next_of_kin, next_of_kin_contact, role, specialty, status,
+         bio, image_url, salon_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+       RETURNING id`,
+      [
+        activeUser.first_name || "Customer",
+        activeUser.middle_name || null,
+        activeUser.last_name || null,
+        activeUser.email,
+        activeUser.password,
+        activeUser.birthdate || null,
+        activeUser.contact || null,
+        activeUser.next_of_kin || null,
+        activeUser.next_of_kin_contact || null,
+        activeUser.role,
+        activeUser.specialty || "-",
+        activeUser.status || "active",
+        activeUser.bio || "-",
+        activeUser.image_url || "-",
+        salon_id,
+      ],
+    );
+    return Number(insertedRows[0].id);
+  });
+};
+
 export default {
   fetchAllUsers,
   fetchUserById,
@@ -199,5 +282,6 @@ export default {
   UpdateUserById,
   DeleteUserById,
   findUserByEmail,
-  findUserById
+  findUserById,
+  resolveLegacyUserId,
 };

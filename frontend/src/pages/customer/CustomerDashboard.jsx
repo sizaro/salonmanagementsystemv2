@@ -5,14 +5,12 @@ import Button from "../../components/Button.jsx";
 import ConfirmModal from "../../components/ConfirmModal.jsx";
 import { useData } from "../../context/DataContext.jsx";
 
-export default function customerDashboard() {
+const TIME_SLOTS = Array.from({ length: 16 }, (_, i) => `${8 + i}:00`);
+
+export default function CustomerDashboard() {
   const [modalOpen, setModalOpen] = useState(false);
-  const [messageModal, setMessageModal] = useState({ open: false, text: "", type: "" });
   const [adverts, setAdverts] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [appointmentDate, setAppointmentDate] = useState("");
-  const [appointmentTime, setAppointmentTime] = useState("");
-  const [filteredEmployees, setFilteredEmployees] = useState([]);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
 
   const { 
@@ -23,13 +21,8 @@ export default function customerDashboard() {
     sections,
     serviceDefinitions,
     serviceRoles,
-    fetchSections,
-    fetchServiceDefinitions,
-    fetchServiceTransactions,
-    fetchServiceMaterials,
-    fetchServiceRoles,
     createServiceTransaction,
-    fetchUsers 
+    fetchAppointmentAvailability,
   } = useData();
 
   const staticBaseUrl =
@@ -63,19 +56,10 @@ export default function customerDashboard() {
   // Modal controls
   const openModal = () => setModalOpen(true);
   const closeModal = () => setModalOpen(false);
-  const showMessage = (text, type = "success") =>
-    setMessageModal({ open: true, text, type });
-  const closeMessage = () => setMessageModal({ open: false, text: "", type: "" });
-
-  // Fetch all data on mount
-  useEffect(() => {
-    fetchUsers();
-    fetchServiceRoles();
-    fetchSections();
-    fetchServiceDefinitions();
-    fetchServiceMaterials();
-    fetchServiceTransactions();
-  }, []);
+  const createAppointment = async (payload) => {
+    await createServiceTransaction(payload);
+    setConfirmModalOpen(true);
+  };
 
   // Simulate adverts
   useEffect(() => {
@@ -98,8 +82,6 @@ export default function customerDashboard() {
     return week;
   }, []);
 
-  const timeSlots = Array.from({ length: 16 }, (_, i) => `${8 + i}:00`); // 8:00–23:00
-
   // Weekly schedule map (only confirmed services)
   const scheduleMap = useMemo(() => {
     if (!selectedEmployee || !servicesWithMaterials) return {};
@@ -121,7 +103,7 @@ export default function customerDashboard() {
       if (!map[date]) return;
 
       const hour = time.split(":")[0] + ":00";
-      if (timeSlots.includes(hour)) {
+      if (TIME_SLOTS.includes(hour)) {
         map[date][hour] = s;
       }
     });
@@ -166,27 +148,6 @@ export default function customerDashboard() {
       </td>
     );
   };
-
-  // Filter available employees based on confirmed services
-  useEffect(() => {
-  if (!appointmentDate || !appointmentTime) {
-    setFilteredEmployees(employees);
-    return;
-  }
-
-  const available = employees.filter((emp) => {
-    const isBusy = servicesWithMaterials.some((s) => 
-      s.status === "confirmed" &&
-      s.performers?.some(p => p.employee_id === emp.id) &&
-      s.appointment_date?.split("T")[0] === appointmentDate &&
-      s.appointment_time === appointmentTime
-    );
-    return !isBusy;
-  });
-
-  setFilteredEmployees(available);
-}, [appointmentDate, appointmentTime, servicesWithMaterials, employees]);
-
 
   // Wait until user and users are loaded
   if (!user || !user.id || users.length === 0) {
@@ -260,7 +221,7 @@ export default function customerDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {timeSlots.map((time) => (
+                {TIME_SLOTS.map((time) => (
                   <tr key={time}>
                     <td className="px-2 py-1 border font-medium">{time}</td>
                     {weekDates.map((d) => {
@@ -289,12 +250,14 @@ export default function customerDashboard() {
       <Modal isOpen={modalOpen} onClose={closeModal}>
         <ServiceForm
           isCustomer={true}
-          onSubmit={createServiceTransaction}
+          onSubmit={createAppointment}
           onClose={closeModal}
           Sections={sections}
           Services={serviceDefinitions}
           Roles={serviceRoles}
           Employees={employees}
+          Appointments={transactions}
+          getAppointmentAvailability={fetchAppointmentAvailability}
           createdBy={user.id}
           customerId={user.id}
           serviceStatus={"pending"}

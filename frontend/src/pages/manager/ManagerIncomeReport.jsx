@@ -4,6 +4,7 @@ import "../../styles/IncomeDailyReport.css";
 import Modal from "../../components/Modal.jsx";
 import ServiceForm from "../../components/ServiceForm.jsx";
 import ConfirmModal from "../../components/ConfirmModal.jsx";
+import ReportLoadingState from "../../components/common/ReportLoadingState.jsx";
 
 const ManagerIncomeReport = () => {
   const {
@@ -69,6 +70,22 @@ const ManagerIncomeReport = () => {
   const [week, setWeek] = useState({ start: null, end: null });
   const [monthYear, setMonthYear] = useState("");
   const [year, setYear] = useState(new Date().getFullYear());
+  const [reportLoading, setReportLoading] = useState(true);
+  const [reportReady, setReportReady] = useState(false);
+  const [reportError, setReportError] = useState("");
+
+  const loadIncomeReport = async (request) => {
+    setReportLoading(true);
+    setReportError("");
+    try {
+      await request();
+      setReportReady(true);
+    } catch (error) {
+      setReportError(error.response?.data?.error || "Unable to load the income report.");
+    } finally {
+      setReportLoading(false);
+    }
+  };
 
   const handleEditClick = async (id) => {
 
@@ -231,7 +248,7 @@ const ManagerIncomeReport = () => {
   const handleDayChange = (e) => {
   console.log("handleDayChange called with value:", e.target.value);
   setSelectedDate(e.target.value);
-  fetchDailyData(e.target.value);
+  void loadIncomeReport(() => fetchDailyData(e.target.value));
   fetchUsers();
 };
 
@@ -258,7 +275,7 @@ const handleWeekChange = (e) => {
   setReportLabel(
     `${monday.toLocaleDateString("en-US")} → ${sunday.toLocaleDateString("en-US")}`
   );
-  fetchWeeklyData(monday, sunday);
+  void loadIncomeReport(() => fetchWeeklyData(monday, sunday));
   fetchUsers();
 };
 
@@ -275,7 +292,7 @@ const handleMonthChange = (e) => {
         year: "numeric",
       })}`
     );
-    fetchMonthlyData(year, month);
+    void loadIncomeReport(() => fetchMonthlyData(year, month));
     fetchUsers()
 };
 
@@ -284,7 +301,7 @@ const handleYearChange = (e) => {
   const selectedYear = parseInt(e.target.value, 10);
     setYear(selectedYear);
     setReportLabel(`Year ${selectedYear}`);
-    fetchYearlyData(selectedYear)
+    void loadIncomeReport(() => fetchYearlyData(selectedYear));
 };
 
 // ---- Generate year options ----
@@ -302,11 +319,11 @@ const handleYearChange = (e) => {
 
     const loadInitialReport = async () => {
       try {
-        await Promise.all([
+        await loadIncomeReport(() => Promise.all([
           fetchDailyData(selectedDate),
           fetchUsers(),
           fetchServiceMaterials(),
-        ]);
+        ]));
       } catch (err) {
         console.error("Failed to load initial income report data:", err);
       }
@@ -319,7 +336,7 @@ const handleYearChange = (e) => {
     return () => {
       isMounted = false;
     };
-  }, [selectedDate]);
+  }, []);
 
   const formatPerformersAndMaterials = (s) => {
     const lines = [];
@@ -366,11 +383,16 @@ const serviceNameCounts = useMemo(() => {
 
 console.log("Employees in te income daily report", Employees)
   // ---------- Render ----------
+  if (reportLoading && !reportReady) {
+    return <div className="income-page mx-auto max-w-6xl p-6"><ReportLoadingState message="Loading the income report and service details..." /></div>;
+  }
   return (
     <div className="income-page max-w-6xl mx-auto p-6">
       <h1 className="text-3xl font-extrabold text-center mb-6 text-gray-800">
         {reportDate} Report
       </h1>
+      {reportError && <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{reportError}</p>}
+      {reportLoading && <div className="mb-5"><ReportLoadingState compact message="Updating the report for the selected period..." /></div>}
 
       {/* Period Pickers */}
 <div className="mb-6 flex flex-wrap gap-4 items-end">

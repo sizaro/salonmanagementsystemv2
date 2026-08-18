@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import CashierSidebar from "../sidebars/CashierSidebar.jsx";
+import SalonOpeningGate from "../common/SalonOpeningGate.jsx";
 
 // Pages
 import CashierDashboard from "../../pages/cashier/CashierDashboard.jsx";
@@ -13,7 +14,7 @@ import CashierStaffPayments from "../../pages/cashier/CashierStaffPayments.jsx";
 
 const CashierLayout = () => {
   return (
-    <div className="min-h-screen bg-gray-100">
+    <SalonOpeningGate><div className="min-h-screen bg-gray-100">
       <CashierSidebar />
 
       <main className="min-h-screen w-full overflow-x-hidden p-4 pt-20 md:ml-64 md:w-[calc(100%-16rem)] md:p-6">
@@ -48,7 +49,7 @@ const CashierLayout = () => {
           /> */}
         </Routes>
       </main>
-    </div>
+    </div></SalonOpeningGate>
   );
 };
 

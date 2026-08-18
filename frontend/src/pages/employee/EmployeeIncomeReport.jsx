@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { DateTime } from "luxon";
+import ReportLoadingState from "../../components/common/ReportLoadingState.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 const TIMEZONE = "Africa/Kampala";
@@ -60,6 +61,8 @@ export default function EmployeeIncomeReport() {
       </div>
 
       {error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+      {loading && !report ? <ReportLoadingState message="Loading your income and performance..." /> : null}
+      {report ? <>
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[['Services performed', summary.totalServices || 0, 'text-slate-900'], ['Gross earnings', money(summary.grossEarnings), 'text-slate-900'], ['Advances', money(summary.advances), 'text-amber-700'], ['Net earnings', money(summary.netEarnings), 'text-emerald-700']].map(([label, value, color]) => <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-sm text-slate-500">{label}</p><p className={`mt-2 text-xl font-semibold ${color}`}>{value}</p></div>)}
       </section>
@@ -71,6 +74,7 @@ export default function EmployeeIncomeReport() {
           <tbody>{loading ? <tr><td colSpan="5" className="px-4 py-8 text-center text-slate-500">Loading your services…</td></tr> : report?.services?.length ? report.services.map((service) => <tr key={service.id} className="border-t border-slate-100"><td className="px-4 py-3 font-medium text-slate-800">{service.serviceName}</td><td className="px-4 py-3 text-slate-600">{service.sectionName || '—'}</td><td className="px-4 py-3 text-slate-600">{service.serviceDate} {service.serviceTime}</td><td className="px-4 py-3 capitalize text-slate-600">{service.status || 'completed'}</td><td className="px-4 py-3 text-right font-semibold text-emerald-700">{money(service.earnings)}</td></tr>) : <tr><td colSpan="5" className="px-4 py-8 text-center text-slate-500">No services recorded for this period.</td></tr>}</tbody>
         </table>
       </section>
+      </> : null}
     </div>
   );
 }

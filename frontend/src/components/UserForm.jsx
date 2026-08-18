@@ -3,6 +3,8 @@ import React, { useState, useEffect } from "react";
 const UserForm = ({ user, onSubmit, onClose, role = "" }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState("");
+  const [submitError, setSubmitError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     first_name: "",
@@ -61,7 +63,7 @@ const UserForm = ({ user, onSubmit, onClose, role = "" }) => {
   };
 
   // Submit handler with password validation
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Only validate password if it's being set or changed
@@ -85,8 +87,20 @@ const UserForm = ({ user, onSubmit, onClose, role = "" }) => {
       } else if (value !== "") data.append(key, value);
     });
 
-    if (user && user.id) onSubmit(user.id, data);
-    else onSubmit(data);
+    try {
+      setSubmitError("");
+      setSubmitting(true);
+      if (user && user.id) await onSubmit(user.id, data);
+      else await onSubmit(data);
+    } catch (error) {
+      setSubmitError(
+        error?.response?.data?.error ||
+        error?.response?.data?.message ||
+        "The account could not be saved. Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -307,19 +321,26 @@ const UserForm = ({ user, onSubmit, onClose, role = "" }) => {
       )}
 
       {/* BUTTONS */}
+      {submitError && (
+        <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+          {submitError}
+        </p>
+      )}
       <div className="flex justify-end space-x-2 mt-4">
         <button
           type="button"
           onClick={onClose}
+          disabled={submitting}
           className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
         >
           Cancel
         </button>
         <button
           type="submit"
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          disabled={submitting}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Save
+          {submitting ? "Saving…" : "Save"}
         </button>
       </div>
     </form>

@@ -3,22 +3,31 @@ const router = express.Router();
 
 import { 
   getAllUsers,
+  getBookableStaff,
   getUserById,
   createUser,
+  registerCustomer,
   updateUserById,
   deleteUserById
 } from '../controllers/usersController.js';
 
 import upload from "../middleware/upload.js";
-import { requireAuth, requireRole, requireSalonContext } from "../middleware/auth.js";
+import { requireAuth, requireRole, requireSalonContext, requireOpenSalon } from "../middleware/auth.js";
 
-router.use(requireAuth, requireSalonContext);
+// Public customer self-registration. Authentication and an open salon are not
+// required; the controller always forces the role to "customer".
+router.post('/register-customer', upload.single("image_url"), registerCustomer);
+
+router.use(requireAuth, requireSalonContext, requireOpenSalon);
+
+// Safe public staff fields used by the customer booking screen.
+router.get('/bookable-staff', requireRole('owner', 'manager', 'cashier', 'employee', 'customer'), getBookableStaff);
 
 // GET all users
-router.get('/', requireRole('owner', 'manager', 'cashier', 'employee', 'customer'), getAllUsers);
+router.get('/', requireRole('owner', 'manager', 'cashier', 'employee'), getAllUsers);
 
 // GET single user by ID
-router.get('/:id', requireRole('owner', 'manager', 'cashier', 'employee', 'customer'), getUserById);
+router.get('/:id', requireRole('owner', 'manager', 'cashier', 'employee'), getUserById);
 
 // POST create a new user
 router.post('/', requireRole('owner', 'manager'), upload.single("image_url"), createUser);
