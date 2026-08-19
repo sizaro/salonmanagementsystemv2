@@ -3,7 +3,6 @@ import axios from "axios";
 import { DateTime } from "luxon";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
-
 const ZONE = "Africa/Kampala";
 
 export default function CashierIncomeReview() {
@@ -19,7 +18,6 @@ export default function CashierIncomeReview() {
   });
 
   const [loading, setLoading] = useState(true);
-
   const [error, setError] = useState("");
 
   // =====================================
@@ -38,30 +36,38 @@ export default function CashierIncomeReview() {
           params: {
             date: selectedDate,
           },
-
           withCredentials: true,
         });
 
         console.log("Cashier daily service review:", data);
 
-        if (active) {
-          setReport({
-            summary: data.summary || {
-              totalServices: 0,
-            },
+        console.log(
+          "Cashier customer check:",
+          data.services?.map((service) => ({
+            id: service.id,
+            customerId: service.customerId,
+            customerName: service.customerName,
+            performers: service.performers,
+          })),
+        );
 
-            services: data.services || [],
-          });
-        }
+        if (!active) return;
+
+        setReport({
+          summary: data.summary || {
+            totalServices: 0,
+          },
+          services: data.services || [],
+        });
       } catch (requestError) {
         console.error("Failed to fetch cashier daily services:", requestError);
 
-        if (active) {
-          setError(
-            requestError.response?.data?.error ||
-              "Unable to load today's services.",
-          );
-        }
+        if (!active) return;
+
+        setError(
+          requestError.response?.data?.error ||
+            "Unable to load today's services.",
+        );
       } finally {
         if (active) {
           setLoading(false);
@@ -83,7 +89,11 @@ export default function CashierIncomeReview() {
   const formatTime = (time) => {
     if (!time) return "—";
 
-    const parsed = DateTime.fromFormat(time.substring(0, 8), "HH:mm:ss");
+    const cleanTime = String(time).substring(0, 8);
+
+    const parsed = DateTime.fromFormat(cleanTime, "HH:mm:ss", {
+      zone: ZONE,
+    });
 
     if (!parsed.isValid) {
       return time;
@@ -99,7 +109,9 @@ export default function CashierIncomeReview() {
   const formatDate = (date) => {
     if (!date) return "—";
 
-    const parsed = DateTime.fromISO(date);
+    const parsed = DateTime.fromISO(date, {
+      zone: ZONE,
+    });
 
     if (!parsed.isValid) {
       return date;
@@ -108,11 +120,39 @@ export default function CashierIncomeReview() {
     return parsed.toFormat("dd LLL yyyy");
   };
 
+  // =====================================
+  // FORMAT MONEY
+  // =====================================
+
+  const formatMoney = (value) => {
+    return Number(value || 0).toLocaleString("en-UG");
+  };
+
+  // =====================================
+  // CUSTOMER DISPLAY
+  // =====================================
+
+  const getCustomerName = (service) => {
+    if (service.customerName) {
+      return service.customerName;
+    }
+
+    if (service.customerId) {
+      return "Registered customer";
+    }
+
+    return "Walk-in customer";
+  };
+
+  const getCustomerType = (service) => {
+    return service.customerId ? "Registered customer" : "Walk-in";
+  };
+
   return (
     <div className="dashboard-page space-y-6">
-      {/* ===============================
+      {/* =====================================
           HEADER
-      =============================== */}
+      ===================================== */}
 
       <header className="dashboard-hero">
         <p className="salon-eyebrow text-[var(--salon-copper)]">
@@ -128,9 +168,9 @@ export default function CashierIncomeReview() {
         </p>
       </header>
 
-      {/* ===============================
+      {/* =====================================
           DATE SELECTOR
-      =============================== */}
+      ===================================== */}
 
       <section className="dashboard-panel">
         <div className="flex flex-wrap items-end gap-4">
@@ -153,9 +193,9 @@ export default function CashierIncomeReview() {
         </div>
       </section>
 
-      {/* ===============================
+      {/* =====================================
           ERROR
-      =============================== */}
+      ===================================== */}
 
       {error && (
         <p
@@ -166,9 +206,9 @@ export default function CashierIncomeReview() {
         </p>
       )}
 
-      {/* ===============================
+      {/* =====================================
           LOADING
-      =============================== */}
+      ===================================== */}
 
       {loading ? (
         <div className="dashboard-panel text-center">
@@ -177,9 +217,9 @@ export default function CashierIncomeReview() {
         </div>
       ) : (
         <>
-          {/* ===============================
-              SERVICE COUNT
-          =============================== */}
+          {/* =====================================
+              TOTAL SERVICES CARD
+          ===================================== */}
 
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <article className="dashboard-card">
@@ -195,9 +235,9 @@ export default function CashierIncomeReview() {
             </article>
           </section>
 
-          {/* ===============================
+          {/* =====================================
               SERVICE DETAILS
-          =============================== */}
+          ===================================== */}
 
           <section className="dashboard-panel">
             <div className="mb-5">
@@ -206,13 +246,14 @@ export default function CashierIncomeReview() {
               </h2>
 
               <p className="mt-1 text-sm text-stone-500">
-                Staff, customer and service information for the selected day.
+                Customer, service and professional information for the selected
+                day.
               </p>
             </div>
 
             {report.services?.length ? (
-              <div className="dashboard-table-wrap">
-                <table className="dashboard-table">
+              <div className="dashboard-table-wrap overflow-x-auto">
+                <table className="dashboard-table min-w-[1000px]">
                   <thead>
                     <tr>
                       <th>#</th>
@@ -220,20 +261,27 @@ export default function CashierIncomeReview() {
                       <th>Service</th>
                       <th>Section</th>
                       <th>Customer</th>
-                      <th>Professionals</th>
+                      <th>Professional</th>
+                      <th>Amount</th>
                     </tr>
                   </thead>
 
                   <tbody>
                     {report.services.map((service, index) => (
                       <tr key={service.id}>
+                        {/* NUMBER */}
+
                         <td>{index + 1}</td>
 
+                        {/* TIME */}
+
                         <td>
-                          <span className="font-medium">
+                          <span className="font-medium whitespace-nowrap">
                             {formatTime(service.serviceTime)}
                           </span>
                         </td>
+
+                        {/* SERVICE */}
 
                         <td>
                           <div className="font-semibold text-stone-800">
@@ -241,39 +289,63 @@ export default function CashierIncomeReview() {
                           </div>
                         </td>
 
+                        {/* SECTION */}
+
                         <td>{service.sectionName || "—"}</td>
 
+                        {/* CUSTOMER */}
+
                         <td>
-                          <div className="font-medium">
-                            {service.customerName || "Walk-in customer"}
+                          <div className="font-medium text-stone-800">
+                            {getCustomerName(service)}
                           </div>
 
-                          {service.customerId ? (
-                            <div className="mt-1 text-xs text-stone-400">
-                              Registered customer
-                            </div>
-                          ) : (
-                            <div className="mt-1 text-xs text-stone-400">
-                              Walk-in
-                            </div>
-                          )}
+                          <div className="mt-1 text-xs text-stone-400">
+                            {getCustomerType(service)}
+                          </div>
                         </td>
+
+                        {/* PROFESSIONALS */}
 
                         <td>
                           {service.performers?.length ? (
-                            <div className="space-y-1">
+                            <div className="space-y-3">
                               {service.performers.map(
                                 (performer, performerIndex) => (
-                                  <div key={performerIndex} className="text-sm">
-                                    <span className="font-medium">
-                                      {performer.name}
-                                    </span>
+                                  <div
+                                    key={`${service.id}-performer-${performerIndex}`}
+                                    className="min-h-[38px]"
+                                  >
+                                    <div className="font-medium text-stone-800">
+                                      {performer.name || "—"}
+                                    </div>
 
                                     {performer.role && (
-                                      <span className="ml-1 text-stone-500">
-                                        ({performer.role})
-                                      </span>
+                                      <div className="text-xs text-stone-500">
+                                        {performer.role}
+                                      </div>
                                     )}
+                                  </div>
+                                ),
+                              )}
+                            </div>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+
+                        {/* PERFORMER AMOUNTS */}
+
+                        <td>
+                          {service.performers?.length ? (
+                            <div className="space-y-3">
+                              {service.performers.map(
+                                (performer, performerIndex) => (
+                                  <div
+                                    key={`${service.id}-amount-${performerIndex}`}
+                                    className="flex min-h-[38px] items-center font-semibold text-[var(--salon-copper)] whitespace-nowrap"
+                                  >
+                                    UGX {formatMoney(performer.amount)}
                                   </div>
                                 ),
                               )}

@@ -127,16 +127,24 @@ export async function getCashierIncomeReview(req, res) {
 
       customerId: service.customer_id,
 
-      customerName: service.customer_name || "Walk-in customer",
+      customerName:
+        service.customer_name ||
+        (service.customer_id ? null : "Walk-in customer"),
 
       performers: (service.performers || []).map((performer) => ({
+        employeeId: performer.employee_id,
+
         name: `${performer.first_name || ""} ${
           performer.last_name || ""
         }`.trim(),
 
         role: performer.role_name,
+
+        amount: Number(performer.role_amount ?? performer.earned_amount ?? 0),
       })),
     }));
+
+    console.log("Cashier daily services:", services);
 
     return res.status(200).json({
       period: {

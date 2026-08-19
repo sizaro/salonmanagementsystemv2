@@ -8,14 +8,12 @@ const serviceQuery = `
     st.customer_id,
     st.customer_note,
     st.created_by,
-
-    st.service_date::TEXT AS service_date,
-    st.service_time::TEXT AS service_time,
+    st.service_date::text AS service_date,
+    st.service_time::text AS service_time,
     st.status,
 
     sd.service_name,
     sd.description,
-
     ${servicePricingSelect},
 
     sd.section_id AS definition_section_id,
@@ -46,15 +44,11 @@ const serviceQuery = `
             'last_name', u.last_name
           )
         )
-
         FROM service_performers sp
-
         LEFT JOIN service_roles sr
           ON sr.id = sp.service_role_id
-
         LEFT JOIN users u
           ON u.id = sp.employee_id
-
         WHERE sp.service_transaction_id = st.id
       ),
       '[]'::json
@@ -68,9 +62,7 @@ const serviceQuery = `
             'material_cost', sm.material_cost
           )
         )
-
         FROM service_materials sm
-
         WHERE sm.service_definition_id = sd.id
       ),
       '[]'::json
@@ -91,10 +83,7 @@ const serviceQuery = `
     AND customer.salon_id = st.salon_id
 
   WHERE st.salon_id = $3
-
-    AND st.service_date
-      BETWEEN $1::DATE AND $2::DATE
-
+    AND st.service_date BETWEEN $1::date AND $2::date
     AND (
       st.status IS NULL
       OR LOWER(st.status) = 'completed'
@@ -102,7 +91,7 @@ const serviceQuery = `
 
   ORDER BY
     st.service_date DESC,
-    st.service_time DESC;
+    st.service_time DESC
 `;
 
 export async function getReportData({

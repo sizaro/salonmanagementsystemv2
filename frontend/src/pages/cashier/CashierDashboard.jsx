@@ -14,16 +14,16 @@ import Button from "../../components/Button";
 import { useData } from "../../context/DataContext.jsx";
 import io from "socket.io-client";
 
-
 export default function CashierDashboard() {
-      const staticBaseUrl =
-  import.meta.env.MODE === "development"
-    ? "http://localhost:5500"
-    : "https://salonmanagementsystemv2-ru0i.onrender.com";
+  const staticBaseUrl =
+    import.meta.env.MODE === "development"
+      ? "http://localhost:5500"
+      : "https://salonmanagementsystemv2-ru0i.onrender.com";
   const [modalType, setModalType] = useState(null);
   const [salonStatus, setSalonStatus] = useState("closed");
   const [selectedFee, setSelectedFee] = useState(null);
-  const [edittingServiceDefinition, setEdittingServiceDefinition] = useState(null);
+  const [edittingServiceDefinition, setEdittingServiceDefinition] =
+    useState(null);
   const [edittingSection, setEdittingSection] = useState(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelServiceId, setCancelServiceId] = useState(null);
@@ -72,29 +72,30 @@ export default function CashierDashboard() {
     fetchServiceTransactionsApp,
     pendingCount,
     pendingAppointments,
-    fetchSectionById
+    fetchSectionById,
   } = useData();
 
+  const servicesWithMaterials = useMemo(() => {
+    return (transactions || []).map((service) => {
+      const matchedMaterials = (serviceMaterials || []).filter(
+        (m) => m.service_definition_id === service.service_definition_id,
+      );
+      return {
+        ...service,
+        materials: matchedMaterials.length > 0 ? matchedMaterials : null,
+      };
+    });
+  }, [transactions, serviceMaterials]);
 
-  
-    const servicesWithMaterials = useMemo(() => {
-      return (transactions || []).map((service) => {
-        const matchedMaterials = (serviceMaterials || []).filter(
-          (m) => m.service_definition_id === service.service_definition_id
-        );
-        return { ...service, materials: matchedMaterials.length > 0 ? matchedMaterials : null };
-      });
-    }, [transactions, serviceMaterials]);
-  
-    console.log("services with materials", servicesWithMaterials)
+  console.log("services with materials", servicesWithMaterials);
   const Employees = (users || []).filter(
     (user) =>
       `${user.first_name} ${user.last_name}`.toLowerCase() !== "ntege saleh" &&
-      user.role !== "customer"
+      user.role !== "customer",
   );
 
   const createdbyID = (users || []).find(
-    (user) => `${user.role}`.toLowerCase() === "owner"
+    (user) => `${user.role}`.toLowerCase() === "owner",
   );
 
   const Customers = (users || []).filter((user) => user.role === "customer");
@@ -118,7 +119,11 @@ export default function CashierDashboard() {
     try {
       let formData;
       if (status === "open") {
-        formData = { openTime: new Date().toISOString(), closeTime: null, status: "open" };
+        formData = {
+          openTime: new Date().toISOString(),
+          closeTime: null,
+          status: "open",
+        };
         const res = await sendFormData("openSalon", formData);
         console.log("Salon opened:", res.data);
         setSalonStatus("open");
@@ -129,7 +134,10 @@ export default function CashierDashboard() {
         setSalonStatus("closed");
       }
     } catch (err) {
-      console.error("Error handling salon session:", err.response?.data || err.message);
+      console.error(
+        "Error handling salon session:",
+        err.response?.data || err.message,
+      );
     }
   };
 
@@ -166,16 +174,20 @@ export default function CashierDashboard() {
 
   const handleClocking = async (type, formData) => {
     try {
-      const result = type === "clockin"
-        ? await sendFormData("createClocking", formData)
-        : type === "clockout"
-          ? await sendFormData("updateClocking", formData)
-          : null;
+      const result =
+        type === "clockin"
+          ? await sendFormData("createClocking", formData)
+          : type === "clockout"
+            ? await sendFormData("updateClocking", formData)
+            : null;
       if (!result) throw new Error("Invalid clocking type");
       await fetchActiveClockings();
       return result;
     } catch (err) {
-      console.error("Error handling clocking:", err.response?.data || err.message);
+      console.error(
+        "Error handling clocking:",
+        err.response?.data || err.message,
+      );
       throw err;
     }
   };
@@ -199,13 +211,19 @@ export default function CashierDashboard() {
   };
 
   const appointmentsByStatus = {
-    pending:(pendingAppointments || []),
-    confirmed: (servicesWithMaterials || []).filter((s) => s.status === "confirmed"),
-    completed: (servicesWithMaterials || []).filter((s) => s.status === "completed"),
-    cancelled: (servicesWithMaterials || []).filter((s) => s.status === "cancelled"),
+    pending: pendingAppointments || [],
+    confirmed: (servicesWithMaterials || []).filter(
+      (s) => s.status === "confirmed",
+    ),
+    completed: (servicesWithMaterials || []).filter(
+      (s) => s.status === "completed",
+    ),
+    cancelled: (servicesWithMaterials || []).filter(
+      (s) => s.status === "cancelled",
+    ),
   };
 
-  console.log("pending appointments in", pendingAppointments)
+  console.log("pending appointments in", pendingAppointments);
 
   useEffect(() => {
     if (sessions && sessions.length > 0) setSalonStatus(sessions[0].status);
@@ -218,35 +236,49 @@ export default function CashierDashboard() {
     fetchServiceDefinitions();
     fetchServiceMaterials();
     fetchServiceTransactions();
-
   }, []);
 
-  const handleStatusUpdate = async (serviceId, newStatus, cancel_reason = null) => {
+  const handleStatusUpdate = async (
+    serviceId,
+    newStatus,
+    cancel_reason = null,
+  ) => {
     try {
       const service = await fetchServiceTransactionById(serviceId);
       if (!service) return;
-      await updateServiceTransactionById(serviceId, { ...service, status: newStatus, cancel_reason });
+      await updateServiceTransactionById(serviceId, {
+        ...service,
+        status: newStatus,
+        cancel_reason,
+      });
     } catch (err) {
       console.error("Failed to update service status", err);
     }
   };
 
-  const handleAppointmentStatus = async (serviceId, newStatus, cancel_reason = null) => {
-  try {
-    const service = await fetchServiceTransactionById(serviceId);
-    if (!service) return;
+  const handleAppointmentStatus = async (
+    serviceId,
+    newStatus,
+    cancel_reason = null,
+  ) => {
+    try {
+      const service = await fetchServiceTransactionById(serviceId);
+      if (!service) return;
 
-    await updateServiceTransactionAppointment(serviceId, { ...service, status: newStatus, cancel_reason });
+      await updateServiceTransactionAppointment(serviceId, {
+        ...service,
+        status: newStatus,
+        cancel_reason,
+      });
 
-    setActiveTab(newStatus);
+      setActiveTab(newStatus);
 
-    fetchServiceTransactions();
-    fetchServiceTransactionsApp();
-  } catch (err) {
-    console.error("Failed to update service status", err);
-  }
-};
-
+      fetchServiceTransactions();
+      fetchServiceTransactionsApp();
+    } catch (err) {
+      console.error("Failed to update service status", err);
+    }
+  };
 
   const handleStatusUpdatet = async (serviceId, newStatus) => {
     try {
@@ -259,40 +291,38 @@ export default function CashierDashboard() {
   };
 
   const handleEditSection = async (id) => {
-
     try {
-        const sectionobj = await fetchSectionById(id);
-        await setEdittingSection(sectionobj);
-        setModalType("edit_section");
-      } catch (err) {
-        console.error("Failed to fetch:", err);
-      }
-
+      const sectionobj = await fetchSectionById(id);
+      await setEdittingSection(sectionobj);
+      setModalType("edit_section");
+    } catch (err) {
+      console.error("Failed to fetch:", err);
+    }
   };
 
   const handleEditServiceDefinition = async (id) => {
     try {
-        const serviceDef = await fetchServiceDefinitionById(id);
-        await setEdittingServiceDefinition(serviceDef);
-        setModalType("edit_service_definition");
-      } catch (err) {
-        console.error("Failed to fetch:", err);
-      }
+      const serviceDef = await fetchServiceDefinitionById(id);
+      await setEdittingServiceDefinition(serviceDef);
+      setModalType("edit_service_definition");
+    } catch (err) {
+      console.error("Failed to fetch:", err);
+    }
   };
 
   const handleAddServiceDefinition = async (formData) => {
-  try {
-    await createServiceDefinition(formData);
-    closeModal();
-  } catch (err) {
-    console.error("Failed to create service definition", err);
-  }
-};
-
+    try {
+      await createServiceDefinition(formData);
+      closeModal();
+    } catch (err) {
+      console.error("Failed to create service definition", err);
+    }
+  };
 
   const handleUpdateSection = async (formData) => {
     try {
-      if (!edittingSection || !edittingSection.id) throw new Error("No section selected for update");
+      if (!edittingSection || !edittingSection.id)
+        throw new Error("No section selected for update");
       await updateSection(formData.id, formData);
       closeModal();
     } catch (err) {
@@ -302,7 +332,8 @@ export default function CashierDashboard() {
 
   const handleUpdateServiceDefinition = async (id, formData) => {
     try {
-      if (!formData) throw new Error("No service definition selected for update");
+      if (!formData)
+        throw new Error("No service definition selected for update");
       await updateServiceDefinition(id, formData);
       closeModal();
     } catch (err) {
@@ -310,31 +341,55 @@ export default function CashierDashboard() {
     }
   };
 
-  const getRolesFromDef = (def) => def.roles || def.service_roles || def.role_list || [];
-  const getMaterialsFromDef = (def) => def.materials || def.service_materials || def.material_list || [];
-  const sumRolesAmount = (roles) => Array.isArray(roles) ? roles.reduce((sum, r) => sum + (parseFloat(r.amount || r.role_amount || r.earned_amount || 0) || 0), 0) : 0;
-  const sumMaterialsCost = (materials) => Array.isArray(materials) ? materials.reduce((sum, m) => sum + (parseFloat(m.cost || m.material_cost || 0) || 0), 0) : 0;
+  const getRolesFromDef = (def) =>
+    def.roles || def.service_roles || def.role_list || [];
+  const getMaterialsFromDef = (def) =>
+    def.materials || def.service_materials || def.material_list || [];
+  const sumRolesAmount = (roles) =>
+    Array.isArray(roles)
+      ? roles.reduce(
+          (sum, r) =>
+            sum +
+            (parseFloat(r.amount || r.role_amount || r.earned_amount || 0) ||
+              0),
+          0,
+        )
+      : 0;
+  const sumMaterialsCost = (materials) =>
+    Array.isArray(materials)
+      ? materials.reduce(
+          (sum, m) => sum + (parseFloat(m.cost || m.material_cost || 0) || 0),
+          0,
+        )
+      : 0;
 
   const handleDeleteSectionClick = async (id) => {
-    try { await deleteSection(id); } catch (err) { console.error("Failed to delete section", err); }
+    try {
+      await deleteSection(id);
+    } catch (err) {
+      console.error("Failed to delete section", err);
+    }
   };
 
   const handleDeleteServiceDefinitionClick = async (id) => {
-    try { await deleteServiceDefinition(id); } catch (err) { console.error("Failed to delete service definition", err); }
+    try {
+      await deleteServiceDefinition(id);
+    } catch (err) {
+      console.error("Failed to delete service definition", err);
+    }
   };
 
   return (
     <>
       <div className="dashboard-page space-y-6">
-        <div className="space-y-1 md:space-y-10">
-        </div>
+        <div className="space-y-1 md:space-y-10"></div>
 
-        <Button onClick={() => setModalType("service")}>
-  Add Service
-</Button>
+        <Button onClick={() => setModalType("service")}>Add Service</Button>
         <Button onClick={() => setModalType("expense")}>Add Expense</Button>
         <Button onClick={() => setModalType("advance")}>Add Advance</Button>
-        <Button onClick={() => setModalType("clocking")}>Employee Clocking</Button>
+        <Button onClick={() => setModalType("clocking")}>
+          Employee Clocking
+        </Button>
 
         {/* <h2 className="text-lg font-semibold mt-10">Service Setup</h2>
         <div className="flex gap-3 mt-3">
@@ -343,195 +398,279 @@ export default function CashierDashboard() {
         </div> */}
 
         <section className="dashboard-panel">
-  <h2 className="mb-4 text-xl font-semibold text-[var(--salon-ink)]">Appointments</h2>
+          <h2 className="mb-4 text-xl font-semibold text-[var(--salon-ink)]">
+            Appointments
+          </h2>
 
-  <div className="dashboard-tabs mb-4">
-    {["pending", "confirmed", "completed", "cancelled"].map((status) => (
-      <button
-        key={status}
-        className={`dashboard-tab ${activeTab === status ? "dashboard-tab-active" : ""}`}
-        onClick={() => setActiveTab(status)}
-      >
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-        <span className="dashboard-count">{appointmentsByStatus[status]?.length || 0}</span>
-      </button>
-    ))}
-  </div>
-
-  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-    {appointmentsByStatus[activeTab].length > 0 ? (
-      appointmentsByStatus[activeTab].map((s) => {
-        const assigned = (s.performers || []).map((p) => ({
-  label: p.role_name,
-  name: `${p.first_name} ${p.last_name}`,
-})).filter(Boolean);
-
-        const customer = Customers.find((c) => Number(c.id) === Number(s.active_customer_id || s.customer_id));
-
-        return (
-          <div
-            key={s.id}
-            className={`dashboard-card ${
-              activeTab === "pending"
-                ? "bg-yellow-50 border-yellow-200"
-                : activeTab === "confirmed"
-                ? "bg-green-50 border-green-200"
-                : activeTab === "completed"
-                ? "bg-blue-50 border-blue-200"
-                : "bg-red-50 border-red-200"
-            }`}
-          >
-            <p className="font-medium">{s.service_name}</p>
-
-            <p>
-              Customer:{" "}
-              {s.customer_name || (customer
-                ? `${customer.first_name} ${customer.last_name}`
-                : "N/A")}
-            </p>
-
-            <p>Date: {formatDate(s.appointment_date)}</p>
-            <p>Time: {formatTime12h(s.appointment_time)}</p>
-            <p>Customer Note: {s.customer_note}</p>
-
-            {assigned.length > 0 ? (
-              assigned.map((a, idx) => (
-                <p key={idx} className="text-sm text-gray-700">
-                  {a.label}:{" "}
-                  <span className="font-medium">{a.name}</span>
-                </p>
-              ))
-            )
-            
-            : (
-              <p className="text-sm text-gray-500">No staff assigned</p>
-            )}
-
-            {s.status === "cancelled" && s.cancel_reason && (
-              <p className="text-red-600 text-sm mt-2">
-                <strong>Reason:</strong> {s.cancel_reason}
-              </p>
-            )}
-
-
-            {activeTab === "pending" && (
-              <div className="flex gap-2 mt-2">
-                <Button onClick={() => handleAppointmentStatus(s.transaction_id, "confirmed")}>
-                  Confirm
-                </Button>
-                <Button
-                  onClick={() => {
-                    setCancelServiceId(s.transaction_id);
-                    setShowCancelModal(true);
-                  }}
+          <div className="dashboard-tabs mb-4">
+            {["pending", "confirmed", "completed", "cancelled"].map(
+              (status) => (
+                <button
+                  key={status}
+                  className={`dashboard-tab ${activeTab === status ? "dashboard-tab-active" : ""}`}
+                  onClick={() => setActiveTab(status)}
                 >
-                  Cancel
-                </Button>
-              </div>
-            )}
-
-            {activeTab === "confirmed" && (
-              <div className="flex gap-2 mt-2">
-                <Button onClick={() => handleAppointmentStatus(s.transaction_id, "completed")}>
-                  Complete
-                </Button>
-                <Button
-                  onClick={() => {
-                    setCancelServiceId(s.transaction_id);
-                    setShowCancelModal(true);
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                  <span className="dashboard-count">
+                    {appointmentsByStatus[status]?.length || 0}
+                  </span>
+                </button>
+              ),
             )}
           </div>
-        );
-      })
-    ) : (
-      <p className="text-gray-500">No {activeTab} appointments</p>
-    )}
-  </div>
-</section>
 
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {appointmentsByStatus[activeTab].length > 0 ? (
+              appointmentsByStatus[activeTab].map((s) => {
+                const assigned = (s.performers || [])
+                  .map((p) => ({
+                    label: p.role_name,
+                    name: `${p.first_name} ${p.last_name}`,
+                  }))
+                  .filter(Boolean);
+
+                const customer = Customers.find(
+                  (c) =>
+                    Number(c.id) ===
+                    Number(s.active_customer_id || s.customer_id),
+                );
+
+                return (
+                  <div
+                    key={s.id}
+                    className={`dashboard-card ${
+                      activeTab === "pending"
+                        ? "bg-yellow-50 border-yellow-200"
+                        : activeTab === "confirmed"
+                          ? "bg-green-50 border-green-200"
+                          : activeTab === "completed"
+                            ? "bg-blue-50 border-blue-200"
+                            : "bg-red-50 border-red-200"
+                    }`}
+                  >
+                    <p className="font-medium">{s.service_name}</p>
+
+                    <p>
+                      Customer:{" "}
+                      {s.customer_name ||
+                        (customer
+                          ? `${customer.first_name} ${customer.last_name}`
+                          : "N/A")}
+                    </p>
+
+                    <p>Date: {formatDate(s.appointment_date)}</p>
+                    <p>Time: {formatTime12h(s.appointment_time)}</p>
+                    <p>Customer Note: {s.customer_note}</p>
+
+                    {assigned.length > 0 ? (
+                      assigned.map((a, idx) => (
+                        <p key={idx} className="text-sm text-gray-700">
+                          {a.label}:{" "}
+                          <span className="font-medium">{a.name}</span>
+                        </p>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500">No staff assigned</p>
+                    )}
+
+                    {s.status === "cancelled" && s.cancel_reason && (
+                      <p className="text-red-600 text-sm mt-2">
+                        <strong>Reason:</strong> {s.cancel_reason}
+                      </p>
+                    )}
+
+                    {activeTab === "pending" && (
+                      <div className="flex gap-2 mt-2">
+                        <Button
+                          onClick={() =>
+                            handleAppointmentStatus(
+                              s.transaction_id,
+                              "confirmed",
+                            )
+                          }
+                        >
+                          Confirm
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setCancelServiceId(s.transaction_id);
+                            setShowCancelModal(true);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
+
+                    {activeTab === "confirmed" && (
+                      <div className="flex gap-2 mt-2">
+                        <Button
+                          onClick={() =>
+                            handleAppointmentStatus(
+                              s.transaction_id,
+                              "completed",
+                            )
+                          }
+                        >
+                          Complete
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setCancelServiceId(s.transaction_id);
+                            setShowCancelModal(true);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-gray-500">No {activeTab} appointments</p>
+            )}
+          </div>
+        </section>
 
         <section className="dashboard-panel mt-6">
           <h3 className="text-md font-semibold mb-2">Service Definitions</h3>
-          <p className="mb-4 text-sm text-stone-600">Reference prices and service requirements. Setup changes are managed by the owner or manager.</p>
-          <div className="dashboard-table-wrap"><table className="dashboard-table">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border px-4 py-2 text-left">Name</th>
-                <th className="border px-4 py-2 text-left">Image</th>
-                <th className="border px-4 py-2 text-left">Section</th>
-                <th className="border px-4 py-2 text-left">Roles</th>
-                <th className="border px-4 py-2 text-left">Other Services</th>
-                <th className="border px-4 py-2 text-left">Employees Total Amount</th>
-                <th className="border px-4 py-2 text-left">Other services Total Costs</th>
-                <th className="border px-4 py-2 text-left">Salon Amount</th>
-                <th className="border px-4 py-2 text-left">Full Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {serviceDefinitions && serviceDefinitions.length > 0 ? (
-                serviceDefinitions.map((service) => {
-                  const roles = getRolesFromDef(service);
-                  const materials = getMaterialsFromDef(service);
-                  const totalRoles = sumRolesAmount(roles);
-                  const totalMaterials = sumMaterialsCost(materials);
-
-                  const displayName = service.name || service.service_name || service.serviceName || "N/A";
-                  const displayImage = `${staticBaseUrl}${service.image_url}` || `image`
-                  const displaySalon = (service.salon_amount ?? service.salonAmount ?? service.salon) || "0";
-                  const displayFull = (service.full_amount ?? service.service_amount ?? service.price) || "0";
-
-                  const sectionName =
-                    (sections || []).find((s) => String(s.id) === String(service.section_id))?.section_name ||
-                    (sections || []).find((s) => String(s.id) === String(service.section_id))?.name ||
-                    service.section_name ||
-                    "N/A";
-
-                  return (
-                    <tr key={service.id}>
-                      <td className="border px-4 py-2 align-top">{displayName}</td>
-                      <td className="border px-4 py-2 align-top"><img src={displayImage} alt={displayName} /></td>
-                      <td className="border px-4 py-2 align-top">{sectionName}</td>
-                      <td className="border px-4 py-2 align-top">
-                        {roles && roles.length > 0 ? (
-                          <ul className="list-disc ml-4">
-                            {roles.map((r, idx) => (
-                              <li key={idx}>
-                                {(r.role_name || r.role || r.name) || "role"}: <span className="font-semibold">{(r.role_amount || r.amount || r.earned_amount || 0).toString()}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : <span className="text-gray-500">None</span>}
-                      </td>
-                      <td className="border px-4 py-2 align-top">
-                        {materials && materials.length > 0 ? (
-                          <ul className="list-disc ml-4">
-                            {materials.map((m, idx) => (
-                              <li key={idx}>
-                                {(m.material_name || m.name) || "material"}: <span className="font-semibold">{(m.material_cost || m.cost || 0).toString()}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : <span className="text-gray-500">None</span>}
-                      </td>
-                      <td className="border px-4 py-2 align-top font-semibold">{totalRoles}</td>
-                      <td className="border px-4 py-2 align-top font-semibold">{totalMaterials}</td>
-                      <td className="border px-4 py-2 align-top font-semibold">{displaySalon}</td>
-                      <td className="border px-4 py-2 align-top font-semibold">{displayFull}</td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td className="border px-4 py-2" colSpan={9}>No service definitions available</td>
+          <p className="mb-4 text-sm text-stone-600">
+            Reference prices and service requirements. Setup changes are managed
+            by the owner or manager.
+          </p>
+          <div className="dashboard-table-wrap">
+            <table className="dashboard-table">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border px-4 py-2 text-left">Name</th>
+                  <th className="border px-4 py-2 text-left">Image</th>
+                  <th className="border px-4 py-2 text-left">Section</th>
+                  <th className="border px-4 py-2 text-left">Roles</th>
+                  <th className="border px-4 py-2 text-left">Other Services</th>
+                  <th className="border px-4 py-2 text-left">
+                    Employees Total Amount
+                  </th>
+                  <th className="border px-4 py-2 text-left">
+                    Other services Total Costs
+                  </th>
+                  <th className="border px-4 py-2 text-left">Salon Amount</th>
+                  <th className="border px-4 py-2 text-left">Full Amount</th>
                 </tr>
-              )}
-            </tbody>
-          </table></div>
+              </thead>
+              <tbody>
+                {serviceDefinitions && serviceDefinitions.length > 0 ? (
+                  serviceDefinitions.map((service) => {
+                    const roles = getRolesFromDef(service);
+                    const materials = getMaterialsFromDef(service);
+                    const totalRoles = sumRolesAmount(roles);
+                    const totalMaterials = sumMaterialsCost(materials);
+
+                    const displayName =
+                      service.name ||
+                      service.service_name ||
+                      service.serviceName ||
+                      "N/A";
+                    const displayImage =
+                      `${staticBaseUrl}${service.image_url}` || `image`;
+                    const displaySalon =
+                      (service.salon_amount ??
+                        service.salonAmount ??
+                        service.salon) ||
+                      "0";
+                    const displayFull =
+                      (service.full_amount ??
+                        service.service_amount ??
+                        service.price) ||
+                      "0";
+
+                    const sectionName =
+                      (sections || []).find(
+                        (s) => String(s.id) === String(service.section_id),
+                      )?.section_name ||
+                      (sections || []).find(
+                        (s) => String(s.id) === String(service.section_id),
+                      )?.name ||
+                      service.section_name ||
+                      "N/A";
+
+                    return (
+                      <tr key={service.id}>
+                        <td className="border px-4 py-2 align-top">
+                          {displayName}
+                        </td>
+                        <td className="border px-4 py-2 align-top">
+                          <img src={displayImage} alt={displayName} />
+                        </td>
+                        <td className="border px-4 py-2 align-top">
+                          {sectionName}
+                        </td>
+                        <td className="border px-4 py-2 align-top">
+                          {roles && roles.length > 0 ? (
+                            <ul className="list-disc ml-4">
+                              {roles.map((r, idx) => (
+                                <li key={idx}>
+                                  {r.role_name || r.role || r.name || "role"}:{" "}
+                                  <span className="font-semibold">
+                                    {(
+                                      r.role_amount ||
+                                      r.amount ||
+                                      r.earned_amount ||
+                                      0
+                                    ).toString()}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <span className="text-gray-500">None</span>
+                          )}
+                        </td>
+                        <td className="border px-4 py-2 align-top">
+                          {materials && materials.length > 0 ? (
+                            <ul className="list-disc ml-4">
+                              {materials.map((m, idx) => (
+                                <li key={idx}>
+                                  {m.material_name || m.name || "material"}:{" "}
+                                  <span className="font-semibold">
+                                    {(
+                                      m.material_cost ||
+                                      m.cost ||
+                                      0
+                                    ).toString()}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <span className="text-gray-500">None</span>
+                          )}
+                        </td>
+                        <td className="border px-4 py-2 align-top font-semibold">
+                          {totalRoles}
+                        </td>
+                        <td className="border px-4 py-2 align-top font-semibold">
+                          {totalMaterials}
+                        </td>
+                        <td className="border px-4 py-2 align-top font-semibold">
+                          {displaySalon}
+                        </td>
+                        <td className="border px-4 py-2 align-top font-semibold">
+                          {displayFull}
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td className="border px-4 py-2" colSpan={9}>
+                      No service definitions available
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <Modal isOpen={modalType !== null} onClose={closeModal}>
@@ -545,18 +684,50 @@ export default function CashierDashboard() {
               Sections={sections}
               createdBy={createdbyID?.id}
               serviceStatus={null}
-              entryType="past"
+              entryType="current"
             />
           )}
-          {modalType === "expense" && <ExpenseForm onSubmit={createExpense} onClose={closeModal} />}
-          {modalType === "advance" && <AdvanceForm onSubmit={createAdvance} onClose={closeModal} />}
-          {modalType === "clocking" && <ClockForm onSubmit={handleClocking} onClose={closeModal} employees={Employees} activeClockings={activeClockings} />}
-          {modalType === "tagfee" && <TagFeeForm onSubmit={CreateTagFee} onClose={closeModal} feeData={selectedFee} employees={Employees || []} />}
-          {modalType === "latefee" && <LateFeeForm onSubmit={CreateLateFee} onClose={closeModal} feeData={selectedFee} employees={Employees || []} />}
+          {modalType === "expense" && (
+            <ExpenseForm onSubmit={createExpense} onClose={closeModal} />
+          )}
+          {modalType === "advance" && (
+            <AdvanceForm onSubmit={createAdvance} onClose={closeModal} />
+          )}
+          {modalType === "clocking" && (
+            <ClockForm
+              onSubmit={handleClocking}
+              onClose={closeModal}
+              employees={Employees}
+              activeClockings={activeClockings}
+            />
+          )}
+          {modalType === "tagfee" && (
+            <TagFeeForm
+              onSubmit={CreateTagFee}
+              onClose={closeModal}
+              feeData={selectedFee}
+              employees={Employees || []}
+            />
+          )}
+          {modalType === "latefee" && (
+            <LateFeeForm
+              onSubmit={CreateLateFee}
+              onClose={closeModal}
+              feeData={selectedFee}
+              employees={Employees || []}
+            />
+          )}
         </Modal>
 
-        <Modal isOpen={showCancelModal} onClose={() => setShowCancelModal(false)}>
-          <CancelReasonForm serviceId={cancelServiceId} onSubmit={handleAppointmentStatus} onClose={() => setShowCancelModal(false)} />
+        <Modal
+          isOpen={showCancelModal}
+          onClose={() => setShowCancelModal(false)}
+        >
+          <CancelReasonForm
+            serviceId={cancelServiceId}
+            onSubmit={handleAppointmentStatus}
+            onClose={() => setShowCancelModal(false)}
+          />
         </Modal>
       </div>
     </>
