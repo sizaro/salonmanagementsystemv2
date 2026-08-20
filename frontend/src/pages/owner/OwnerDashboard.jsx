@@ -98,7 +98,11 @@ export default function OwnerDashboard() {
   }, [transactions, serviceMaterials]);
 
   console.log("services with materials", servicesWithMaterials);
-  const Employees = (users || []).filter((user) => ["employee", "manager", "cashier"].includes(user.role) && user.status !== "inactive");
+  const Employees = (users || []).filter(
+    (user) =>
+      ["employee", "manager", "cashier"].includes(user.role) &&
+      user.status !== "inactive",
+  );
 
   const createdbyID = (users || []).find(
     (user) => `${user.role}`.toLowerCase() === "owner",
@@ -175,8 +179,10 @@ export default function OwnerDashboard() {
   const handleClocking = async (type, formData) => {
     try {
       let result;
-      if (type === "clockin") result = await sendFormData("createClocking", formData);
-      else if (type === "clockout") result = await sendFormData("updateClocking", formData);
+      if (type === "clockin")
+        result = await sendFormData("createClocking", formData);
+      else if (type === "clockout")
+        result = await sendFormData("updateClocking", formData);
       else throw new Error("Invalid clocking type");
       await fetchActiveClockings();
       return result;
@@ -379,51 +385,508 @@ export default function OwnerDashboard() {
   return (
     <>
       <div className="dashboard-page space-y-6">
-        <div className="space-y-1 md:space-y-10">
-          {salonStatus === "closed" ? (
-            <Button
-              className="bg-green-400 hover:bg-green-300"
-              onClick={() => handleSalonSession("open")}
+        {/* ======================================================
+    QUICK ACTIONS
+====================================================== */}
+
+        <section className="dashboard-panel">
+          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="salon-eyebrow text-[var(--salon-copper)]">
+                Owner controls
+              </p>
+
+              <h2 className="mt-1 font-serif text-2xl font-semibold text-[var(--salon-ink)]">
+                Quick Actions
+              </h2>
+
+              <p className="mt-1 text-sm text-stone-500">
+                Manage today's salon operations from one place.
+              </p>
+            </div>
+
+            <div
+              className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold ${
+                salonStatus === "open"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-stone-100 text-stone-600"
+              }`}
             >
-              Open Salon
-            </Button>
-          ) : (
-            <Button onClick={() => handleSalonSession("closed")}>
-              Close Salon
-            </Button>
-          )}
-        </div>
-        {salonStatus === "open" && (
-          <p>
-            Salon has been open for{" "}
-            <strong>
-              {sessionDuration.hours} hrs {sessionDuration.minutes} mins
-            </strong>
-          </p>
-        )}
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  salonStatus === "open" ? "bg-emerald-500" : "bg-stone-400"
+                }`}
+              />
 
-        <Button onClick={() => setModalType("service")}>Add Service</Button>
+              {salonStatus === "open" ? "Salon Open" : "Salon Closed"}
+            </div>
+          </div>
 
-        <Button onClick={() => setModalType("past_service")}>
-          Add Past Service
-        </Button>
-        <Button onClick={() => setModalType("expense")}>Add Expense</Button>
-        <Button onClick={() => setModalType("advance")}>Add Advance</Button>
-        <Button onClick={() => setModalType("clocking")}>
-          Employee Clocking
-        </Button>
-        <Button onClick={() => setModalType("tagfee")}>Add Tag Fee</Button>
-        <Button onClick={() => setModalType("latefee")}>Add Late Fee</Button>
+          {/* ====================================================
+      SALON SESSION
+  ==================================================== */}
 
-        <h2 className="text-lg font-semibold mt-10">Service Setup</h2>
-        <div className="flex gap-3 mt-3">
-          <Button onClick={() => setModalType("new_section")}>
-            Add Section
-          </Button>
-          <Button onClick={() => setModalType("new_service_definition")}>
-            Add New Service
-          </Button>
-        </div>
+          <div className="mb-5 rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-stone-800">
+                  Salon Session
+                </p>
+
+                {salonStatus === "open" ? (
+                  <p className="mt-1 text-sm text-stone-500">
+                    Open for{" "}
+                    <span className="font-semibold text-stone-700">
+                      {sessionDuration.hours} hrs {sessionDuration.minutes} mins
+                    </span>
+                  </p>
+                ) : (
+                  <p className="mt-1 text-sm text-stone-500">
+                    Start today's salon session when operations begin.
+                  </p>
+                )}
+              </div>
+
+              {salonStatus === "closed" ? (
+                <button
+                  type="button"
+                  onClick={() => handleSalonSession("open")}
+                  className="
+            inline-flex
+            items-center
+            justify-center
+            rounded-xl
+            bg-emerald-600
+            px-5
+            py-2.5
+            text-sm
+            font-semibold
+            text-white
+            shadow-sm
+            transition
+            hover:bg-emerald-700
+            focus:outline-none
+            focus:ring-2
+            focus:ring-emerald-500
+            focus:ring-offset-2
+          "
+                >
+                  Open Salon
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleSalonSession("closed")}
+                  className="
+            inline-flex
+            items-center
+            justify-center
+            rounded-xl
+            bg-rose-600
+            px-5
+            py-2.5
+            text-sm
+            font-semibold
+            text-white
+            shadow-sm
+            transition
+            hover:bg-rose-700
+            focus:outline-none
+            focus:ring-2
+            focus:ring-rose-500
+            focus:ring-offset-2
+          "
+                >
+                  Close Salon
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ====================================================
+      ACTION GROUPS
+  ==================================================== */}
+
+          <div className="grid gap-5 lg:grid-cols-3">
+            {/* ==================================================
+        OPERATIONS
+    ================================================== */}
+
+            <div className="rounded-2xl border border-stone-200 bg-white p-4">
+              <div className="mb-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+                  Operations
+                </p>
+
+                <h3 className="mt-1 font-semibold text-stone-900">
+                  Daily Work
+                </h3>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setModalType("service")}
+                  className="
+            group
+            flex
+            w-full
+            items-center
+            justify-between
+            rounded-xl
+            border
+            border-stone-200
+            bg-white
+            px-4
+            py-3
+            text-left
+            transition
+            hover:border-[var(--salon-copper)]
+            hover:bg-stone-50
+          "
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-stone-800">
+                      Add Service
+                    </span>
+
+                    <span className="mt-0.5 block text-xs text-stone-500">
+                      Record a service performed today
+                    </span>
+                  </span>
+
+                  <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                    →
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setModalType("past_service")}
+                  className="
+            group
+            flex
+            w-full
+            items-center
+            justify-between
+            rounded-xl
+            border
+            border-stone-200
+            bg-white
+            px-4
+            py-3
+            text-left
+            transition
+            hover:border-[var(--salon-copper)]
+            hover:bg-stone-50
+          "
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-stone-800">
+                      Add Past Service
+                    </span>
+
+                    <span className="mt-0.5 block text-xs text-stone-500">
+                      Record a service performed earlier
+                    </span>
+                  </span>
+
+                  <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                    →
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setModalType("clocking")}
+                  className="
+            group
+            flex
+            w-full
+            items-center
+            justify-between
+            rounded-xl
+            border
+            border-stone-200
+            bg-white
+            px-4
+            py-3
+            text-left
+            transition
+            hover:border-[var(--salon-copper)]
+            hover:bg-stone-50
+          "
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-stone-800">
+                      Employee Clocking
+                    </span>
+
+                    <span className="mt-0.5 block text-xs text-stone-500">
+                      Clock staff in or out
+                    </span>
+                  </span>
+
+                  <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                    →
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* ==================================================
+        FINANCE
+    ================================================== */}
+
+            <div className="rounded-2xl border border-stone-200 bg-white p-4">
+              <div className="mb-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+                  Finance
+                </p>
+
+                <h3 className="mt-1 font-semibold text-stone-900">
+                  Money Records
+                </h3>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setModalType("expense")}
+                  className="
+            group
+            flex
+            w-full
+            items-center
+            justify-between
+            rounded-xl
+            border
+            border-stone-200
+            bg-white
+            px-4
+            py-3
+            text-left
+            transition
+            hover:border-[var(--salon-copper)]
+            hover:bg-stone-50
+          "
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-stone-800">
+                      Add Expense
+                    </span>
+
+                    <span className="mt-0.5 block text-xs text-stone-500">
+                      Record a salon expense
+                    </span>
+                  </span>
+
+                  <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                    →
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setModalType("advance")}
+                  className="
+            group
+            flex
+            w-full
+            items-center
+            justify-between
+            rounded-xl
+            border
+            border-stone-200
+            bg-white
+            px-4
+            py-3
+            text-left
+            transition
+            hover:border-[var(--salon-copper)]
+            hover:bg-stone-50
+          "
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-stone-800">
+                      Add Advance
+                    </span>
+
+                    <span className="mt-0.5 block text-xs text-stone-500">
+                      Record an employee salary advance
+                    </span>
+                  </span>
+
+                  <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                    →
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setModalType("tagfee")}
+                  className="
+            group
+            flex
+            w-full
+            items-center
+            justify-between
+            rounded-xl
+            border
+            border-stone-200
+            bg-white
+            px-4
+            py-3
+            text-left
+            transition
+            hover:border-[var(--salon-copper)]
+            hover:bg-stone-50
+          "
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-stone-800">
+                      Add Tag Fee
+                    </span>
+
+                    <span className="mt-0.5 block text-xs text-stone-500">
+                      Record an employee tag fee
+                    </span>
+                  </span>
+
+                  <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                    →
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setModalType("latefee")}
+                  className="
+            group
+            flex
+            w-full
+            items-center
+            justify-between
+            rounded-xl
+            border
+            border-stone-200
+            bg-white
+            px-4
+            py-3
+            text-left
+            transition
+            hover:border-[var(--salon-copper)]
+            hover:bg-stone-50
+          "
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-stone-800">
+                      Add Late Fee
+                    </span>
+
+                    <span className="mt-0.5 block text-xs text-stone-500">
+                      Record a staff lateness deduction
+                    </span>
+                  </span>
+
+                  <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                    →
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* ==================================================
+        SETUP
+    ================================================== */}
+
+            <div className="rounded-2xl border border-stone-200 bg-white p-4">
+              <div className="mb-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+                  Setup
+                </p>
+
+                <h3 className="mt-1 font-semibold text-stone-900">
+                  Salon Configuration
+                </h3>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setModalType("new_section")}
+                  className="
+            group
+            flex
+            w-full
+            items-center
+            justify-between
+            rounded-xl
+            border
+            border-stone-200
+            bg-white
+            px-4
+            py-3
+            text-left
+            transition
+            hover:border-[var(--salon-copper)]
+            hover:bg-stone-50
+          "
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-stone-800">
+                      Add Section
+                    </span>
+
+                    <span className="mt-0.5 block text-xs text-stone-500">
+                      Create a new salon service section
+                    </span>
+                  </span>
+
+                  <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                    →
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setModalType("new_service_definition")}
+                  className="
+            group
+            flex
+            w-full
+            items-center
+            justify-between
+            rounded-xl
+            border
+            border-stone-200
+            bg-white
+            px-4
+            py-3
+            text-left
+            transition
+            hover:border-[var(--salon-copper)]
+            hover:bg-stone-50
+          "
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-stone-800">
+                      Add New Service
+                    </span>
+
+                    <span className="mt-0.5 block text-xs text-stone-500">
+                      Configure pricing, roles and materials
+                    </span>
+                  </span>
+
+                  <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                    →
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section className="dashboard-panel">
           <h2 className="mb-4 text-xl font-semibold text-[var(--salon-ink)]">
@@ -439,7 +902,9 @@ export default function OwnerDashboard() {
                   onClick={() => setActiveTab(status)}
                 >
                   {status.charAt(0).toUpperCase() + status.slice(1)}
-                  <span className="dashboard-count">{appointmentsByStatus[status]?.length || 0}</span>
+                  <span className="dashboard-count">
+                    {appointmentsByStatus[status]?.length || 0}
+                  </span>
                 </button>
               ),
             )}
@@ -455,7 +920,11 @@ export default function OwnerDashboard() {
                   }))
                   .filter(Boolean);
 
-                const customer = Customers.find((c) => Number(c.id) === Number(s.active_customer_id || s.customer_id));
+                const customer = Customers.find(
+                  (c) =>
+                    Number(c.id) ===
+                    Number(s.active_customer_id || s.customer_id),
+                );
 
                 return (
                   <div
@@ -474,9 +943,10 @@ export default function OwnerDashboard() {
 
                     <p>
                       Customer:{" "}
-                      {s.customer_name || (customer
-                        ? `${customer.first_name} ${customer.last_name}`
-                        : "N/A")}
+                      {s.customer_name ||
+                        (customer
+                          ? `${customer.first_name} ${customer.last_name}`
+                          : "N/A")}
                     </p>
 
                     <p>Date: {formatDate(s.appointment_date)}</p>
@@ -594,154 +1064,162 @@ export default function OwnerDashboard() {
         <section className="mt-6">
           <div className="mb-2 flex items-center justify-between gap-3">
             <h3 className="text-md font-semibold">Service Definitions</h3>
-            <span className="text-sm text-gray-500">Scroll this list to view all services</span>
+            <span className="text-sm text-gray-500">
+              Scroll this list to view all services
+            </span>
           </div>
           <div className="max-h-[34rem] overflow-auto rounded-lg border border-gray-300 bg-white">
-          <table className="min-w-[1100px] w-full border-collapse">
-            <thead className="sticky top-0 z-20">
-              <tr className="bg-gray-100">
-                <th className="border px-4 py-2 text-left">Name</th>
-                <th className="border px-4 py-2 text-left">Image</th>
-                <th className="border px-4 py-2 text-left">Section</th>
-                <th className="border px-4 py-2 text-left">Roles</th>
-                <th className="border px-4 py-2 text-left">Other Services</th>
-                <th className="border px-4 py-2 text-left">
-                  Employees Total Amount
-                </th>
-                <th className="border px-4 py-2 text-left">
-                  Other services Total Costs
-                </th>
-                <th className="border px-4 py-2 text-left">Salon Amount</th>
-                <th className="border px-4 py-2 text-left">Full Amount</th>
-                <th className="sticky right-0 border bg-gray-100 px-4 py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {serviceDefinitions && serviceDefinitions.length > 0 ? (
-                serviceDefinitions.map((service) => {
-                  const roles = getRolesFromDef(service);
-                  const materials = getMaterialsFromDef(service);
-                  const totalRoles = sumRolesAmount(roles);
-                  const totalMaterials = sumMaterialsCost(materials);
-
-                  const displayName =
-                    service.name ||
-                    service.service_name ||
-                    service.serviceName ||
-                    "N/A";
-                  const displayImage =
-                    `${staticBaseUrl}${service.image_url}` || `image`;
-                  const displaySalon =
-                    (service.salon_amount ??
-                      service.salonAmount ??
-                      service.salon) ||
-                    "0";
-                  const displayFull =
-                    (service.full_amount ??
-                      service.service_amount ??
-                      service.price) ||
-                    "0";
-
-                  const sectionName =
-                    (sections || []).find(
-                      (s) => String(s.id) === String(service.section_id),
-                    )?.section_name ||
-                    (sections || []).find(
-                      (s) => String(s.id) === String(service.section_id),
-                    )?.name ||
-                    service.section_name ||
-                    "N/A";
-
-                  return (
-                    <tr key={service.id}>
-                      <td className="border px-4 py-2 align-top">
-                        {displayName}
-                      </td>
-                      <td className="border px-4 py-2 align-top">
-                        <img src={displayImage} alt={displayName} />
-                      </td>
-                      <td className="border px-4 py-2 align-top">
-                        {sectionName}
-                      </td>
-                      <td className="border px-4 py-2 align-top">
-                        {roles && roles.length > 0 ? (
-                          <ul className="list-disc ml-4">
-                            {roles.map((r, idx) => (
-                              <li key={idx}>
-                                {r.role_name || r.role || r.name || "role"}:{" "}
-                                <span className="font-semibold">
-                                  {(
-                                    r.role_amount ||
-                                    r.amount ||
-                                    r.earned_amount ||
-                                    0
-                                  ).toString()}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <span className="text-gray-500">None</span>
-                        )}
-                      </td>
-                      <td className="border px-4 py-2 align-top">
-                        {materials && materials.length > 0 ? (
-                          <ul className="list-disc ml-4">
-                            {materials.map((m, idx) => (
-                              <li key={idx}>
-                                {m.material_name || m.name || "material"}:{" "}
-                                <span className="font-semibold">
-                                  {(m.material_cost || m.cost || 0).toString()}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <span className="text-gray-500">None</span>
-                        )}
-                      </td>
-                      <td className="border px-4 py-2 align-top font-semibold">
-                        {totalRoles}
-                      </td>
-                      <td className="border px-4 py-2 align-top font-semibold">
-                        {totalMaterials}
-                      </td>
-                      <td className="border px-4 py-2 align-top font-semibold">
-                        {displaySalon}
-                      </td>
-                      <td className="border px-4 py-2 align-top font-semibold">
-                        {displayFull}
-                      </td>
-                      <td className="sticky right-0 border bg-white px-4 py-2 align-top">
-                        <div className="flex gap-2">
-                        <Button
-                          onClick={() =>
-                            handleEditServiceDefinition(service.id)
-                          }
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          onClick={() =>
-                            handleDeleteServiceDefinitionClick(service.id)
-                          }
-                        >
-                          Delete
-                        </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td className="border px-4 py-2" colSpan={9}>
-                    No service definitions available
-                  </td>
+            <table className="min-w-[1100px] w-full border-collapse">
+              <thead className="sticky top-0 z-20">
+                <tr className="bg-gray-100">
+                  <th className="border px-4 py-2 text-left">Name</th>
+                  <th className="border px-4 py-2 text-left">Image</th>
+                  <th className="border px-4 py-2 text-left">Section</th>
+                  <th className="border px-4 py-2 text-left">Roles</th>
+                  <th className="border px-4 py-2 text-left">Other Services</th>
+                  <th className="border px-4 py-2 text-left">
+                    Employees Total Amount
+                  </th>
+                  <th className="border px-4 py-2 text-left">
+                    Other services Total Costs
+                  </th>
+                  <th className="border px-4 py-2 text-left">Salon Amount</th>
+                  <th className="border px-4 py-2 text-left">Full Amount</th>
+                  <th className="sticky right-0 border bg-gray-100 px-4 py-2">
+                    Actions
+                  </th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {serviceDefinitions && serviceDefinitions.length > 0 ? (
+                  serviceDefinitions.map((service) => {
+                    const roles = getRolesFromDef(service);
+                    const materials = getMaterialsFromDef(service);
+                    const totalRoles = sumRolesAmount(roles);
+                    const totalMaterials = sumMaterialsCost(materials);
+
+                    const displayName =
+                      service.name ||
+                      service.service_name ||
+                      service.serviceName ||
+                      "N/A";
+                    const displayImage =
+                      `${staticBaseUrl}${service.image_url}` || `image`;
+                    const displaySalon =
+                      (service.salon_amount ??
+                        service.salonAmount ??
+                        service.salon) ||
+                      "0";
+                    const displayFull =
+                      (service.full_amount ??
+                        service.service_amount ??
+                        service.price) ||
+                      "0";
+
+                    const sectionName =
+                      (sections || []).find(
+                        (s) => String(s.id) === String(service.section_id),
+                      )?.section_name ||
+                      (sections || []).find(
+                        (s) => String(s.id) === String(service.section_id),
+                      )?.name ||
+                      service.section_name ||
+                      "N/A";
+
+                    return (
+                      <tr key={service.id}>
+                        <td className="border px-4 py-2 align-top">
+                          {displayName}
+                        </td>
+                        <td className="border px-4 py-2 align-top">
+                          <img src={displayImage} alt={displayName} />
+                        </td>
+                        <td className="border px-4 py-2 align-top">
+                          {sectionName}
+                        </td>
+                        <td className="border px-4 py-2 align-top">
+                          {roles && roles.length > 0 ? (
+                            <ul className="list-disc ml-4">
+                              {roles.map((r, idx) => (
+                                <li key={idx}>
+                                  {r.role_name || r.role || r.name || "role"}:{" "}
+                                  <span className="font-semibold">
+                                    {(
+                                      r.role_amount ||
+                                      r.amount ||
+                                      r.earned_amount ||
+                                      0
+                                    ).toString()}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <span className="text-gray-500">None</span>
+                          )}
+                        </td>
+                        <td className="border px-4 py-2 align-top">
+                          {materials && materials.length > 0 ? (
+                            <ul className="list-disc ml-4">
+                              {materials.map((m, idx) => (
+                                <li key={idx}>
+                                  {m.material_name || m.name || "material"}:{" "}
+                                  <span className="font-semibold">
+                                    {(
+                                      m.material_cost ||
+                                      m.cost ||
+                                      0
+                                    ).toString()}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <span className="text-gray-500">None</span>
+                          )}
+                        </td>
+                        <td className="border px-4 py-2 align-top font-semibold">
+                          {totalRoles}
+                        </td>
+                        <td className="border px-4 py-2 align-top font-semibold">
+                          {totalMaterials}
+                        </td>
+                        <td className="border px-4 py-2 align-top font-semibold">
+                          {displaySalon}
+                        </td>
+                        <td className="border px-4 py-2 align-top font-semibold">
+                          {displayFull}
+                        </td>
+                        <td className="sticky right-0 border bg-white px-4 py-2 align-top">
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() =>
+                                handleEditServiceDefinition(service.id)
+                              }
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              onClick={() =>
+                                handleDeleteServiceDefinitionClick(service.id)
+                              }
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td className="border px-4 py-2" colSpan={9}>
+                      No service definitions available
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </section>
 

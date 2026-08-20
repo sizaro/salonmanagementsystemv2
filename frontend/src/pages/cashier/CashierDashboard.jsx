@@ -384,12 +384,220 @@ export default function CashierDashboard() {
       <div className="dashboard-page space-y-6">
         <div className="space-y-1 md:space-y-10"></div>
 
-        <Button onClick={() => setModalType("service")}>Add Service</Button>
-        <Button onClick={() => setModalType("expense")}>Add Expense</Button>
-        <Button onClick={() => setModalType("advance")}>Add Advance</Button>
-        <Button onClick={() => setModalType("clocking")}>
-          Employee Clocking
-        </Button>
+        {/* ======================================================
+    CASHIER QUICK ACTIONS
+====================================================== */}
+
+        <section className="dashboard-panel">
+          <div className="mb-5">
+            <p className="salon-eyebrow text-[var(--salon-copper)]">
+              Cashier workspace
+            </p>
+
+            <h2 className="mt-1 font-serif text-2xl font-semibold text-[var(--salon-ink)]">
+              Quick Actions
+            </h2>
+
+            <p className="mt-1 text-sm text-stone-500">
+              Record daily salon activity and manage staff operations from one
+              place.
+            </p>
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            {/* ==================================================
+        SERVICE OPERATIONS
+    ================================================== */}
+
+            <div className="rounded-2xl border border-stone-200 bg-white p-4">
+              <div className="mb-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+                  Services
+                </p>
+
+                <h3 className="mt-1 font-semibold text-stone-900">
+                  Service Operations
+                </h3>
+
+                <p className="mt-1 text-sm text-stone-500">
+                  Record services performed for salon customers.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setModalType("service")}
+                  className="
+            group
+            flex
+            w-full
+            items-center
+            justify-between
+            rounded-xl
+            border
+            border-stone-200
+            bg-white
+            px-4
+            py-3.5
+            text-left
+            transition
+            hover:border-[var(--salon-copper)]
+            hover:bg-stone-50
+            hover:shadow-sm
+          "
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-stone-800">
+                      Add Service
+                    </span>
+
+                    <span className="mt-0.5 block text-xs text-stone-500">
+                      Record a new service performed today
+                    </span>
+                  </span>
+
+                  <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                    →
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* ==================================================
+        STAFF / FINANCE
+    ================================================== */}
+
+            <div className="rounded-2xl border border-stone-200 bg-white p-4">
+              <div className="mb-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+                  Staff & Finance
+                </p>
+
+                <h3 className="mt-1 font-semibold text-stone-900">
+                  Daily Records
+                </h3>
+
+                <p className="mt-1 text-sm text-stone-500">
+                  Record staff clocking, salon expenses and employee advances.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setModalType("clocking")}
+                  className="
+            group
+            flex
+            w-full
+            items-center
+            justify-between
+            rounded-xl
+            border
+            border-stone-200
+            bg-white
+            px-4
+            py-3.5
+            text-left
+            transition
+            hover:border-[var(--salon-copper)]
+            hover:bg-stone-50
+            hover:shadow-sm
+          "
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-stone-800">
+                      Employee Clocking
+                    </span>
+
+                    <span className="mt-0.5 block text-xs text-stone-500">
+                      Clock employees in or out
+                    </span>
+                  </span>
+
+                  <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                    →
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setModalType("expense")}
+                  className="
+            group
+            flex
+            w-full
+            items-center
+            justify-between
+            rounded-xl
+            border
+            border-stone-200
+            bg-white
+            px-4
+            py-3.5
+            text-left
+            transition
+            hover:border-[var(--salon-copper)]
+            hover:bg-stone-50
+            hover:shadow-sm
+          "
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-stone-800">
+                      Add Expense
+                    </span>
+
+                    <span className="mt-0.5 block text-xs text-stone-500">
+                      Record a salon operating expense
+                    </span>
+                  </span>
+
+                  <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                    →
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setModalType("advance")}
+                  className="
+            group
+            flex
+            w-full
+            items-center
+            justify-between
+            rounded-xl
+            border
+            border-stone-200
+            bg-white
+            px-4
+            py-3.5
+            text-left
+            transition
+            hover:border-[var(--salon-copper)]
+            hover:bg-stone-50
+            hover:shadow-sm
+          "
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-stone-800">
+                      Add Advance
+                    </span>
+
+                    <span className="mt-0.5 block text-xs text-stone-500">
+                      Record an employee salary advance
+                    </span>
+                  </span>
+
+                  <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                    →
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* <h2 className="text-lg font-semibold mt-10">Service Setup</h2>
         <div className="flex gap-3 mt-3">
