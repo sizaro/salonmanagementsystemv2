@@ -1,260 +1,450 @@
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+
 import Modal from "../../components/Modal.jsx";
 import ServiceForm from "../../components/ServiceForm";
-import SectionForm from "../../components/SectionForm.jsx";
-import NewServiceForm from "../../components/NewServiceForm.jsx";
 import ExpenseForm from "../../components/ExpenseForm";
 import AdvanceForm from "../../components/AdvanceForm";
 import ClockForm from "../../components/ClockForm";
-import TagFeeForm from "../../components/TagFeeForm.jsx";
-import LateFeeForm from "../../components/LateFeeForm.jsx";
 import CancelReasonForm from "../../components/CancelReasonForm.jsx";
-import AddPastService from "../../components/AddPastService";
-import Button from "../../components/Button";
+
 import { useData } from "../../context/DataContext.jsx";
-import io from "socket.io-client";
 
 export default function CashierDashboard() {
+  // ======================================================
+  // STATIC FILE BASE URL
+  // ======================================================
+
   const staticBaseUrl =
     import.meta.env.MODE === "development"
       ? "http://localhost:5500"
       : "https://salonmanagementsystemv2-ru0i.onrender.com";
+
+  // ======================================================
+  // LOCAL STATE
+  // ======================================================
+
   const [modalType, setModalType] = useState(null);
-  const [salonStatus, setSalonStatus] = useState("closed");
-  const [selectedFee, setSelectedFee] = useState(null);
-  const [edittingServiceDefinition, setEdittingServiceDefinition] =
-    useState(null);
-  const [edittingSection, setEdittingSection] = useState(null);
+
   const [showCancelModal, setShowCancelModal] = useState(false);
+
   const [cancelServiceId, setCancelServiceId] = useState(null);
+
   const [activeTab, setActiveTab] = useState("pending");
 
+  const [completingAppointment, setCompletingAppointment] = useState(null);
+
+  const [loadingCompletion, setLoadingCompletion] = useState(false);
+
+  // ======================================================
+  // DATA CONTEXT
+  // ======================================================
+
   const {
-    transactions,
+    transactions = [],
+
     sendFormData,
-    activeClockings,
+
+    activeClockings = [],
+
     fetchActiveClockings,
-    sessions,
-    users,
+
+    users = [],
+
     fetchUsers,
-    updateServiceTransactionById,
-    updateServiceTransactionAppointment,
-    fetchServiceTransactionById,
-    updateServicet,
-    fetchServiceById,
-    fetchLateFeeById,
-    createLateFee,
-    updateLateFee,
-    deleteLateFee,
-    fetchTagFees,
-    fetchTagFeeById,
-    createTagFee,
-    updateTagFee,
-    deleteTagFee,
-    isDataLoaded,
-    sections,
-    serviceDefinitions,
-    createServiceDefinition,
-    updateServiceDefinition,
-    fetchServiceDefinitionById,
-    deleteServiceDefinition,
+
+    serviceDefinitions = [],
+
     serviceMaterials = [],
-    serviceRoles,
+
+    serviceRoles = [],
+
+    sections = [],
+
     fetchSections,
-    createSection,
-    updateSection,
-    deleteSection,
+
     fetchServiceDefinitions,
+
     fetchServiceMaterials,
-    fetchServiceRoles,
+
     createServiceTransaction,
+
     fetchServiceTransactions,
+
     fetchServiceTransactionsApp,
-    pendingCount,
-    pendingAppointments,
-    fetchSectionById,
+
+    fetchServiceTransactionById,
+
+    updateServiceTransactionAppointment,
   } = useData();
+
+  // ======================================================
+  // SERVICES WITH MATERIALS
+  // ======================================================
 
   const servicesWithMaterials = useMemo(() => {
     return (transactions || []).map((service) => {
       const matchedMaterials = (serviceMaterials || []).filter(
-        (m) => m.service_definition_id === service.service_definition_id,
+        (material) =>
+          Number(material.service_definition_id) ===
+          Number(service.service_definition_id),
       );
+
       return {
         ...service,
-        materials: matchedMaterials.length > 0 ? matchedMaterials : null,
+
+        materials:
+          matchedMaterials.length > 0
+            ? matchedMaterials
+            : service.materials || [],
       };
     });
   }, [transactions, serviceMaterials]);
 
-  console.log("services with materials", servicesWithMaterials);
-  const Employees = (users || []).filter(
-    (user) =>
-      `${user.first_name} ${user.last_name}`.toLowerCase() !== "ntege saleh" &&
-      user.role !== "customer",
-  );
+  // ======================================================
+  // ACTIVE EMPLOYEES
+  // ======================================================
 
-  const createdbyID = (users || []).find(
-    (user) => `${user.role}`.toLowerCase() === "owner",
-  );
+  const Employees = useMemo(() => {
+    return (users || []).filter((user) => {
+      const role = String(user.role || "")
+        .trim()
+        .toLowerCase();
 
-  const Customers = (users || []).filter((user) => user.role === "customer");
+      const status = String(user.status || "active")
+        .trim()
+        .toLowerCase();
+
+      return (
+        ["employee", "manager", "cashier"].includes(role) &&
+        status !== "inactive"
+      );
+    });
+  }, [users]);
+
+  // ======================================================
+  // CUSTOMERS
+  // ======================================================
+
+  const Customers = useMemo(() => {
+    return (users || []).filter(
+      (user) =>
+        String(user.role || "")
+          .trim()
+          .toLowerCase() === "customer",
+    );
+  }, [users]);
+
+  // ======================================================
+  // OWNER ID
+  // ======================================================
+  //
+  // Your backend now controls created_by using req.user,
+  // so this value is not trusted by the backend anyway.
+  //
+  // It is kept because ServiceForm currently accepts
+  // createdBy as a prop.
+  // ======================================================
+
+  const createdbyID = useMemo(() => {
+    return (users || []).find(
+      (user) =>
+        String(user.role || "")
+          .trim()
+          .toLowerCase() === "owner",
+    );
+  }, [users]);
+
+  // ======================================================
+  // FORMAT APPOINTMENT TIME
+  // ======================================================
 
   const formatTime12h = (time24) => {
     if (!time24) return "N/A";
-    let [hour, minute] = time24.split(":").map(Number);
+
+    const value = String(time24).slice(0, 5);
+
+    let [hour, minute] = value.split(":").map(Number);
+
     const ampm = hour >= 12 ? "PM" : "AM";
-    if (hour === 0) hour = 12;
-    else if (hour > 12) hour -= 12;
-    return `${hour}:${minute.toString().padStart(2, "0")} ${ampm}`;
+
+    if (hour === 0) {
+      hour = 12;
+    } else if (hour > 12) {
+      hour -= 12;
+    }
+
+    return `${hour}:${String(minute).padStart(2, "0")} ${ampm}`;
   };
+
+  // ======================================================
+  // FORMAT DATE
+  // ======================================================
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-UG", { timeZone: "Africa/Kampala" });
+
+    const value = String(dateString).slice(0, 10);
+
+    const [year, month, day] = value.split("-");
+
+    if (!year || !month || !day) {
+      return value;
+    }
+
+    return `${day}/${month}/${year}`;
   };
 
-  const handleSalonSession = async (status) => {
-    try {
-      let formData;
-      if (status === "open") {
-        formData = {
-          openTime: new Date().toISOString(),
-          closeTime: null,
-          status: "open",
-        };
-        const res = await sendFormData("openSalon", formData);
-        console.log("Salon opened:", res.data);
-        setSalonStatus("open");
-      } else if (status === "closed") {
-        formData = { closeTime: new Date().toISOString(), status: "closed" };
-        const res = await sendFormData("closeSalon", formData);
-        console.log("Salon closed:", res.data);
-        setSalonStatus("closed");
-      }
-    } catch (err) {
-      console.error(
-        "Error handling salon session:",
-        err.response?.data || err.message,
-      );
+  // ======================================================
+  // CUSTOMER NAME
+  // ======================================================
+
+  const getCustomerName = (service) => {
+    if (service.customer_name?.trim()) {
+      return service.customer_name.trim();
     }
+
+    const customer = Customers.find(
+      (entry) =>
+        Number(entry.id) ===
+        Number(service.active_customer_id ?? service.customer_id),
+    );
+
+    if (!customer) {
+      return "N/A";
+    }
+
+    return `${customer.first_name || ""} ${customer.last_name || ""}`.trim();
   };
+
+  // ======================================================
+  // DETERMINE WHETHER TRANSACTION IS AN APPOINTMENT
+  // ======================================================
+  //
+  // New transactions:
+  //
+  // service_source = online_booking
+  //
+  // Older transactions may still have service_source NULL.
+  // appointment_date therefore remains our legacy fallback.
+  //
+  // This is VERY important now that normal walk-in services
+  // also have status = completed.
+  // ======================================================
+
+  const isAppointment = (service) => {
+    const source = String(service.service_source || "")
+      .trim()
+      .toLowerCase();
+
+    return source === "online_booking" || Boolean(service.appointment_date);
+  };
+
+  // ======================================================
+  // APPOINTMENTS ONLY
+  // ======================================================
+
+  const appointmentTransactions = useMemo(() => {
+    return servicesWithMaterials.filter(isAppointment);
+  }, [servicesWithMaterials]);
+
+  // ======================================================
+  // APPOINTMENTS BY STATUS
+  // ======================================================
+
+  const appointmentsByStatus = useMemo(() => {
+    return {
+      pending: appointmentTransactions.filter(
+        (service) =>
+          String(service.status || "")
+            .trim()
+            .toLowerCase() === "pending",
+      ),
+
+      confirmed: appointmentTransactions.filter(
+        (service) =>
+          String(service.status || "")
+            .trim()
+            .toLowerCase() === "confirmed",
+      ),
+
+      completed: appointmentTransactions.filter(
+        (service) =>
+          String(service.status || "")
+            .trim()
+            .toLowerCase() === "completed",
+      ),
+
+      cancelled: appointmentTransactions.filter(
+        (service) =>
+          String(service.status || "")
+            .trim()
+            .toLowerCase() === "cancelled",
+      ),
+    };
+  }, [appointmentTransactions]);
+
+  // ======================================================
+  // GET ACTUAL PROFESSIONAL NAME
+  // ======================================================
+
+  const getActualProfessionalName = (performer) => {
+    const name = `${performer.first_name || ""} ${
+      performer.last_name || ""
+    }`.trim();
+
+    return name || null;
+  };
+
+  // ======================================================
+  // GET CUSTOMER PREFERRED PROFESSIONAL NAME
+  // ======================================================
+
+  const getPreferredProfessionalName = (performer) => {
+    // If backend already returned preferred employee names,
+    // use them directly.
+
+    const directName = `${performer.preferred_first_name || ""} ${
+      performer.preferred_last_name || ""
+    }`.trim();
+
+    if (directName) {
+      return directName;
+    }
+
+    // Otherwise resolve using preferred_employee_id
+    // against users already loaded in DataContext.
+
+    if (!performer.preferred_employee_id) {
+      return null;
+    }
+
+    const employee = Employees.find(
+      (entry) => Number(entry.id) === Number(performer.preferred_employee_id),
+    );
+
+    if (!employee) {
+      return null;
+    }
+
+    return `${employee.first_name || ""} ${employee.last_name || ""}`.trim();
+  };
+
+  // ======================================================
+  // CLOSE MAIN MODAL
+  // ======================================================
 
   const closeModal = () => {
     setModalType(null);
+
+    setCompletingAppointment(null);
   };
 
-  const createService = async (formData) => {
-    try {
-      await sendFormData("createService", formData);
-      closeModal();
-    } catch (err) {
-      console.error("Failed to submit service", err);
-    }
-  };
+  // ======================================================
+  // CREATE EXPENSE
+  // ======================================================
 
   const createExpense = async (formData) => {
     try {
       await sendFormData("createExpense", formData);
+
       closeModal();
-    } catch (err) {
-      console.error("Failed to submit expense", err);
+    } catch (error) {
+      console.error(
+        "Failed to submit expense:",
+        error.response?.data || error.message,
+      );
     }
   };
+
+  // ======================================================
+  // CREATE ADVANCE
+  // ======================================================
 
   const createAdvance = async (formData) => {
     try {
       await sendFormData("createAdvance", formData);
+
       closeModal();
-    } catch (err) {
-      console.error("Failed to submit advance", err);
+    } catch (error) {
+      console.error(
+        "Failed to submit advance:",
+        error.response?.data || error.message,
+      );
     }
   };
+
+  // ======================================================
+  // EMPLOYEE CLOCKING
+  // ======================================================
 
   const handleClocking = async (type, formData) => {
     try {
-      const result =
-        type === "clockin"
-          ? await sendFormData("createClocking", formData)
-          : type === "clockout"
-            ? await sendFormData("updateClocking", formData)
-            : null;
-      if (!result) throw new Error("Invalid clocking type");
+      let result;
+
+      if (type === "clockin") {
+        result = await sendFormData("createClocking", formData);
+      } else if (type === "clockout") {
+        result = await sendFormData("updateClocking", formData);
+      } else {
+        throw new Error("Invalid clocking type");
+      }
+
       await fetchActiveClockings();
+
       return result;
-    } catch (err) {
+    } catch (error) {
       console.error(
         "Error handling clocking:",
-        err.response?.data || err.message,
+        error.response?.data || error.message,
       );
-      throw err;
+
+      throw error;
     }
   };
 
-  const CreateTagFee = async (formData) => {
-    try {
-      await createTagFee(formData);
-      closeModal();
-    } catch (err) {
-      console.error("Failed to submit tag fee", err);
-    }
-  };
-
-  const CreateLateFee = async (formData) => {
-    try {
-      await createLateFee(formData);
-      closeModal();
-    } catch (err) {
-      console.error("Failed to submit late fee", err);
-    }
-  };
-
-  const appointmentsByStatus = {
-    pending: pendingAppointments || [],
-    confirmed: (servicesWithMaterials || []).filter(
-      (s) => s.status === "confirmed",
-    ),
-    completed: (servicesWithMaterials || []).filter(
-      (s) => s.status === "completed",
-    ),
-    cancelled: (servicesWithMaterials || []).filter(
-      (s) => s.status === "cancelled",
-    ),
-  };
-
-  console.log("pending appointments in", pendingAppointments);
-
-  useEffect(() => {
-    if (sessions && sessions.length > 0) setSalonStatus(sessions[0].status);
-    else setSalonStatus("closed");
-  }, [sessions]);
+  // ======================================================
+  // INITIAL DATA
+  // ======================================================
 
   useEffect(() => {
     fetchUsers();
+
     fetchSections();
+
     fetchServiceDefinitions();
+
     fetchServiceMaterials();
+
     fetchServiceTransactions();
+
+    fetchActiveClockings();
   }, []);
 
-  const handleStatusUpdate = async (
-    serviceId,
-    newStatus,
-    cancel_reason = null,
-  ) => {
-    try {
-      const service = await fetchServiceTransactionById(serviceId);
-      if (!service) return;
-      await updateServiceTransactionById(serviceId, {
-        ...service,
-        status: newStatus,
-        cancel_reason,
-      });
-    } catch (err) {
-      console.error("Failed to update service status", err);
-    }
+  // ======================================================
+  // REFRESH APPOINTMENT DATA
+  // ======================================================
+
+  const refreshAppointments = async () => {
+    await Promise.all([
+      fetchServiceTransactions(),
+      fetchServiceTransactionsApp(),
+    ]);
   };
+
+  // ======================================================
+  // CONFIRM / CANCEL APPOINTMENT
+  // ======================================================
+  //
+  // IMPORTANT:
+  //
+  // Pending -> Confirmed
+  //
+  // DOES NOT require actual employee_id values.
+  //
+  // Customer preferences stay as preferred_employee_id.
+  //
+  // Actual worker assignment happens when completing.
+  // ======================================================
 
   const handleAppointmentStatus = async (
     serviceId,
@@ -263,681 +453,963 @@ export default function CashierDashboard() {
   ) => {
     try {
       const service = await fetchServiceTransactionById(serviceId);
-      if (!service) return;
+
+      if (!service) {
+        return;
+      }
 
       await updateServiceTransactionAppointment(serviceId, {
-        ...service,
         status: newStatus,
+
         cancel_reason,
+
+        performers: service.performers || [],
       });
 
-      setActiveTab(newStatus);
+      if (newStatus !== "cancelled") {
+        setActiveTab(newStatus);
+      }
 
-      fetchServiceTransactions();
-      fetchServiceTransactionsApp();
-    } catch (err) {
-      console.error("Failed to update service status", err);
+      await refreshAppointments();
+    } catch (error) {
+      console.error(
+        "Failed to update appointment:",
+        error.response?.data || error.message,
+      );
     }
   };
 
-  const handleStatusUpdatet = async (serviceId, newStatus) => {
+  // ======================================================
+  // OPEN APPOINTMENT COMPLETION FORM
+  // ======================================================
+  //
+  // Clicking "Complete Service" MUST NOT directly change
+  // confirmed -> completed anymore.
+  //
+  // We first load the complete appointment and then open
+  // ServiceForm in administrative mode.
+  // ======================================================
+
+  const handleOpenCompletion = async (serviceId) => {
     try {
-      const service = await fetchServiceById(serviceId);
-      if (!service) return;
-      await updateServicet(serviceId, { ...service, status: newStatus });
-    } catch (err) {
-      console.error("Failed to update service status", err);
+      setLoadingCompletion(true);
+
+      const appointment = await fetchServiceTransactionById(serviceId);
+
+      if (!appointment) {
+        throw new Error("Appointment could not be loaded");
+      }
+
+      console.log("CASHIER COMPLETION APPOINTMENT:", appointment);
+
+      setCompletingAppointment(appointment);
+
+      setModalType("complete_appointment");
+    } catch (error) {
+      console.error(
+        "Unable to load appointment for completion:",
+        error.response?.data || error.message,
+      );
+    } finally {
+      setLoadingCompletion(false);
     }
   };
 
-  const handleEditSection = async (id) => {
-    try {
-      const sectionobj = await fetchSectionById(id);
-      await setEdittingSection(sectionobj);
-      setModalType("edit_section");
-    } catch (err) {
-      console.error("Failed to fetch:", err);
-    }
-  };
+  // ======================================================
+  // COMPLETE APPOINTMENT
+  // ======================================================
+  //
+  // ServiceForm will require all actual employee IDs because
+  // isCustomer = false.
+  //
+  // It passes:
+  //
+  // onSubmit(transactionId, payload)
+  //
+  // We send the actual performers through the appointment
+  // completion endpoint.
+  // ======================================================
 
-  const handleEditServiceDefinition = async (id) => {
+  const handleCompleteAppointment = async (transactionId, formData) => {
     try {
-      const serviceDef = await fetchServiceDefinitionById(id);
-      await setEdittingServiceDefinition(serviceDef);
-      setModalType("edit_service_definition");
-    } catch (err) {
-      console.error("Failed to fetch:", err);
-    }
-  };
+      const payload = {
+        status: "completed",
 
-  const handleAddServiceDefinition = async (formData) => {
-    try {
-      await createServiceDefinition(formData);
+        cancel_reason: null,
+
+        performers: formData.performers || [],
+      };
+
+      console.log("CASHIER COMPLETING APPOINTMENT:", {
+        transactionId,
+        payload,
+      });
+
+      const result = await updateServiceTransactionAppointment(
+        transactionId,
+        payload,
+      );
+
+      await refreshAppointments();
+
+      setActiveTab("completed");
+
       closeModal();
-    } catch (err) {
-      console.error("Failed to create service definition", err);
+
+      return result;
+    } catch (error) {
+      console.error(
+        "Failed to complete appointment:",
+        error.response?.data || error.message,
+      );
+
+      throw error;
     }
   };
 
-  const handleUpdateSection = async (formData) => {
-    try {
-      if (!edittingSection || !edittingSection.id)
-        throw new Error("No section selected for update");
-      await updateSection(formData.id, formData);
-      closeModal();
-    } catch (err) {
-      console.error("Failed to update section", err);
-    }
-  };
+  // ======================================================
+  // SERVICE DEFINITION HELPERS
+  // ======================================================
 
-  const handleUpdateServiceDefinition = async (id, formData) => {
-    try {
-      if (!formData)
-        throw new Error("No service definition selected for update");
-      await updateServiceDefinition(id, formData);
-      closeModal();
-    } catch (err) {
-      console.error("Failed to update service definition", err);
-    }
-  };
+  const getRolesFromDef = (definition) =>
+    definition.roles || definition.service_roles || definition.role_list || [];
 
-  const getRolesFromDef = (def) =>
-    def.roles || def.service_roles || def.role_list || [];
-  const getMaterialsFromDef = (def) =>
-    def.materials || def.service_materials || def.material_list || [];
+  const getMaterialsFromDef = (definition) =>
+    definition.materials ||
+    definition.service_materials ||
+    definition.material_list ||
+    [];
+
   const sumRolesAmount = (roles) =>
     Array.isArray(roles)
       ? roles.reduce(
-          (sum, r) =>
+          (sum, role) =>
             sum +
-            (parseFloat(r.amount || r.role_amount || r.earned_amount || 0) ||
-              0),
+            (parseFloat(
+              role.amount || role.role_amount || role.earned_amount || 0,
+            ) || 0),
           0,
         )
       : 0;
+
   const sumMaterialsCost = (materials) =>
     Array.isArray(materials)
       ? materials.reduce(
-          (sum, m) => sum + (parseFloat(m.cost || m.material_cost || 0) || 0),
+          (sum, material) =>
+            sum +
+            (parseFloat(material.cost || material.material_cost || 0) || 0),
           0,
         )
       : 0;
 
-  const handleDeleteSectionClick = async (id) => {
-    try {
-      await deleteSection(id);
-    } catch (err) {
-      console.error("Failed to delete section", err);
-    }
-  };
+  // ======================================================
+  // CURRENT TAB
+  // ======================================================
 
-  const handleDeleteServiceDefinitionClick = async (id) => {
-    try {
-      await deleteServiceDefinition(id);
-    } catch (err) {
-      console.error("Failed to delete service definition", err);
-    }
-  };
+  const currentAppointments = appointmentsByStatus[activeTab] || [];
+
+  // ======================================================
+  // UI
+  // ======================================================
 
   return (
-    <>
-      <div className="dashboard-page space-y-6">
-        <div className="space-y-1 md:space-y-10"></div>
+    <div className="dashboard-page space-y-6">
+      {/* ==================================================
+          CASHIER QUICK ACTIONS
+      ================================================== */}
 
-        {/* ======================================================
-    CASHIER QUICK ACTIONS
-====================================================== */}
+      <section className="dashboard-panel">
+        <div className="mb-5">
+          <p className="salon-eyebrow text-[var(--salon-copper)]">
+            Cashier workspace
+          </p>
 
-        <section className="dashboard-panel">
-          <div className="mb-5">
-            <p className="salon-eyebrow text-[var(--salon-copper)]">
-              Cashier workspace
-            </p>
+          <h2 className="mt-1 font-serif text-2xl font-semibold text-[var(--salon-ink)]">
+            Quick Actions
+          </h2>
 
-            <h2 className="mt-1 font-serif text-2xl font-semibold text-[var(--salon-ink)]">
-              Quick Actions
-            </h2>
+          <p className="mt-1 text-sm text-stone-500">
+            Record daily salon activity and manage staff operations from one
+            place.
+          </p>
+        </div>
 
-            <p className="mt-1 text-sm text-stone-500">
-              Record daily salon activity and manage staff operations from one
-              place.
-            </p>
-          </div>
+        <div className="grid gap-5 lg:grid-cols-2">
+          {/* SERVICE OPERATIONS */}
 
-          <div className="grid gap-5 lg:grid-cols-2">
-            {/* ==================================================
-        SERVICE OPERATIONS
-    ================================================== */}
+          <div className="rounded-2xl border border-stone-200 bg-white p-4">
+            <div className="mb-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+                Services
+              </p>
 
-            <div className="rounded-2xl border border-stone-200 bg-white p-4">
-              <div className="mb-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
-                  Services
-                </p>
+              <h3 className="mt-1 font-semibold text-stone-900">
+                Service Operations
+              </h3>
 
-                <h3 className="mt-1 font-semibold text-stone-900">
-                  Service Operations
-                </h3>
-
-                <p className="mt-1 text-sm text-stone-500">
-                  Record services performed for salon customers.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() => setModalType("service")}
-                  className="
-            group
-            flex
-            w-full
-            items-center
-            justify-between
-            rounded-xl
-            border
-            border-stone-200
-            bg-white
-            px-4
-            py-3.5
-            text-left
-            transition
-            hover:border-[var(--salon-copper)]
-            hover:bg-stone-50
-            hover:shadow-sm
-          "
-                >
-                  <span>
-                    <span className="block text-sm font-semibold text-stone-800">
-                      Add Service
-                    </span>
-
-                    <span className="mt-0.5 block text-xs text-stone-500">
-                      Record a new service performed today
-                    </span>
-                  </span>
-
-                  <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
-                    →
-                  </span>
-                </button>
-              </div>
+              <p className="mt-1 text-sm text-stone-500">
+                Record services performed for salon customers.
+              </p>
             </div>
 
-            {/* ==================================================
-        STAFF / FINANCE
-    ================================================== */}
-
-            <div className="rounded-2xl border border-stone-200 bg-white p-4">
-              <div className="mb-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
-                  Staff & Finance
-                </p>
-
-                <h3 className="mt-1 font-semibold text-stone-900">
-                  Daily Records
-                </h3>
-
-                <p className="mt-1 text-sm text-stone-500">
-                  Record staff clocking, salon expenses and employee advances.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() => setModalType("clocking")}
-                  className="
-            group
-            flex
-            w-full
-            items-center
-            justify-between
-            rounded-xl
-            border
-            border-stone-200
-            bg-white
-            px-4
-            py-3.5
-            text-left
-            transition
-            hover:border-[var(--salon-copper)]
-            hover:bg-stone-50
-            hover:shadow-sm
-          "
-                >
-                  <span>
-                    <span className="block text-sm font-semibold text-stone-800">
-                      Employee Clocking
-                    </span>
-
-                    <span className="mt-0.5 block text-xs text-stone-500">
-                      Clock employees in or out
-                    </span>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setModalType("service")}
+                className="
+                  group
+                  flex
+                  w-full
+                  items-center
+                  justify-between
+                  rounded-xl
+                  border
+                  border-stone-200
+                  bg-white
+                  px-4
+                  py-3.5
+                  text-left
+                  transition
+                  hover:border-[var(--salon-copper)]
+                  hover:bg-stone-50
+                  hover:shadow-sm
+                "
+              >
+                <span>
+                  <span className="block text-sm font-semibold text-stone-800">
+                    Add Service
                   </span>
 
-                  <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
-                    →
+                  <span className="mt-0.5 block text-xs text-stone-500">
+                    Record a completed walk-in service
                   </span>
-                </button>
+                </span>
 
-                <button
-                  type="button"
-                  onClick={() => setModalType("expense")}
-                  className="
-            group
-            flex
-            w-full
-            items-center
-            justify-between
-            rounded-xl
-            border
-            border-stone-200
-            bg-white
-            px-4
-            py-3.5
-            text-left
-            transition
-            hover:border-[var(--salon-copper)]
-            hover:bg-stone-50
-            hover:shadow-sm
-          "
-                >
-                  <span>
-                    <span className="block text-sm font-semibold text-stone-800">
-                      Add Expense
-                    </span>
-
-                    <span className="mt-0.5 block text-xs text-stone-500">
-                      Record a salon operating expense
-                    </span>
-                  </span>
-
-                  <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
-                    →
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setModalType("advance")}
-                  className="
-            group
-            flex
-            w-full
-            items-center
-            justify-between
-            rounded-xl
-            border
-            border-stone-200
-            bg-white
-            px-4
-            py-3.5
-            text-left
-            transition
-            hover:border-[var(--salon-copper)]
-            hover:bg-stone-50
-            hover:shadow-sm
-          "
-                >
-                  <span>
-                    <span className="block text-sm font-semibold text-stone-800">
-                      Add Advance
-                    </span>
-
-                    <span className="mt-0.5 block text-xs text-stone-500">
-                      Record an employee salary advance
-                    </span>
-                  </span>
-
-                  <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
-                    →
-                  </span>
-                </button>
-              </div>
+                <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                  →
+                </span>
+              </button>
             </div>
           </div>
-        </section>
 
-        {/* <h2 className="text-lg font-semibold mt-10">Service Setup</h2>
-        <div className="flex gap-3 mt-3">
-          <Button onClick={() => setModalType("new_section")}>Add Section</Button>
-          <Button onClick={() => setModalType("new_service_definition")}>Add New Service</Button>
-        </div> */}
+          {/* STAFF / FINANCE */}
 
-        <section className="dashboard-panel">
-          <h2 className="mb-4 text-xl font-semibold text-[var(--salon-ink)]">
+          <div className="rounded-2xl border border-stone-200 bg-white p-4">
+            <div className="mb-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+                Staff & Finance
+              </p>
+
+              <h3 className="mt-1 font-semibold text-stone-900">
+                Daily Records
+              </h3>
+
+              <p className="mt-1 text-sm text-stone-500">
+                Record staff clocking, salon expenses and employee advances.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setModalType("clocking")}
+                className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3.5 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50 hover:shadow-sm"
+              >
+                <span>
+                  <span className="block text-sm font-semibold text-stone-800">
+                    Employee Clocking
+                  </span>
+
+                  <span className="mt-0.5 block text-xs text-stone-500">
+                    Clock employees in or out
+                  </span>
+                </span>
+
+                <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                  →
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setModalType("expense")}
+                className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3.5 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50 hover:shadow-sm"
+              >
+                <span>
+                  <span className="block text-sm font-semibold text-stone-800">
+                    Add Expense
+                  </span>
+
+                  <span className="mt-0.5 block text-xs text-stone-500">
+                    Record a salon operating expense
+                  </span>
+                </span>
+
+                <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                  →
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setModalType("advance")}
+                className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3.5 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50 hover:shadow-sm"
+              >
+                <span>
+                  <span className="block text-sm font-semibold text-stone-800">
+                    Add Advance
+                  </span>
+
+                  <span className="mt-0.5 block text-xs text-stone-500">
+                    Record an employee salary advance
+                  </span>
+                </span>
+
+                <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                  →
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ==================================================
+          APPOINTMENTS
+      ================================================== */}
+
+      <section className="dashboard-panel">
+        <div className="mb-5">
+          <p className="salon-eyebrow text-[var(--salon-copper)]">
+            Client bookings
+          </p>
+
+          <h2 className="mt-1 font-serif text-2xl font-semibold text-[var(--salon-ink)]">
             Appointments
           </h2>
 
-          <div className="dashboard-tabs mb-4">
-            {["pending", "confirmed", "completed", "cancelled"].map(
-              (status) => (
-                <button
-                  key={status}
-                  className={`dashboard-tab ${activeTab === status ? "dashboard-tab-active" : ""}`}
-                  onClick={() => setActiveTab(status)}
-                >
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                  <span className="dashboard-count">
-                    {appointmentsByStatus[status]?.length || 0}
-                  </span>
-                </button>
-              ),
-            )}
-          </div>
+          <p className="mt-1 text-sm text-stone-500">
+            Confirm bookings, review customer preferences and record the actual
+            professionals when the service is completed.
+          </p>
+        </div>
 
+        {/* APPOINTMENT TABS */}
+
+        <div className="dashboard-tabs mb-5">
+          {["pending", "confirmed", "completed", "cancelled"].map((status) => (
+            <button
+              key={status}
+              type="button"
+              className={`dashboard-tab ${
+                activeTab === status ? "dashboard-tab-active" : ""
+              }`}
+              onClick={() => setActiveTab(status)}
+            >
+              {status.charAt(0).toUpperCase() + status.slice(1)}
+
+              <span className="dashboard-count">
+                {appointmentsByStatus[status]?.length || 0}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* APPOINTMENT CARDS */}
+
+        {currentAppointments.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {appointmentsByStatus[activeTab].length > 0 ? (
-              appointmentsByStatus[activeTab].map((s) => {
-                const assigned = (s.performers || [])
-                  .map((p) => ({
-                    label: p.role_name,
-                    name: `${p.first_name} ${p.last_name}`,
-                  }))
-                  .filter(Boolean);
+            {currentAppointments.map((service) => {
+              const performers = service.performers || [];
 
-                const customer = Customers.find(
-                  (c) =>
-                    Number(c.id) ===
-                    Number(s.active_customer_id || s.customer_id),
-                );
+              const preferences = performers.filter(
+                (performer) => performer.preferred_employee_id,
+              );
 
-                return (
-                  <div
-                    key={s.id}
-                    className={`dashboard-card ${
-                      activeTab === "pending"
-                        ? "bg-yellow-50 border-yellow-200"
-                        : activeTab === "confirmed"
-                          ? "bg-green-50 border-green-200"
-                          : activeTab === "completed"
-                            ? "bg-blue-50 border-blue-200"
-                            : "bg-red-50 border-red-200"
-                    }`}
-                  >
-                    <p className="font-medium">{s.service_name}</p>
+              const actualAssignments = performers.filter(
+                (performer) => performer.employee_id,
+              );
 
-                    <p>
-                      Customer:{" "}
-                      {s.customer_name ||
-                        (customer
-                          ? `${customer.first_name} ${customer.last_name}`
-                          : "N/A")}
-                    </p>
+              const hasPreferences = preferences.length > 0;
 
-                    <p>Date: {formatDate(s.appointment_date)}</p>
-                    <p>Time: {formatTime12h(s.appointment_time)}</p>
-                    <p>Customer Note: {s.customer_note}</p>
+              const hasActualAssignments = actualAssignments.length > 0;
 
-                    {assigned.length > 0 ? (
-                      assigned.map((a, idx) => (
-                        <p key={idx} className="text-sm text-gray-700">
-                          {a.label}:{" "}
-                          <span className="font-medium">{a.name}</span>
-                        </p>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-500">No staff assigned</p>
-                    )}
+              const transactionId = service.transaction_id ?? service.id;
 
-                    {s.status === "cancelled" && s.cancel_reason && (
-                      <p className="text-red-600 text-sm mt-2">
-                        <strong>Reason:</strong> {s.cancel_reason}
+              return (
+                <article
+                  key={transactionId}
+                  className={`dashboard-card border ${
+                    activeTab === "pending"
+                      ? "border-amber-200 bg-amber-50/70"
+                      : activeTab === "confirmed"
+                        ? "border-emerald-200 bg-emerald-50/60"
+                        : activeTab === "completed"
+                          ? "border-blue-200 bg-blue-50/60"
+                          : "border-rose-200 bg-rose-50/60"
+                  }`}
+                >
+                  {/* HEADER */}
+
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+                        Online booking
                       </p>
-                    )}
 
-                    {activeTab === "pending" && (
-                      <div className="flex gap-2 mt-2">
-                        <Button
-                          onClick={() =>
-                            handleAppointmentStatus(
-                              s.transaction_id,
-                              "confirmed",
-                            )
-                          }
-                        >
-                          Confirm
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            setCancelServiceId(s.transaction_id);
-                            setShowCancelModal(true);
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    )}
+                      <h3 className="mt-1 font-semibold text-stone-900">
+                        {service.service_name || "Service"}
+                      </h3>
+                    </div>
 
-                    {activeTab === "confirmed" && (
-                      <div className="flex gap-2 mt-2">
-                        <Button
-                          onClick={() =>
-                            handleAppointmentStatus(
-                              s.transaction_id,
-                              "completed",
-                            )
-                          }
-                        >
-                          Complete
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            setCancelServiceId(s.transaction_id);
-                            setShowCancelModal(true);
-                          }}
-                        >
-                          Cancel
-                        </Button>
+                    <span className="rounded-full bg-white/80 px-2.5 py-1 text-xs font-semibold capitalize text-stone-600">
+                      {service.status}
+                    </span>
+                  </div>
+
+                  {/* BOOKING INFORMATION */}
+
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="text-stone-500">Customer:</span>{" "}
+                      <span className="font-semibold text-stone-800">
+                        {getCustomerName(service)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-stone-500">Date:</span>{" "}
+                      <span className="font-medium text-stone-800">
+                        {formatDate(service.appointment_date)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-stone-500">Time:</span>{" "}
+                      <span className="font-medium text-stone-800">
+                        {formatTime12h(service.appointment_time)}
+                      </span>
+                    </div>
+
+                    {service.customer_note && (
+                      <div>
+                        <span className="text-stone-500">Customer Note:</span>{" "}
+                        <span className="text-stone-700">
+                          {service.customer_note}
+                        </span>
                       </div>
                     )}
                   </div>
-                );
-              })
-            ) : (
-              <p className="text-gray-500">No {activeTab} appointments</p>
-            )}
-          </div>
-        </section>
 
-        <section className="dashboard-panel mt-6">
-          <h3 className="text-md font-semibold mb-2">Service Definitions</h3>
-          <p className="mb-4 text-sm text-stone-600">
-            Reference prices and service requirements. Setup changes are managed
-            by the owner or manager.
+                  {/* CUSTOMER PREFERENCES */}
+
+                  <div className="mt-4 rounded-xl border border-stone-200 bg-white/80 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+                      Customer preference
+                    </p>
+
+                    {hasPreferences ? (
+                      <div className="mt-2 space-y-1.5">
+                        {preferences.map((performer, index) => (
+                          <div
+                            key={`preference-${performer.role_id ?? index}`}
+                            className="text-sm"
+                          >
+                            <span className="text-stone-500">
+                              {performer.role_name || "Professional"}:
+                            </span>{" "}
+                            <span className="font-semibold text-stone-800">
+                              {getPreferredProfessionalName(performer) ||
+                                "Preferred professional"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm font-medium text-stone-600">
+                        Anyone available
+                      </p>
+                    )}
+                  </div>
+
+                  {/* ACTUAL PROFESSIONALS */}
+
+                  <div className="mt-3 rounded-xl border border-stone-200 bg-white/80 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+                      Actual professionals
+                    </p>
+
+                    {hasActualAssignments ? (
+                      <div className="mt-2 space-y-1.5">
+                        {actualAssignments.map((performer, index) => (
+                          <div
+                            key={`actual-${performer.role_id ?? index}`}
+                            className="text-sm"
+                          >
+                            <span className="text-stone-500">
+                              {performer.role_name || "Professional"}:
+                            </span>{" "}
+                            <span className="font-semibold text-stone-800">
+                              {getActualProfessionalName(performer) ||
+                                "Assigned"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm text-stone-500">
+                        No actual employees assigned yet.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* CANCELLATION REASON */}
+
+                  {service.status === "cancelled" && service.cancel_reason && (
+                    <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">
+                        Cancellation reason
+                      </p>
+
+                      <p className="mt-1 text-sm text-rose-700">
+                        {service.cancel_reason}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* PENDING ACTIONS */}
+
+                  {activeTab === "pending" && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleAppointmentStatus(transactionId, "confirmed")
+                        }
+                        className="
+                            rounded-xl
+                            bg-emerald-600
+                            px-4
+                            py-2
+                            text-sm
+                            font-semibold
+                            text-white
+                            transition
+                            hover:bg-emerald-700
+                          "
+                      >
+                        Confirm
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCancelServiceId(transactionId);
+
+                          setShowCancelModal(true);
+                        }}
+                        className="
+                            rounded-xl
+                            border
+                            border-rose-200
+                            bg-white
+                            px-4
+                            py-2
+                            text-sm
+                            font-semibold
+                            text-rose-600
+                            transition
+                            hover:bg-rose-50
+                          "
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+
+                  {/* CONFIRMED ACTIONS */}
+
+                  {activeTab === "confirmed" && (
+                    <div className="mt-4">
+                      {!hasActualAssignments && (
+                        <p className="mb-3 text-xs leading-5 text-stone-500">
+                          Select the employees who actually performed the
+                          service before marking this appointment completed.
+                        </p>
+                      )}
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={loadingCompletion}
+                          onClick={() => handleOpenCompletion(transactionId)}
+                          className="
+                              rounded-xl
+                              bg-[var(--salon-copper)]
+                              px-4
+                              py-2
+                              text-sm
+                              font-semibold
+                              text-white
+                              transition
+                              hover:opacity-90
+                              disabled:cursor-not-allowed
+                              disabled:opacity-50
+                            "
+                        >
+                          {loadingCompletion
+                            ? "Loading..."
+                            : "Complete Service"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCancelServiceId(transactionId);
+
+                            setShowCancelModal(true);
+                          }}
+                          className="
+                              rounded-xl
+                              border
+                              border-rose-200
+                              bg-white
+                              px-4
+                              py-2
+                              text-sm
+                              font-semibold
+                              text-rose-600
+                              transition
+                              hover:bg-rose-50
+                            "
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-stone-200 py-10 text-center">
+            <p className="font-medium text-stone-700">
+              No {activeTab} appointments
+            </p>
+
+            <p className="mt-1 text-sm text-stone-500">
+              Appointments with this status will appear here.
+            </p>
+          </div>
+        )}
+      </section>
+
+      {/* ==================================================
+          SERVICE DEFINITIONS — READ ONLY
+      ================================================== */}
+
+      <section className="dashboard-panel">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-stone-900">
+            Service Definitions
+          </h3>
+
+          <p className="mt-1 text-sm text-stone-600">
+            Reference prices, employee roles and service requirements. Setup
+            changes are managed by the owner or manager.
           </p>
-          <div className="dashboard-table-wrap">
-            <table className="dashboard-table">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="border px-4 py-2 text-left">Name</th>
-                  <th className="border px-4 py-2 text-left">Image</th>
-                  <th className="border px-4 py-2 text-left">Section</th>
-                  <th className="border px-4 py-2 text-left">Roles</th>
-                  <th className="border px-4 py-2 text-left">Other Services</th>
-                  <th className="border px-4 py-2 text-left">
-                    Employees Total Amount
-                  </th>
-                  <th className="border px-4 py-2 text-left">
-                    Other services Total Costs
-                  </th>
-                  <th className="border px-4 py-2 text-left">Salon Amount</th>
-                  <th className="border px-4 py-2 text-left">Full Amount</th>
+        </div>
+
+        <div className="dashboard-table-wrap">
+          <table className="dashboard-table">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border px-4 py-2 text-left">Name</th>
+
+                <th className="border px-4 py-2 text-left">Image</th>
+
+                <th className="border px-4 py-2 text-left">Section</th>
+
+                <th className="border px-4 py-2 text-left">Roles</th>
+
+                <th className="border px-4 py-2 text-left">Other Services</th>
+
+                <th className="border px-4 py-2 text-left">
+                  Employees Total Amount
+                </th>
+
+                <th className="border px-4 py-2 text-left">
+                  Other Services Total Costs
+                </th>
+
+                <th className="border px-4 py-2 text-left">Salon Amount</th>
+
+                <th className="border px-4 py-2 text-left">Full Amount</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {serviceDefinitions.length > 0 ? (
+                serviceDefinitions.map((service) => {
+                  const roles = getRolesFromDef(service);
+
+                  const materials = getMaterialsFromDef(service);
+
+                  const totalRoles = sumRolesAmount(roles);
+
+                  const totalMaterials = sumMaterialsCost(materials);
+
+                  const displayName =
+                    service.name ||
+                    service.service_name ||
+                    service.serviceName ||
+                    "N/A";
+
+                  const displayImage = service.image_url
+                    ? `${staticBaseUrl}${service.image_url}`
+                    : null;
+
+                  const displaySalon =
+                    service.salon_amount ??
+                    service.salonAmount ??
+                    service.salon ??
+                    "0";
+
+                  const displayFull =
+                    service.full_amount ??
+                    service.service_amount ??
+                    service.price ??
+                    "0";
+
+                  const section = sections.find(
+                    (entry) => Number(entry.id) === Number(service.section_id),
+                  );
+
+                  const sectionName =
+                    section?.section_name ||
+                    section?.name ||
+                    service.section_name ||
+                    "N/A";
+
+                  return (
+                    <tr key={service.id}>
+                      <td className="border px-4 py-2 align-top">
+                        {displayName}
+                      </td>
+
+                      <td className="border px-4 py-2 align-top">
+                        {displayImage ? (
+                          <img
+                            src={displayImage}
+                            alt={displayName}
+                            className="h-14 w-14 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <span className="text-sm text-stone-400">
+                            No image
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="border px-4 py-2 align-top">
+                        {sectionName}
+                      </td>
+
+                      <td className="border px-4 py-2 align-top">
+                        {roles.length > 0 ? (
+                          <ul className="ml-4 list-disc">
+                            {roles.map((role, index) => (
+                              <li key={index}>
+                                {role.role_name ||
+                                  role.role ||
+                                  role.name ||
+                                  "role"}
+                                :{" "}
+                                <span className="font-semibold">
+                                  {(
+                                    role.role_amount ||
+                                    role.amount ||
+                                    role.earned_amount ||
+                                    0
+                                  ).toString()}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <span className="text-gray-500">None</span>
+                        )}
+                      </td>
+
+                      <td className="border px-4 py-2 align-top">
+                        {materials.length > 0 ? (
+                          <ul className="ml-4 list-disc">
+                            {materials.map((material, index) => (
+                              <li key={index}>
+                                {material.material_name ||
+                                  material.name ||
+                                  "material"}
+                                :{" "}
+                                <span className="font-semibold">
+                                  {(
+                                    material.material_cost ||
+                                    material.cost ||
+                                    0
+                                  ).toString()}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <span className="text-gray-500">None</span>
+                        )}
+                      </td>
+
+                      <td className="border px-4 py-2 align-top font-semibold">
+                        {totalRoles}
+                      </td>
+
+                      <td className="border px-4 py-2 align-top font-semibold">
+                        {totalMaterials}
+                      </td>
+
+                      <td className="border px-4 py-2 align-top font-semibold">
+                        {displaySalon}
+                      </td>
+
+                      <td className="border px-4 py-2 align-top font-semibold">
+                        {displayFull}
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td className="border px-4 py-4" colSpan={9}>
+                    No service definitions available
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {serviceDefinitions && serviceDefinitions.length > 0 ? (
-                  serviceDefinitions.map((service) => {
-                    const roles = getRolesFromDef(service);
-                    const materials = getMaterialsFromDef(service);
-                    const totalRoles = sumRolesAmount(roles);
-                    const totalMaterials = sumMaterialsCost(materials);
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-                    const displayName =
-                      service.name ||
-                      service.service_name ||
-                      service.serviceName ||
-                      "N/A";
-                    const displayImage =
-                      `${staticBaseUrl}${service.image_url}` || `image`;
-                    const displaySalon =
-                      (service.salon_amount ??
-                        service.salonAmount ??
-                        service.salon) ||
-                      "0";
-                    const displayFull =
-                      (service.full_amount ??
-                        service.service_amount ??
-                        service.price) ||
-                      "0";
+      {/* ==================================================
+          MAIN MODAL
+      ================================================== */}
 
-                    const sectionName =
-                      (sections || []).find(
-                        (s) => String(s.id) === String(service.section_id),
-                      )?.section_name ||
-                      (sections || []).find(
-                        (s) => String(s.id) === String(service.section_id),
-                      )?.name ||
-                      service.section_name ||
-                      "N/A";
+      <Modal
+        isOpen={modalType !== null}
+        onClose={closeModal}
+        sizeClass={
+          modalType === "complete_appointment" ? "max-w-3xl" : "max-w-2xl"
+        }
+      >
+        {/* ==================================================
+            CREATE WALK-IN SERVICE
+        ================================================== */}
 
-                    return (
-                      <tr key={service.id}>
-                        <td className="border px-4 py-2 align-top">
-                          {displayName}
-                        </td>
-                        <td className="border px-4 py-2 align-top">
-                          <img src={displayImage} alt={displayName} />
-                        </td>
-                        <td className="border px-4 py-2 align-top">
-                          {sectionName}
-                        </td>
-                        <td className="border px-4 py-2 align-top">
-                          {roles && roles.length > 0 ? (
-                            <ul className="list-disc ml-4">
-                              {roles.map((r, idx) => (
-                                <li key={idx}>
-                                  {r.role_name || r.role || r.name || "role"}:{" "}
-                                  <span className="font-semibold">
-                                    {(
-                                      r.role_amount ||
-                                      r.amount ||
-                                      r.earned_amount ||
-                                      0
-                                    ).toString()}
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <span className="text-gray-500">None</span>
-                          )}
-                        </td>
-                        <td className="border px-4 py-2 align-top">
-                          {materials && materials.length > 0 ? (
-                            <ul className="list-disc ml-4">
-                              {materials.map((m, idx) => (
-                                <li key={idx}>
-                                  {m.material_name || m.name || "material"}:{" "}
-                                  <span className="font-semibold">
-                                    {(
-                                      m.material_cost ||
-                                      m.cost ||
-                                      0
-                                    ).toString()}
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <span className="text-gray-500">None</span>
-                          )}
-                        </td>
-                        <td className="border px-4 py-2 align-top font-semibold">
-                          {totalRoles}
-                        </td>
-                        <td className="border px-4 py-2 align-top font-semibold">
-                          {totalMaterials}
-                        </td>
-                        <td className="border px-4 py-2 align-top font-semibold">
-                          {displaySalon}
-                        </td>
-                        <td className="border px-4 py-2 align-top font-semibold">
-                          {displayFull}
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td className="border px-4 py-2" colSpan={9}>
-                      No service definitions available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <Modal isOpen={modalType !== null} onClose={closeModal}>
-          {modalType === "service" && (
-            <ServiceForm
-              onSubmit={createServiceTransaction}
-              onClose={closeModal}
-              Services={serviceDefinitions}
-              Roles={serviceRoles}
-              Employees={Employees}
-              Sections={sections}
-              createdBy={createdbyID?.id}
-              serviceStatus={null}
-              entryType="current"
-            />
-          )}
-          {modalType === "expense" && (
-            <ExpenseForm onSubmit={createExpense} onClose={closeModal} />
-          )}
-          {modalType === "advance" && (
-            <AdvanceForm onSubmit={createAdvance} onClose={closeModal} />
-          )}
-          {modalType === "clocking" && (
-            <ClockForm
-              onSubmit={handleClocking}
-              onClose={closeModal}
-              employees={Employees}
-              activeClockings={activeClockings}
-            />
-          )}
-          {modalType === "tagfee" && (
-            <TagFeeForm
-              onSubmit={CreateTagFee}
-              onClose={closeModal}
-              feeData={selectedFee}
-              employees={Employees || []}
-            />
-          )}
-          {modalType === "latefee" && (
-            <LateFeeForm
-              onSubmit={CreateLateFee}
-              onClose={closeModal}
-              feeData={selectedFee}
-              employees={Employees || []}
-            />
-          )}
-        </Modal>
-
-        <Modal
-          isOpen={showCancelModal}
-          onClose={() => setShowCancelModal(false)}
-        >
-          <CancelReasonForm
-            serviceId={cancelServiceId}
-            onSubmit={handleAppointmentStatus}
-            onClose={() => setShowCancelModal(false)}
+        {modalType === "service" && (
+          <ServiceForm
+            isCustomer={false}
+            onSubmit={createServiceTransaction}
+            onClose={closeModal}
+            Services={serviceDefinitions}
+            Roles={serviceRoles}
+            Employees={Employees}
+            Sections={sections}
+            createdBy={createdbyID?.id}
+            /*
+             * A service entered by the cashier is a service
+             * that has actually been performed.
+             *
+             * Therefore its status is COMPLETED.
+             *
+             * ServiceForm will require actual employee IDs.
+             */
+            serviceStatus="completed"
+            entryType="current"
           />
-        </Modal>
-      </div>
-    </>
+        )}
+
+        {/* ==================================================
+            COMPLETE CONFIRMED APPOINTMENT
+        ================================================== */}
+
+        {modalType === "complete_appointment" && completingAppointment && (
+          <ServiceForm
+            isCustomer={false}
+            onSubmit={handleCompleteAppointment}
+            onClose={closeModal}
+            Services={serviceDefinitions}
+            Roles={serviceRoles}
+            Employees={Employees}
+            Sections={sections}
+            createdBy={createdbyID?.id}
+            customerId={
+              completingAppointment.active_customer_id ??
+              completingAppointment.customer_id
+            }
+            serviceStatus="completed"
+            serviceData={completingAppointment}
+            entryType={completingAppointment.entry_type || "current"}
+          />
+        )}
+
+        {/* ==================================================
+            EXPENSE
+        ================================================== */}
+
+        {modalType === "expense" && (
+          <ExpenseForm onSubmit={createExpense} onClose={closeModal} />
+        )}
+
+        {/* ==================================================
+            ADVANCE
+        ================================================== */}
+
+        {modalType === "advance" && (
+          <AdvanceForm onSubmit={createAdvance} onClose={closeModal} />
+        )}
+
+        {/* ==================================================
+            CLOCKING
+        ================================================== */}
+
+        {modalType === "clocking" && (
+          <ClockForm
+            onSubmit={handleClocking}
+            onClose={closeModal}
+            employees={Employees}
+            activeClockings={activeClockings}
+          />
+        )}
+      </Modal>
+
+      {/* ==================================================
+          CANCEL APPOINTMENT MODAL
+      ================================================== */}
+
+      <Modal
+        isOpen={showCancelModal}
+        onClose={() => {
+          setShowCancelModal(false);
+
+          setCancelServiceId(null);
+        }}
+      >
+        <CancelReasonForm
+          serviceId={cancelServiceId}
+          onSubmit={handleAppointmentStatus}
+          onClose={() => {
+            setShowCancelModal(false);
+
+            setCancelServiceId(null);
+          }}
+        />
+      </Modal>
+    </div>
   );
 }
