@@ -33,7 +33,7 @@ export default function CashierDashboard() {
 
   const [completingAppointment, setCompletingAppointment] = useState(null);
 
-  const [loadingCompletion, setLoadingCompletion] = useState(false);
+  const [loadingCompletionId, setLoadingCompletionId] = useState(null);
 
   // ======================================================
   // DATA CONTEXT
@@ -138,11 +138,10 @@ export default function CashierDashboard() {
   // OWNER ID
   // ======================================================
   //
-  // Your backend now controls created_by using req.user,
-  // so this value is not trusted by the backend anyway.
+  // The backend determines created_by from req.user.
   //
-  // It is kept because ServiceForm currently accepts
-  // createdBy as a prop.
+  // This remains because ServiceForm still accepts createdBy,
+  // but the browser value must never be considered authoritative.
   // ======================================================
 
   const createdbyID = useMemo(() => {
@@ -159,11 +158,17 @@ export default function CashierDashboard() {
   // ======================================================
 
   const formatTime12h = (time24) => {
-    if (!time24) return "N/A";
+    if (!time24) {
+      return "N/A";
+    }
 
     const value = String(time24).slice(0, 5);
 
     let [hour, minute] = value.split(":").map(Number);
+
+    if (!Number.isInteger(hour) || !Number.isInteger(minute)) {
+      return value;
+    }
 
     const ampm = hour >= 12 ? "PM" : "AM";
 
@@ -181,7 +186,9 @@ export default function CashierDashboard() {
   // ======================================================
 
   const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
+    if (!dateString) {
+      return "N/A";
+    }
 
     const value = String(dateString).slice(0, 10);
 
@@ -220,15 +227,16 @@ export default function CashierDashboard() {
   // DETERMINE WHETHER TRANSACTION IS AN APPOINTMENT
   // ======================================================
   //
-  // New transactions:
+  // New records:
   //
+  // online booking:
   // service_source = online_booking
   //
-  // Older transactions may still have service_source NULL.
-  // appointment_date therefore remains our legacy fallback.
+  // cashier walk-in:
+  // service_source = walk_in
   //
-  // This is VERY important now that normal walk-in services
-  // also have status = completed.
+  // Legacy online bookings may still have service_source NULL,
+  // so appointment_date is temporarily retained as a fallback.
   // ======================================================
 
   const isAppointment = (service) => {
@@ -236,7 +244,15 @@ export default function CashierDashboard() {
       .trim()
       .toLowerCase();
 
-    return source === "online_booking" || Boolean(service.appointment_date);
+    if (source === "online_booking") {
+      return true;
+    }
+
+    if (source === "walk_in") {
+      return false;
+    }
+
+    return Boolean(service.appointment_date);
   };
 
   // ======================================================
@@ -252,39 +268,32 @@ export default function CashierDashboard() {
   // ======================================================
 
   const appointmentsByStatus = useMemo(() => {
+    const statusOf = (service) =>
+      String(service.status || "")
+        .trim()
+        .toLowerCase();
+
     return {
       pending: appointmentTransactions.filter(
-        (service) =>
-          String(service.status || "")
-            .trim()
-            .toLowerCase() === "pending",
+        (service) => statusOf(service) === "pending",
       ),
 
       confirmed: appointmentTransactions.filter(
-        (service) =>
-          String(service.status || "")
-            .trim()
-            .toLowerCase() === "confirmed",
+        (service) => statusOf(service) === "confirmed",
       ),
 
       completed: appointmentTransactions.filter(
-        (service) =>
-          String(service.status || "")
-            .trim()
-            .toLowerCase() === "completed",
+        (service) => statusOf(service) === "completed",
       ),
 
       cancelled: appointmentTransactions.filter(
-        (service) =>
-          String(service.status || "")
-            .trim()
-            .toLowerCase() === "cancelled",
+        (service) => statusOf(service) === "cancelled",
       ),
     };
   }, [appointmentTransactions]);
 
   // ======================================================
-  // GET ACTUAL PROFESSIONAL NAME
+  // ACTUAL PROFESSIONAL NAME
   // ======================================================
 
   const getActualProfessionalName = (performer) => {
@@ -296,13 +305,10 @@ export default function CashierDashboard() {
   };
 
   // ======================================================
-  // GET CUSTOMER PREFERRED PROFESSIONAL NAME
+  // PREFERRED PROFESSIONAL NAME
   // ======================================================
 
   const getPreferredProfessionalName = (performer) => {
-    // If backend already returned preferred employee names,
-    // use them directly.
-
     const directName = `${performer.preferred_first_name || ""} ${
       performer.preferred_last_name || ""
     }`.trim();
@@ -310,9 +316,6 @@ export default function CashierDashboard() {
     if (directName) {
       return directName;
     }
-
-    // Otherwise resolve using preferred_employee_id
-    // against users already loaded in DataContext.
 
     if (!performer.preferred_employee_id) {
       return null;
@@ -337,6 +340,55 @@ export default function CashierDashboard() {
     setModalType(null);
 
     setCompletingAppointment(null);
+
+    setLoadingCompletionId(null);
+  };
+
+  // ======================================================
+  // CREATE WALK-IN SERVICE
+  // ======================================================
+  //
+  // This wrapper is IMPORTANT.
+  //
+  // The cashier's Add Service button means:
+  //
+  // source = walk_in
+  // status = completed
+  //
+  // ServiceForm requires the actual employee IDs.
+  // ======================================================
+
+  const handleCreateWalkInService = async (formData) => {
+    try {
+      const payload = {
+        ...formData,
+
+        service_source: "walk_in",
+
+        status: "completed",
+
+        appointment_date: null,
+
+        appointment_time: null,
+      };
+
+      console.log("CASHIER WALK-IN SERVICE:", payload);
+
+      const result = await createServiceTransaction(payload);
+
+      await fetchServiceTransactions();
+
+      closeModal();
+
+      return result;
+    } catch (error) {
+      console.error(
+        "Failed to create walk-in service:",
+        error.response?.data || error.message,
+      );
+
+      throw error;
+    }
   };
 
   // ======================================================
@@ -353,6 +405,8 @@ export default function CashierDashboard() {
         "Failed to submit expense:",
         error.response?.data || error.message,
       );
+
+      throw error;
     }
   };
 
@@ -370,6 +424,8 @@ export default function CashierDashboard() {
         "Failed to submit advance:",
         error.response?.data || error.message,
       );
+
+      throw error;
     }
   };
 
@@ -421,7 +477,7 @@ export default function CashierDashboard() {
   }, []);
 
   // ======================================================
-  // REFRESH APPOINTMENT DATA
+  // REFRESH APPOINTMENTS
   // ======================================================
 
   const refreshAppointments = async () => {
@@ -435,15 +491,13 @@ export default function CashierDashboard() {
   // CONFIRM / CANCEL APPOINTMENT
   // ======================================================
   //
-  // IMPORTANT:
+  // Pending -> confirmed:
   //
-  // Pending -> Confirmed
+  // actual employee_id is NOT required.
   //
-  // DOES NOT require actual employee_id values.
+  // preferred_employee_id is preserved.
   //
-  // Customer preferences stay as preferred_employee_id.
-  //
-  // Actual worker assignment happens when completing.
+  // Anyone available is also valid.
   // ======================================================
 
   const handleAppointmentStatus = async (
@@ -455,10 +509,10 @@ export default function CashierDashboard() {
       const service = await fetchServiceTransactionById(serviceId);
 
       if (!service) {
-        return;
+        throw new Error("Appointment could not be found");
       }
 
-      await updateServiceTransactionAppointment(serviceId, {
+      const result = await updateServiceTransactionAppointment(serviceId, {
         status: newStatus,
 
         cancel_reason,
@@ -471,28 +525,36 @@ export default function CashierDashboard() {
       }
 
       await refreshAppointments();
+
+      return result;
     } catch (error) {
       console.error(
         "Failed to update appointment:",
         error.response?.data || error.message,
       );
+
+      throw error;
     }
   };
 
   // ======================================================
-  // OPEN APPOINTMENT COMPLETION FORM
+  // OPEN APPOINTMENT COMPLETION
   // ======================================================
   //
-  // Clicking "Complete Service" MUST NOT directly change
-  // confirmed -> completed anymore.
+  // We DO NOT change confirmed -> completed here.
   //
-  // We first load the complete appointment and then open
-  // ServiceForm in administrative mode.
+  // First:
+  //
+  // 1. fetch complete appointment
+  // 2. open ServiceForm
+  // 3. lock service details
+  // 4. cashier selects actual employees
+  // 5. submit through completion endpoint
   // ======================================================
 
   const handleOpenCompletion = async (serviceId) => {
     try {
-      setLoadingCompletion(true);
+      setLoadingCompletionId(serviceId);
 
       const appointment = await fetchServiceTransactionById(serviceId);
 
@@ -511,7 +573,7 @@ export default function CashierDashboard() {
         error.response?.data || error.message,
       );
     } finally {
-      setLoadingCompletion(false);
+      setLoadingCompletionId(null);
     }
   };
 
@@ -519,15 +581,18 @@ export default function CashierDashboard() {
   // COMPLETE APPOINTMENT
   // ======================================================
   //
-  // ServiceForm will require all actual employee IDs because
-  // isCustomer = false.
+  // ServiceForm requires actual employees because:
   //
-  // It passes:
+  // isCustomer = false
+  // serviceStatus = completed
   //
-  // onSubmit(transactionId, payload)
+  // The model now validates:
   //
-  // We send the actual performers through the appointment
-  // completion endpoint.
+  // require_actual_employees = true
+  // check_appointment_conflicts = false
+  //
+  // Therefore assigning the real workers does NOT trigger
+  // the old "already has an appointment at that time" error.
   // ======================================================
 
   const handleCompleteAppointment = async (transactionId, formData) => {
@@ -635,7 +700,9 @@ export default function CashierDashboard() {
         </div>
 
         <div className="grid gap-5 lg:grid-cols-2">
-          {/* SERVICE OPERATIONS */}
+          {/* ================================================
+              SERVICE OPERATIONS
+          ================================================ */}
 
           <div className="rounded-2xl border border-stone-200 bg-white p-4">
             <div className="mb-4">
@@ -692,7 +759,9 @@ export default function CashierDashboard() {
             </div>
           </div>
 
-          {/* STAFF / FINANCE */}
+          {/* ================================================
+              STAFF / FINANCE
+          ================================================ */}
 
           <div className="rounded-2xl border border-stone-200 bg-white p-4">
             <div className="mb-4">
@@ -836,6 +905,9 @@ export default function CashierDashboard() {
 
               const transactionId = service.transaction_id ?? service.id;
 
+              const isLoadingThisAppointment =
+                Number(loadingCompletionId) === Number(transactionId);
+
               return (
                 <article
                   key={transactionId}
@@ -901,7 +973,7 @@ export default function CashierDashboard() {
                     )}
                   </div>
 
-                  {/* CUSTOMER PREFERENCES */}
+                  {/* CUSTOMER PREFERENCE */}
 
                   <div className="mt-4 rounded-xl border border-stone-200 bg-white/80 p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
@@ -963,19 +1035,20 @@ export default function CashierDashboard() {
                     )}
                   </div>
 
-                  {/* CANCELLATION REASON */}
+                  {/* CANCELLATION */}
 
-                  {service.status === "cancelled" && service.cancel_reason && (
-                    <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">
-                        Cancellation reason
-                      </p>
+                  {String(service.status || "").toLowerCase() === "cancelled" &&
+                    service.cancel_reason && (
+                      <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">
+                          Cancellation reason
+                        </p>
 
-                      <p className="mt-1 text-sm text-rose-700">
-                        {service.cancel_reason}
-                      </p>
-                    </div>
-                  )}
+                        <p className="mt-1 text-sm text-rose-700">
+                          {service.cancel_reason}
+                        </p>
+                      </div>
+                    )}
 
                   {/* PENDING ACTIONS */}
 
@@ -986,17 +1059,7 @@ export default function CashierDashboard() {
                         onClick={() =>
                           handleAppointmentStatus(transactionId, "confirmed")
                         }
-                        className="
-                            rounded-xl
-                            bg-emerald-600
-                            px-4
-                            py-2
-                            text-sm
-                            font-semibold
-                            text-white
-                            transition
-                            hover:bg-emerald-700
-                          "
+                        className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
                       >
                         Confirm
                       </button>
@@ -1008,19 +1071,7 @@ export default function CashierDashboard() {
 
                           setShowCancelModal(true);
                         }}
-                        className="
-                            rounded-xl
-                            border
-                            border-rose-200
-                            bg-white
-                            px-4
-                            py-2
-                            text-sm
-                            font-semibold
-                            text-rose-600
-                            transition
-                            hover:bg-rose-50
-                          "
+                        className="rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
                       >
                         Cancel
                       </button>
@@ -1033,7 +1084,7 @@ export default function CashierDashboard() {
                     <div className="mt-4">
                       {!hasActualAssignments && (
                         <p className="mb-3 text-xs leading-5 text-stone-500">
-                          Select the employees who actually performed the
+                          Record the employees who actually performed the
                           service before marking this appointment completed.
                         </p>
                       )}
@@ -1041,47 +1092,24 @@ export default function CashierDashboard() {
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
-                          disabled={loadingCompletion}
+                          disabled={loadingCompletionId !== null}
                           onClick={() => handleOpenCompletion(transactionId)}
-                          className="
-                              rounded-xl
-                              bg-[var(--salon-copper)]
-                              px-4
-                              py-2
-                              text-sm
-                              font-semibold
-                              text-white
-                              transition
-                              hover:opacity-90
-                              disabled:cursor-not-allowed
-                              disabled:opacity-50
-                            "
+                          className="rounded-xl bg-[var(--salon-copper)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {loadingCompletion
+                          {isLoadingThisAppointment
                             ? "Loading..."
                             : "Complete Service"}
                         </button>
 
                         <button
                           type="button"
+                          disabled={loadingCompletionId !== null}
                           onClick={() => {
                             setCancelServiceId(transactionId);
 
                             setShowCancelModal(true);
                           }}
-                          className="
-                              rounded-xl
-                              border
-                              border-rose-200
-                              bg-white
-                              px-4
-                              py-2
-                              text-sm
-                              font-semibold
-                              text-rose-600
-                              transition
-                              hover:bg-rose-50
-                            "
+                          className="rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Cancel
                         </button>
@@ -1307,40 +1335,44 @@ export default function CashierDashboard() {
           modalType === "complete_appointment" ? "max-w-3xl" : "max-w-2xl"
         }
       >
-        {/* ==================================================
-            CREATE WALK-IN SERVICE
-        ================================================== */}
+        {/* ================================================
+            NEW WALK-IN SERVICE
+        ================================================ */}
 
         {modalType === "service" && (
           <ServiceForm
             isCustomer={false}
-            onSubmit={createServiceTransaction}
+            // New walk-in:
+            // cashier MUST be able to choose section/service.
+            canEditServiceDetails={true}
+            onSubmit={handleCreateWalkInService}
             onClose={closeModal}
             Services={serviceDefinitions}
             Roles={serviceRoles}
             Employees={Employees}
             Sections={sections}
             createdBy={createdbyID?.id}
-            /*
-             * A service entered by the cashier is a service
-             * that has actually been performed.
-             *
-             * Therefore its status is COMPLETED.
-             *
-             * ServiceForm will require actual employee IDs.
-             */
+            // Cashier-entered walk-in has already happened.
+            // Therefore actual professionals are mandatory.
             serviceStatus="completed"
             entryType="current"
           />
         )}
 
-        {/* ==================================================
-            COMPLETE CONFIRMED APPOINTMENT
-        ================================================== */}
+        {/* ================================================
+            COMPLETE EXISTING APPOINTMENT
+        ================================================ */}
 
         {modalType === "complete_appointment" && completingAppointment && (
           <ServiceForm
             isCustomer={false}
+            // CRITICAL CASHIER PERMISSION:
+            //
+            // Appointment already has a service.
+            // Cashier must NOT change section/service.
+            //
+            // Cashier only records actual performers.
+            canEditServiceDetails={false}
             onSubmit={handleCompleteAppointment}
             onClose={closeModal}
             Services={serviceDefinitions}
@@ -1358,25 +1390,25 @@ export default function CashierDashboard() {
           />
         )}
 
-        {/* ==================================================
+        {/* ================================================
             EXPENSE
-        ================================================== */}
+        ================================================ */}
 
         {modalType === "expense" && (
           <ExpenseForm onSubmit={createExpense} onClose={closeModal} />
         )}
 
-        {/* ==================================================
+        {/* ================================================
             ADVANCE
-        ================================================== */}
+        ================================================ */}
 
         {modalType === "advance" && (
           <AdvanceForm onSubmit={createAdvance} onClose={closeModal} />
         )}
 
-        {/* ==================================================
+        {/* ================================================
             CLOCKING
-        ================================================== */}
+        ================================================ */}
 
         {modalType === "clocking" && (
           <ClockForm

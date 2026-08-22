@@ -89,11 +89,10 @@ const normalizeCustomerBookingPerformers = (performers = []) => {
   return performers.map((performer) => ({
     role_id: performer.role_id ?? performer.service_role_id,
 
-    // A customer never decides the actual performer.
+    // Customer never assigns the actual worker.
     employee_id: null,
 
-    // During the transition, employee_id can still be accepted
-    // from the old frontend and converted into a preference.
+    // Customer selection is only a preference.
     preferred_employee_id:
       performer.preferred_employee_id || performer.employee_id || null,
   }));
@@ -103,7 +102,10 @@ const normalizeCustomerBookingPerformers = (performers = []) => {
 // SERVICE DEFINITIONS CONTROLLER
 // =========================================================
 
+// =========================================================
 // GET ALL SERVICE DEFINITIONS
+// =========================================================
+
 export const getServiceDefinitions = async (req, res) => {
   try {
     const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
@@ -174,7 +176,9 @@ export const createServiceDefinition = async (req, res) => {
     } = req.body;
 
     const parseMaybeJSON = (value) => {
-      if (!value) return [];
+      if (!value) {
+        return [];
+      }
 
       if (typeof value === "string") {
         return JSON.parse(value);
@@ -346,18 +350,14 @@ export const createServiceTransaction = async (req, res) => {
     } = req.body;
 
     // =====================================================
-    // CUSTOMER-CONTROLLED VALUES
+    // SOURCE / ENTRY TYPE
     // =====================================================
 
     if (isCustomer) {
-      // A live online booking is always a current entry.
       entry_type = "current";
 
-      // Customers cannot spoof a walk-in.
       service_source = "online_booking";
     } else {
-      // Internal users can specify online_booking for a
-      // historical online booking; otherwise walk_in.
       service_source = normalizeServiceSource(service_source, "walk_in");
     }
 
@@ -366,6 +366,7 @@ export const createServiceTransaction = async (req, res) => {
     // =====================================================
 
     let finalServiceDate = null;
+
     let finalServiceTime = null;
 
     if (entry_type === "current") {
@@ -407,13 +408,13 @@ export const createServiceTransaction = async (req, res) => {
     };
 
     // =====================================================
-    // RESOLVE CREATED BY
+    // CREATED BY
     // =====================================================
 
     data.created_by = await resolveLegacyUserId(req.user.id, salon_id);
 
     // =====================================================
-    // RESOLVE INTERNAL CUSTOMER
+    // INTERNAL CUSTOMER
     // =====================================================
 
     if (!isCustomer && data.customer_id) {
@@ -425,7 +426,6 @@ export const createServiceTransaction = async (req, res) => {
     // =====================================================
 
     if (isCustomer) {
-      // Customer can only book for themselves.
       data.customer_id = data.created_by;
 
       data.status = "pending";
@@ -452,7 +452,7 @@ export const createServiceTransaction = async (req, res) => {
       }
 
       // ===================================================
-      // TWO-HOUR MINIMUM BOOKING NOTICE
+      // TWO-HOUR RULE
       // ===================================================
 
       const minimumBookingTime = DateTime.now().setZone(KAMPALA_ZONE).plus({
@@ -466,7 +466,7 @@ export const createServiceTransaction = async (req, res) => {
       }
 
       // ===================================================
-      // APPOINTMENT SLOT
+      // 30-MINUTE SLOT RULE
       // ===================================================
 
       if (![0, 30].includes(requestedAt.minute) || requestedAt.second !== 0) {
@@ -480,30 +480,12 @@ export const createServiceTransaction = async (req, res) => {
       }
 
       // ===================================================
-      // CUSTOMER PROFESSIONAL PREFERENCE
-      // ===================================================
-      //
-      // IMPORTANT:
-      //
-      // Whatever a customer chooses is a preference.
-      //
-      // It must NOT become employee_id.
-      //
-      // employee_id is reserved for actual salon assignment
-      // and actual performer records.
-      //
-      // No preference:
-      // preferred_employee_id = null
-      //
-      // Customer chooses someone:
-      // preferred_employee_id = selected employee
-      //
-      // Actual employee:
-      // employee_id = null until staff assigns/confirms.
+      // CUSTOMER PREFERENCE
       // ===================================================
 
       data.performers = normalizeCustomerBookingPerformers(performers);
 
+      // Booking MUST check slot conflicts.
       await validateAppointmentRequestModel({
         salon_id,
 
@@ -516,19 +498,15 @@ export const createServiceTransaction = async (req, res) => {
         performers: data.performers,
 
         require_actual_employees: false,
+
+        check_appointment_conflicts: true,
       });
     }
 
     // =====================================================
-    // INTERNAL SERVICE
+    // INTERNAL COMPLETED SERVICE
     // =====================================================
     else {
-      // A normal service entered by cashier/manager/owner
-      // represents work that has already happened.
-      //
-      // A past service also represents completed work.
-      //
-      // Therefore direct internal creation is completed.
       data.status = "completed";
 
       data.performers = normalizeInternalPerformers(performers);
@@ -537,10 +515,10 @@ export const createServiceTransaction = async (req, res) => {
         throw requestError("Select a service");
       }
 
-      // ===================================================
-      // COMPLETED SERVICES REQUIRE ACTUAL EMPLOYEES
-      // ===================================================
-
+      // Walk-in / manually entered completed work only needs
+      // actual performers.
+      //
+      // It is NOT a booking availability operation.
       await validateAppointmentRequestModel({
         salon_id,
 
@@ -553,6 +531,8 @@ export const createServiceTransaction = async (req, res) => {
         performers: data.performers,
 
         require_actual_employees: true,
+
+        check_appointment_conflicts: false,
       });
     }
 
@@ -571,6 +551,10 @@ export const createServiceTransaction = async (req, res) => {
 
       service_time: data.service_time,
 
+      appointment_date: data.appointment_date,
+
+      appointment_time: data.appointment_time,
+
       salon_id: data.salon_id,
 
       performers: data.performers,
@@ -583,7 +567,7 @@ export const createServiceTransaction = async (req, res) => {
     const transaction = await saveServiceTransaction(data);
 
     // =====================================================
-    // SOCKET APPOINTMENT EVENT
+    // SOCKET EVENT
     // =====================================================
 
     const io = req.app.get("io") || global.io;
@@ -719,7 +703,7 @@ export const getServiceTransactionById = async (req, res) => {
 };
 
 // =========================================================
-// ROLES & MATERIALS
+// GET SERVICE ROLES
 // =========================================================
 
 export const getServiceRoles = async (req, res) => {
@@ -741,6 +725,10 @@ export const getServiceRoles = async (req, res) => {
     });
   }
 };
+
+// =========================================================
+// GET SERVICE MATERIALS
+// =========================================================
 
 export const getServiceMaterials = async (req, res) => {
   try {
@@ -791,7 +779,7 @@ export const updateServiceTransaction = async (req, res) => {
 
     const performers = Array.isArray(req.body.performers)
       ? normalizeInternalPerformers(req.body.performers)
-      : existing.performers || [];
+      : normalizeInternalPerformers(existing.performers || []);
 
     const finalStatus = String(status ?? existing.status ?? "")
       .trim()
@@ -805,39 +793,81 @@ export const updateServiceTransaction = async (req, res) => {
           )
         : existing.service_source || null;
 
+    const finalServiceDefinitionId = Number(
+      service_definition_id || existing.service_definition_id,
+    );
+
+    const finalAppointmentDate =
+      appointment_date ?? existing.appointment_date ?? null;
+
+    const finalAppointmentTime =
+      appointment_time ?? existing.appointment_time ?? null;
+
     // =====================================================
-    // COMPLETED TRANSACTION PROTECTION
+    // COMPLETED SERVICE
+    // =====================================================
+    //
+    // We DO require real workers.
+    //
+    // We DO NOT check booking conflicts because the work
+    // has already happened.
     // =====================================================
 
     if (finalStatus === "completed") {
       await validateAppointmentRequestModel({
         salon_id,
 
-        service_definition_id: Number(
-          service_definition_id || existing.service_definition_id,
-        ),
+        service_definition_id: finalServiceDefinitionId,
 
-        appointment_date: appointment_date ?? existing.appointment_date ?? null,
+        appointment_date: finalAppointmentDate,
 
-        appointment_time: appointment_time ?? existing.appointment_time ?? null,
+        appointment_time: finalAppointmentTime,
 
         performers,
 
         exclude_transaction_id: Number(id),
 
         require_actual_employees: true,
+
+        check_appointment_conflicts: false,
+      });
+    }
+
+    // =====================================================
+    // PENDING / CONFIRMED SERVICE
+    // =====================================================
+    //
+    // These still reserve appointment availability.
+    // =====================================================
+
+    if (["pending", "confirmed"].includes(finalStatus)) {
+      await validateAppointmentRequestModel({
+        salon_id,
+
+        service_definition_id: finalServiceDefinitionId,
+
+        appointment_date: finalAppointmentDate,
+
+        appointment_time: finalAppointmentTime,
+
+        performers,
+
+        exclude_transaction_id: Number(id),
+
+        require_actual_employees: false,
+
+        check_appointment_conflicts: true,
       });
     }
 
     const updates = {
-      service_definition_id:
-        service_definition_id || existing.service_definition_id,
+      service_definition_id: finalServiceDefinitionId,
 
       created_by,
 
-      appointment_date: appointment_date ?? existing.appointment_date,
+      appointment_date: finalAppointmentDate,
 
-      appointment_time: appointment_time ?? existing.appointment_time,
+      appointment_time: finalAppointmentTime,
 
       customer_id: customer_id ?? existing.customer_id,
 
@@ -859,7 +889,7 @@ export const updateServiceTransaction = async (req, res) => {
       data: updated,
     });
   } catch (err) {
-    console.error(err);
+    console.error("UPDATE SERVICE TRANSACTION ERROR:", err);
 
     return res.status(err.statusCode || 500).json({
       success: false,
@@ -893,9 +923,9 @@ export const updateServiceTransactionAppointment = async (req, res) => {
       throw requestError("Appointment not found", 404);
     }
 
-    // =====================================================
+    // ===================================================
     // CUSTOMER PERMISSIONS
-    // =====================================================
+    // ===================================================
 
     if (req.user?.role === "customer") {
       const transactionUserId = await resolveLegacyUserId(
@@ -918,9 +948,9 @@ export const updateServiceTransactionAppointment = async (req, res) => {
       }
     }
 
-    // =====================================================
+    // ===================================================
     // STATUS TRANSITION
-    // =====================================================
+    // ===================================================
 
     const currentStatus = appointment.status?.trim().toLowerCase();
 
@@ -933,40 +963,31 @@ export const updateServiceTransactionAppointment = async (req, res) => {
       );
     }
 
-    // =====================================================
+    // ===================================================
     // CANCELLATION
-    // =====================================================
+    // ===================================================
 
     if (status === "cancelled" && !cancel_reason) {
       throw requestError("A cancellation reason is required");
     }
 
-    // =====================================================
+    // ===================================================
     // PERFORMERS
-    // =====================================================
-    //
-    // If staff submits performer information, use it.
-    //
-    // Otherwise use what is already stored.
-    //
-    // This allows:
-    //
-    // pending -> confirmed
-    // without assigning actual employees.
-    //
-    // But:
-    //
-    // confirmed -> completed
-    // MUST have actual employee IDs.
-    // =====================================================
+    // ===================================================
 
     const performers = Array.isArray(req.body.performers)
       ? normalizeInternalPerformers(req.body.performers)
-      : appointment.performers || [];
+      : normalizeInternalPerformers(appointment.performers || []);
 
-    // =====================================================
-    // CONFIRMED
-    // =====================================================
+    // ===================================================
+    // CONFIRM APPOINTMENT
+    // ===================================================
+    //
+    // Confirmation still reserves the booking slot.
+    //
+    // Actual employee IDs are optional.
+    // Preferred employee IDs may exist.
+    // ===================================================
 
     if (status === "confirmed") {
       await validateAppointmentRequestModel({
@@ -983,18 +1004,31 @@ export const updateServiceTransactionAppointment = async (req, res) => {
         exclude_transaction_id: Number(id),
 
         require_actual_employees: false,
+
+        check_appointment_conflicts: true,
       });
     }
 
-    // =====================================================
-    // COMPLETED
-    // =====================================================
+    // ===================================================
+    // COMPLETE APPOINTMENT
+    // ===================================================
     //
-    // At this stage preferences are NOT enough.
+    // This is the critical fix.
     //
-    // employee_id must contain the employee who actually
-    // performed each required role.
-    // =====================================================
+    // At completion we are NOT asking:
+    //
+    // "Can these people be booked?"
+    //
+    // We are recording:
+    //
+    // "These are the people who actually performed it."
+    //
+    // Therefore:
+    //
+    // actual employee IDs REQUIRED
+    //
+    // booking conflict check OFF
+    // ===================================================
 
     if (status === "completed") {
       await validateAppointmentRequestModel({
@@ -1011,12 +1045,14 @@ export const updateServiceTransactionAppointment = async (req, res) => {
         exclude_transaction_id: Number(id),
 
         require_actual_employees: true,
+
+        check_appointment_conflicts: false,
       });
     }
 
-    // =====================================================
-    // COMPLETION DATE/TIME
-    // =====================================================
+    // ===================================================
+    // COMPLETION DATE / TIME
+    // ===================================================
 
     const completedAt =
       status === "completed" ? DateTime.now().setZone(KAMPALA_ZONE) : null;

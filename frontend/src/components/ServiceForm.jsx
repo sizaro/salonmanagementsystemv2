@@ -15,14 +15,52 @@ const APPOINTMENT_TIME_SLOTS = Array.from({ length: 32 }, (_, index) => {
 
 const formatMoney = (value) => Number(value || 0).toLocaleString("en-UG");
 
+// ======================================================
+// OPTIONAL ID HELPER
+// ======================================================
+
+const normalizeOptionalId = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
+};
+
 export default function ServiceForm({
   isCustomer = false,
+
+  // ======================================================
+  // SERVICE EDITING PERMISSION
+  // ======================================================
+  //
+  // true:
+  // owner / manager may edit section/service.
+  //
+  // false:
+  // cashier may see section/service while completing
+  // an existing transaction, but cannot change them.
+  //
+  // IMPORTANT:
+  // This only locks EXISTING transactions.
+  // A cashier creating a new walk-in service can still
+  // choose the section and service normally.
+  // ======================================================
+
+  canEditServiceDetails = true,
+
   onSubmit,
   onClose,
-  Sections,
-  Services,
-  Roles,
-  Employees,
+  Sections = [],
+  Services = [],
+  Roles = [],
+  Employees = [],
   Appointments = [],
   getAppointmentAvailability,
   createdBy,
@@ -56,18 +94,12 @@ export default function ServiceForm({
   // ======================================================
   // CUSTOMER PROFESSIONAL PREFERENCE
   // ======================================================
-  //
-  // "any"
-  // Customer does not care who performs the service.
-  //
-  // "specific"
-  // Customer may request a preferred employee for each
-  // required role.
-  //
-  // This NEVER sets employee_id for customers.
-  // ======================================================
 
   const [professionalPreference, setProfessionalPreference] = useState("any");
+
+  // ======================================================
+  // FORM
+  // ======================================================
 
   const [form, setForm] = useState({
     id: null,
@@ -88,6 +120,15 @@ export default function ServiceForm({
   });
 
   // ======================================================
+  // DERIVED STATE
+  // ======================================================
+
+  const isEditing = Boolean(serviceData);
+
+  const serviceDetailsLocked =
+    isEditing && !isCustomer && !canEditServiceDetails;
+
+  // ======================================================
   // CURRENT TIME / BOOKING LIMIT
   // ======================================================
 
@@ -97,8 +138,6 @@ export default function ServiceForm({
     hours: 2,
   });
 
-  // Date may still be today if a valid time exists
-  // at least two hours from now.
   const minimumAppointmentDate = now.toISODate();
 
   // ======================================================
@@ -114,6 +153,62 @@ export default function ServiceForm({
   }, [Employees]);
 
   // ======================================================
+  // CREATE PERFORMER ROWS FROM SERVICE ROLES
+  // ======================================================
+  //
+  // THIS IS IMPORTANT.
+  //
+  // A booking using "Anyone available" may have:
+  //
+  // employee_id = null
+  // preferred_employee_id = null
+  //
+  // It may even come back with missing performer rows from
+  // older data.
+  //
+  // When an administrator later completes the service,
+  // every configured professional role must exist inside
+  // form.performers so the select inputs can actually
+  // update those rows.
+  // ======================================================
+
+  const buildPerformersFromRoles = (matchingRoles, existingPerformers = []) => {
+    return (matchingRoles || []).map((role) => {
+      const existing = (existingPerformers || []).find(
+        (performer) =>
+          Number(performer.role_id ?? performer.service_role_id) ===
+          Number(role.id),
+      );
+
+      return {
+        role_id: Number(role.id),
+
+        employee_id: normalizeOptionalId(existing?.employee_id),
+
+        preferred_employee_id: normalizeOptionalId(
+          existing?.preferred_employee_id,
+        ),
+
+        earned_amount:
+          existing?.earned_amount ??
+          existing?.role_amount ??
+          role.earned_amount ??
+          null,
+
+        role_name: existing?.role_name ?? role.role_name ?? null,
+
+        first_name: existing?.first_name ?? null,
+
+        last_name: existing?.last_name ?? null,
+
+        preferred_first_name: existing?.preferred_first_name ?? null,
+
+        preferred_last_name: existing?.preferred_last_name ?? null,
+      };
+    });
+  };
+
+  // ======================================================
   // PREFILL WHEN EDITING
   // ======================================================
 
@@ -125,26 +220,32 @@ export default function ServiceForm({
     const sectionId =
       serviceData.definition_section_id ?? serviceData.section_id;
 
-    const existingPerformers = (serviceData.performers || []).map(
-      (performer) => ({
-        ...performer,
+    const serviceDefinitionId = serviceData.service_definition_id;
 
-        role_id: performer.role_id ?? performer.service_role_id,
+    const matchingRoles = (Roles || []).filter(
+      (role) =>
+        Number(role.service_definition_id) === Number(serviceDefinitionId),
+    );
 
-        employee_id: performer.employee_id || null,
+    // ====================================================
+    // MERGE CONFIGURED ROLES WITH EXISTING PERFORMERS
+    // ====================================================
+    //
+    // This fixes appointments created with "Anyone available"
+    // where no employee/preference had previously been saved.
+    // ====================================================
 
-        preferred_employee_id: performer.preferred_employee_id || null,
-
-        earned_amount: performer.earned_amount ?? performer.role_amount ?? null,
-      }),
+    const mergedPerformers = buildPerformersFromRoles(
+      matchingRoles,
+      serviceData.performers || [],
     );
 
     setForm({
-      id: serviceData.transaction_id ?? serviceData.id,
+      id: serviceData.transaction_id ?? serviceData.id ?? null,
 
       section_id: sectionId || "",
 
-      service_definition_id: serviceData.service_definition_id || "",
+      service_definition_id: serviceDefinitionId || "",
 
       appointment_date: serviceData.appointment_date || "",
 
@@ -154,7 +255,7 @@ export default function ServiceForm({
 
       status: serviceData.status || serviceStatus || null,
 
-      performers: existingPerformers,
+      performers: mergedPerformers,
     });
 
     setServices(
@@ -163,27 +264,29 @@ export default function ServiceForm({
       ),
     );
 
-    if (serviceData.service_definition_id) {
-      const matchingRoles = (Roles || []).filter(
-        (role) =>
-          Number(role.service_definition_id) ===
-          Number(serviceData.service_definition_id),
+    setRoles(matchingRoles);
+
+    setServiceAmount(
+      Number(
+        serviceData.full_amount ||
+          serviceData.service_amount ||
+          (Services || []).find(
+            (service) => Number(service.id) === Number(serviceDefinitionId),
+          )?.service_amount ||
+          0,
+      ),
+    );
+
+    // ====================================================
+    // CUSTOMER EXISTING PREFERENCE
+    // ====================================================
+
+    if (isCustomer) {
+      const hasPreference = mergedPerformers.some(
+        (performer) => performer.preferred_employee_id,
       );
 
-      setRoles(matchingRoles);
-
-      setServiceAmount(
-        Number(serviceData.full_amount || serviceData.service_amount || 0),
-      );
-    }
-
-    // If this is a customer booking and at least one
-    // preference already exists, open preference mode.
-    if (
-      isCustomer &&
-      existingPerformers.some((performer) => performer.preferred_employee_id)
-    ) {
-      setProfessionalPreference("specific");
+      setProfessionalPreference(hasPreference ? "specific" : "any");
     }
   }, [serviceData, Services, Roles, serviceStatus, isCustomer]);
 
@@ -192,6 +295,10 @@ export default function ServiceForm({
   // ======================================================
 
   const handleSectionSelect = (id) => {
+    if (serviceDetailsLocked) {
+      return;
+    }
+
     setForm((current) => ({
       ...current,
 
@@ -222,6 +329,10 @@ export default function ServiceForm({
   // ======================================================
 
   const handleServiceSelect = (event) => {
+    if (serviceDetailsLocked) {
+      return;
+    }
+
     const id = Number(event.target.value);
 
     if (!id) {
@@ -251,33 +362,10 @@ export default function ServiceForm({
     );
 
     // ====================================================
-    // CREATE ONE PERFORMER RECORD PER ROLE
-    // ====================================================
-    //
-    // Internal:
-    // employee_id will later contain the actual worker.
-    //
-    // Customer:
-    // employee_id remains NULL.
-    // preferred_employee_id may contain a preference.
+    // CREATE ROLE ROWS IMMEDIATELY
     // ====================================================
 
-    const performers = matchingRoles.map((role) => {
-      const isSalon =
-        String(role.role_name || "")
-          .trim()
-          .toLowerCase() === "salon";
-
-      return {
-        role_id: role.id,
-
-        employee_id: null,
-
-        preferred_employee_id: null,
-
-        earned_amount: role.earned_amount,
-      };
-    });
+    const performers = buildPerformersFromRoles(matchingRoles, []);
 
     setForm((current) => ({
       ...current,
@@ -311,47 +399,117 @@ export default function ServiceForm({
   };
 
   // ======================================================
-  // INTERNAL ACTUAL EMPLOYEE
+  // UPSERT ACTUAL PERFORMER
+  // ======================================================
+  //
+  // Do NOT rely on the performer row already existing.
+  //
+  // This protects old appointment records that were created
+  // before the current performer structure existed.
   // ======================================================
 
   const updateActualPerformer = (roleId, employeeId) => {
-    setForm((current) => ({
-      ...current,
+    const normalizedRoleId = Number(roleId);
 
-      performers: current.performers.map((performer) =>
-        Number(performer.role_id) === Number(roleId)
-          ? {
-              ...performer,
+    const normalizedEmployeeId = normalizeOptionalId(employeeId);
 
-              employee_id: employeeId === "" ? null : Number(employeeId),
-            }
-          : performer,
-      ),
-    }));
+    setForm((current) => {
+      const exists = current.performers.some(
+        (performer) => Number(performer.role_id) === normalizedRoleId,
+      );
+
+      if (exists) {
+        return {
+          ...current,
+
+          performers: current.performers.map((performer) =>
+            Number(performer.role_id) === normalizedRoleId
+              ? {
+                  ...performer,
+
+                  employee_id: normalizedEmployeeId,
+                }
+              : performer,
+          ),
+        };
+      }
+
+      const role = roles.find((item) => Number(item.id) === normalizedRoleId);
+
+      return {
+        ...current,
+
+        performers: [
+          ...current.performers,
+
+          {
+            role_id: normalizedRoleId,
+
+            employee_id: normalizedEmployeeId,
+
+            preferred_employee_id: null,
+
+            earned_amount: role?.earned_amount ?? null,
+          },
+        ],
+      };
+    });
   };
 
   // ======================================================
-  // CUSTOMER PREFERRED EMPLOYEE
+  // UPSERT CUSTOMER PREFERENCE
   // ======================================================
 
   const updatePreferredPerformer = (roleId, employeeId) => {
-    setForm((current) => ({
-      ...current,
+    const normalizedRoleId = Number(roleId);
 
-      performers: current.performers.map((performer) =>
-        Number(performer.role_id) === Number(roleId)
-          ? {
-              ...performer,
+    const normalizedEmployeeId = normalizeOptionalId(employeeId);
 
-              // Customer never assigns the actual worker.
-              employee_id: null,
+    setForm((current) => {
+      const exists = current.performers.some(
+        (performer) => Number(performer.role_id) === normalizedRoleId,
+      );
 
-              preferred_employee_id:
-                employeeId === "" ? null : Number(employeeId),
-            }
-          : performer,
-      ),
-    }));
+      if (exists) {
+        return {
+          ...current,
+
+          performers: current.performers.map((performer) =>
+            Number(performer.role_id) === normalizedRoleId
+              ? {
+                  ...performer,
+
+                  // Customer NEVER assigns
+                  // actual employee.
+                  employee_id: null,
+
+                  preferred_employee_id: normalizedEmployeeId,
+                }
+              : performer,
+          ),
+        };
+      }
+
+      const role = roles.find((item) => Number(item.id) === normalizedRoleId);
+
+      return {
+        ...current,
+
+        performers: [
+          ...current.performers,
+
+          {
+            role_id: normalizedRoleId,
+
+            employee_id: null,
+
+            preferred_employee_id: normalizedEmployeeId,
+
+            earned_amount: role?.earned_amount ?? null,
+          },
+        ],
+      };
+    });
   };
 
   // ======================================================
@@ -400,7 +558,7 @@ export default function ServiceForm({
   };
 
   // ======================================================
-  // LOCAL BUSY EMPLOYEES
+  // BUSY EMPLOYEES
   // ======================================================
 
   const busyEmployeeIds = useMemo(() => {
@@ -410,18 +568,20 @@ export default function ServiceForm({
 
     const requestedTime = form.appointment_time.slice(0, 5);
 
-    const currentId = Number(form.id);
+    const currentId = normalizeOptionalId(form.id);
 
     const localBusy = (Appointments || [])
       .filter((appointment) => {
-        const appointmentId = Number(
+        const appointmentId = normalizeOptionalId(
           appointment.transaction_id ?? appointment.id,
         );
 
         return (
           appointmentId !== currentId &&
           ["pending", "confirmed"].includes(
-            String(appointment.status).toLowerCase(),
+            String(appointment.status || "")
+              .trim()
+              .toLowerCase(),
           ) &&
           appointment.appointment_date?.slice(0, 10) ===
             form.appointment_date &&
@@ -429,14 +589,31 @@ export default function ServiceForm({
         );
       })
       .flatMap((appointment) => appointment.performers || [])
-      .flatMap((performer) => [
-        Number(performer.employee_id),
+      .flatMap((performer) => {
+        const ids = [];
 
-        Number(performer.preferred_employee_id),
-      ])
-      .filter(Number.isInteger);
+        const actualId = normalizeOptionalId(performer.employee_id);
 
-    return new Set([...remoteBusyEmployeeIds.map(Number), ...localBusy]);
+        const preferredId = normalizeOptionalId(
+          performer.preferred_employee_id,
+        );
+
+        if (actualId) {
+          ids.push(actualId);
+        }
+
+        if (preferredId) {
+          ids.push(preferredId);
+        }
+
+        return ids;
+      });
+
+    const remoteBusy = (remoteBusyEmployeeIds || [])
+      .map(normalizeOptionalId)
+      .filter(Boolean);
+
+    return new Set([...remoteBusy, ...localBusy]);
   }, [
     Appointments,
     form.appointment_date,
@@ -447,7 +624,7 @@ export default function ServiceForm({
   ]);
 
   // ======================================================
-  // REMOVE PREFERENCE THAT BECAME BUSY
+  // REMOVE CUSTOMER PREFERENCE THAT BECAME BUSY
   // ======================================================
 
   useEffect(() => {
@@ -463,7 +640,11 @@ export default function ServiceForm({
       let changed = false;
 
       const performers = current.performers.map((performer) => {
-        if (!busyEmployeeIds.has(Number(performer.preferred_employee_id))) {
+        const preferredId = normalizeOptionalId(
+          performer.preferred_employee_id,
+        );
+
+        if (!preferredId || !busyEmployeeIds.has(preferredId)) {
           return performer;
         }
 
@@ -478,17 +659,20 @@ export default function ServiceForm({
         };
       });
 
-      return changed
-        ? {
-            ...current,
-            performers,
-          }
-        : current;
+      if (!changed) {
+        return current;
+      }
+
+      return {
+        ...current,
+
+        performers,
+      };
     });
   }, [busyEmployeeIds, isCustomer, professionalPreference]);
 
   // ======================================================
-  // REMOTE AVAILABILITY CHECK
+  // REMOTE AVAILABILITY
   // ======================================================
 
   useEffect(() => {
@@ -515,6 +699,14 @@ export default function ServiceForm({
           }
 
           setRemoteBusyEmployeeIds(Array.isArray(ids) ? ids : []);
+
+          // Remove an old availability
+          // error if a new check succeeds.
+          setSubmitError((current) =>
+            current.includes("Availability could not be checked")
+              ? ""
+              : current,
+          );
         })
         .catch(() => {
           if (!active) {
@@ -545,6 +737,18 @@ export default function ServiceForm({
   ]);
 
   // ======================================================
+  // SELECTED SECTION
+  // ======================================================
+
+  const selectedSection = useMemo(() => {
+    return (
+      (Sections || []).find(
+        (section) => Number(section.id) === Number(form.section_id),
+      ) || null
+    );
+  }, [Sections, form.section_id]);
+
+  // ======================================================
   // SELECTED SERVICE
   // ======================================================
 
@@ -555,6 +759,21 @@ export default function ServiceForm({
       ) || null
     );
   }, [Services, form.service_definition_id]);
+
+  // ======================================================
+  // PROFESSIONAL ROLES ONLY
+  // ======================================================
+
+  const professionalRoles = useMemo(
+    () =>
+      (roles || []).filter(
+        (role) =>
+          String(role.role_name || "")
+            .trim()
+            .toLowerCase() !== "salon",
+      ),
+    [roles],
+  );
 
   // ======================================================
   // ONLINE PRICE
@@ -575,7 +794,7 @@ export default function ServiceForm({
     setSubmitError("");
 
     // ====================================================
-    // SERVICE
+    // SERVICE VALIDATION
     // ====================================================
 
     if (!form.section_id || !form.service_definition_id) {
@@ -585,7 +804,7 @@ export default function ServiceForm({
     }
 
     // ====================================================
-    // CUSTOMER APPOINTMENT
+    // CUSTOMER BOOKING
     // ====================================================
 
     if (isCustomer) {
@@ -620,23 +839,9 @@ export default function ServiceForm({
         return;
       }
 
-      // ==================================================
-      // CUSTOMER PREFERENCE VALIDATION
-      // ==================================================
-      //
-      // "Anyone available":
-      // nothing more is required.
-      //
-      // "Preferred professionals":
-      // they may choose preferences for the roles they want.
-      //
-      // We intentionally do NOT require every role to have
-      // a preference because preference itself is optional.
-      // ==================================================
-
       if (professionalPreference === "specific") {
-        const selectedPreference = form.performers.some(
-          (performer) => performer.preferred_employee_id,
+        const selectedPreference = form.performers.some((performer) =>
+          normalizeOptionalId(performer.preferred_employee_id),
         );
 
         if (!selectedPreference) {
@@ -650,25 +855,26 @@ export default function ServiceForm({
     }
 
     // ====================================================
-    // INTERNAL COMPLETED SERVICE
+    // INTERNAL SERVICE
+    // ====================================================
+    //
+    // Walk-in service:
+    // MUST have actual employees.
+    //
+    // Completing appointment:
+    // MUST have actual employees.
+    //
+    // Editing completed service:
+    // MUST keep actual employees.
     // ====================================================
 
     if (!isCustomer) {
-      const missingRole = roles.find((role) => {
-        const isSalon =
-          String(role.role_name || "")
-            .trim()
-            .toLowerCase() === "salon";
-
-        if (isSalon) {
-          return false;
-        }
-
+      const missingRole = professionalRoles.find((role) => {
         const performer = form.performers.find(
           (item) => Number(item.role_id) === Number(role.id),
         );
 
-        return !performer?.employee_id;
+        return !normalizeOptionalId(performer?.employee_id);
       });
 
       if (missingRole) {
@@ -679,25 +885,52 @@ export default function ServiceForm({
     }
 
     // ====================================================
-    // BUILD PERFORMER PAYLOAD
+    // PERFORMER PAYLOAD
     // ====================================================
 
     const performers = form.performers.map((performer) => ({
-      role_id: performer.role_id,
+      role_id: Number(performer.role_id),
 
-      // Customer never sends an actual performer.
-      employee_id: isCustomer ? null : performer.employee_id || null,
+      // Customer can never set
+      // actual employee.
+      employee_id: isCustomer
+        ? null
+        : normalizeOptionalId(performer.employee_id),
 
-      // Internal form preserves preference if editing
-      // an appointment.
       preferred_employee_id: isCustomer
         ? professionalPreference === "specific"
-          ? performer.preferred_employee_id || null
+          ? normalizeOptionalId(performer.preferred_employee_id)
           : null
-        : performer.preferred_employee_id || null,
+        : normalizeOptionalId(performer.preferred_employee_id),
 
-      earned_amount: performer.earned_amount,
+      earned_amount: performer.earned_amount ?? null,
     }));
+
+    // ====================================================
+    // SERVICE SOURCE
+    // ====================================================
+    //
+    // New customer booking:
+    // online_booking
+    //
+    // New administrative service:
+    // walk_in
+    //
+    // Existing transaction:
+    // preserve its source.
+    // ====================================================
+
+    const serviceSource = isCustomer
+      ? "online_booking"
+      : serviceData?.service_source || "walk_in";
+
+    // ====================================================
+    // STATUS
+    // ====================================================
+
+    const finalStatus = isCustomer
+      ? "pending"
+      : serviceStatus || form.status || "completed";
 
     // ====================================================
     // PAYLOAD
@@ -706,25 +939,38 @@ export default function ServiceForm({
     const payload = {
       id: form.id || null,
 
-      section_id: form.section_id,
+      section_id: Number(form.section_id),
 
-      service_definition_id: form.service_definition_id,
+      service_definition_id: Number(form.service_definition_id),
 
-      entry_type: entryType,
+      entry_type: serviceData?.entry_type || entryType || "current",
 
-      appointment_date: isCustomer ? form.appointment_date : null,
+      service_source: serviceSource,
 
-      appointment_time: isCustomer ? form.appointment_time : null,
+      // Customer controls booking
+      // date/time.
+      //
+      // Internal completion preserves
+      // existing appointment information.
+      appointment_date: isCustomer
+        ? form.appointment_date
+        : serviceData?.appointment_date || null,
+
+      appointment_time: isCustomer
+        ? form.appointment_time
+        : serviceData?.appointment_time || null,
 
       created_by: createdBy,
 
-      customer_id: customerId,
+      customer_id:
+        customerId ??
+        serviceData?.active_customer_id ??
+        serviceData?.customer_id ??
+        null,
 
       customer_note: form.customerNote,
 
-      status: isCustomer
-        ? "pending"
-        : form.status || serviceStatus || "completed",
+      status: finalStatus,
 
       performers,
     };
@@ -751,6 +997,7 @@ export default function ServiceForm({
       setSubmitError(
         error?.response?.data?.message ||
           error?.response?.data?.error ||
+          error?.message ||
           "The service could not be submitted. Please try again.",
       );
     } finally {
@@ -799,7 +1046,7 @@ export default function ServiceForm({
               {isCustomer
                 ? "Appointment booking"
                 : serviceData
-                  ? "Service update"
+                  ? "Service completion"
                   : entryType === "past"
                     ? "Historical service"
                     : "Salon operation"}
@@ -807,7 +1054,7 @@ export default function ServiceForm({
 
             <h2 className="mt-1 font-serif text-2xl font-semibold text-stone-900">
               {serviceData
-                ? "Edit Service"
+                ? "Complete / Update Service"
                 : isCustomer
                   ? "Book an Appointment"
                   : entryType === "past"
@@ -818,13 +1065,15 @@ export default function ServiceForm({
             <p className="mt-1 max-w-xl text-sm leading-6 text-stone-500">
               {isCustomer
                 ? "Choose your service and appointment time. You may request a preferred professional or allow the salon to assign anyone available."
-                : "Select the service performed and assign the employees who actually performed each required role."}
+                : serviceDetailsLocked
+                  ? "Review the booked service and record the employees who actually performed the work."
+                  : "Select the service performed and assign the employees who actually performed each required role."}
             </p>
           </div>
 
           {serviceData && (
             <span className="w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-              Editing
+              Existing transaction
             </span>
           )}
         </div>
@@ -854,16 +1103,13 @@ export default function ServiceForm({
 
                 <p>
                   Please arrive about{" "}
-                  <strong>10 minutes before your appointment</strong> so your
-                  service can be initiated on time.
+                  <strong>10 minutes before your appointment</strong>.
                 </p>
 
                 <p>
                   Your appointment is protected for{" "}
-                  <strong>10 minutes after the scheduled time</strong>. If you
-                  arrive later and your preferred professional becomes busy, you
-                  may need to wait or be served by another available
-                  professional.
+                  <strong>10 minutes after the scheduled time</strong>. After
+                  that, your preferred professional may become unavailable.
                 </p>
               </div>
             </div>
@@ -887,69 +1133,113 @@ export default function ServiceForm({
             </h3>
 
             <p className="mt-1 text-sm text-stone-500">
-              Select the salon section and the service required.
+              {serviceDetailsLocked
+                ? "The booked section and service are read-only for this transaction."
+                : "Select the salon section and the service required."}
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className={labelClass}>Section</label>
+          {/* ================================================
+              LOCKED EXISTING SERVICE
+          ================================================ */}
 
-              <select
-                value={form.section_id}
-                onChange={(event) =>
-                  handleSectionSelect(Number(event.target.value))
-                }
-                required
-                className={fieldClass}
-              >
-                <option value="">Select section</option>
+          {serviceDetailsLocked ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <p className={labelClass}>Section</p>
 
-                {sections.map((section) => (
-                  <option key={section.id} value={section.id}>
-                    {section.section_name}
-                  </option>
-                ))}
-              </select>
+                <div className="rounded-xl border border-stone-200 bg-white px-4 py-3">
+                  <p className="font-semibold text-stone-800">
+                    {selectedSection?.section_name ||
+                      serviceData?.section_name ||
+                      "N/A"}
+                  </p>
+
+                  <p className="mt-1 text-xs text-stone-400">Read only</p>
+                </div>
+              </div>
+
+              <div>
+                <p className={labelClass}>Service</p>
+
+                <div className="rounded-xl border border-stone-200 bg-white px-4 py-3">
+                  <p className="font-semibold text-stone-800">
+                    {selectedService?.service_name ||
+                      serviceData?.service_name ||
+                      "N/A"}
+                  </p>
+
+                  <p className="mt-1 text-xs text-stone-400">Read only</p>
+                </div>
+              </div>
             </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className={labelClass}>Section</label>
 
-            <div>
-              <label className={labelClass}>Service</label>
+                <select
+                  value={form.section_id}
+                  onChange={(event) =>
+                    handleSectionSelect(Number(event.target.value))
+                  }
+                  required
+                  className={fieldClass}
+                >
+                  <option value="">Select section</option>
 
-              <select
-                value={form.service_definition_id}
-                onChange={handleServiceSelect}
-                disabled={!form.section_id}
-                required
-                className={`${fieldClass} disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400`}
-              >
-                <option value="">
-                  {form.section_id ? "Select service" : "Select section first"}
-                </option>
+                  {sections.map((section) => (
+                    <option key={section.id} value={section.id}>
+                      {section.section_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                {services.map((service) => (
-                  <option
-                    key={service.id}
-                    value={service.id}
-                    data-service={JSON.stringify(service)}
-                  >
-                    {service.service_name}
+              <div>
+                <label className={labelClass}>Service</label>
+
+                <select
+                  value={form.service_definition_id}
+                  onChange={handleServiceSelect}
+                  disabled={!form.section_id}
+                  required
+                  className={`${fieldClass} disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400`}
+                >
+                  <option value="">
+                    {form.section_id
+                      ? "Select service"
+                      : "Select section first"}
                   </option>
-                ))}
-              </select>
-            </div>
-          </div>
 
-          {selectedService && (
+                  {services.map((service) => (
+                    <option
+                      key={service.id}
+                      value={service.id}
+                      data-service={JSON.stringify(service)}
+                    >
+                      {service.service_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* ================================================
+              SERVICE SUMMARY
+          ================================================ */}
+
+          {(selectedService || serviceData?.service_name) && (
             <div className="mt-4 rounded-xl border border-stone-200 bg-white p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-stone-400">
-                    Selected service
+                    Service
                   </p>
 
                   <p className="mt-1 font-semibold text-stone-900">
-                    {selectedService.service_name}
+                    {selectedService?.service_name || serviceData?.service_name}
                   </p>
                 </div>
 
@@ -968,7 +1258,7 @@ export default function ServiceForm({
         </section>
 
         {/* ==================================================
-            CUSTOMER STEP 2 — APPOINTMENT DATE/TIME
+            CUSTOMER APPOINTMENT DETAILS
         ================================================== */}
 
         {isCustomer && form.service_definition_id && (
@@ -1001,9 +1291,6 @@ export default function ServiceForm({
 
                       appointment_date: event.target.value,
 
-                      // Force user to
-                      // re-evaluate time
-                      // when date changes.
                       appointment_time: "",
                     }));
 
@@ -1049,7 +1336,7 @@ export default function ServiceForm({
                 </select>
 
                 <p className="mt-1.5 text-xs text-stone-400">
-                  Appointment times are available in 30-minute intervals.
+                  30-minute booking intervals.
                 </p>
               </div>
             </div>
@@ -1069,11 +1356,11 @@ export default function ServiceForm({
         )}
 
         {/* ==================================================
-            CUSTOMER STEP 3 — PROFESSIONAL PREFERENCE
+            CUSTOMER PROFESSIONAL PREFERENCE
         ================================================== */}
 
         {isCustomer &&
-          roles.length > 0 &&
+          professionalRoles.length > 0 &&
           form.appointment_date &&
           form.appointment_time && (
             <section className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
@@ -1087,9 +1374,9 @@ export default function ServiceForm({
                     Professional Preference
                   </h3>
 
-                  <p className="mt-1 max-w-xl text-sm text-stone-500">
-                    You do not have to choose a specific employee. The salon can
-                    assign an available professional for you.
+                  <p className="mt-1 text-sm text-stone-500">
+                    You may choose a preferred professional or let the salon
+                    assign anyone available.
                   </p>
                 </div>
 
@@ -1099,8 +1386,6 @@ export default function ServiceForm({
                   </span>
                 )}
               </div>
-
-              {/* PREFERENCE OPTIONS */}
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <button
@@ -1112,30 +1397,13 @@ export default function ServiceForm({
                       : "border-stone-200 bg-white hover:bg-stone-50"
                   }`}
                 >
-                  <div className="flex items-start gap-3">
-                    <span
-                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
-                        professionalPreference === "any"
-                          ? "border-[var(--salon-copper)]"
-                          : "border-stone-300"
-                      }`}
-                    >
-                      {professionalPreference === "any" && (
-                        <span className="h-2.5 w-2.5 rounded-full bg-[var(--salon-copper)]" />
-                      )}
-                    </span>
+                  <p className="font-semibold text-stone-900">
+                    Anyone available
+                  </p>
 
-                    <div>
-                      <p className="font-semibold text-stone-900">
-                        Anyone available
-                      </p>
-
-                      <p className="mt-1 text-sm leading-5 text-stone-500">
-                        Let the salon assign an available professional when you
-                        arrive.
-                      </p>
-                    </div>
-                  </div>
+                  <p className="mt-1 text-sm text-stone-500">
+                    Let the salon assign an available professional.
+                  </p>
                 </button>
 
                 <button
@@ -1147,46 +1415,19 @@ export default function ServiceForm({
                       : "border-stone-200 bg-white hover:bg-stone-50"
                   }`}
                 >
-                  <div className="flex items-start gap-3">
-                    <span
-                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
-                        professionalPreference === "specific"
-                          ? "border-[var(--salon-copper)]"
-                          : "border-stone-300"
-                      }`}
-                    >
-                      {professionalPreference === "specific" && (
-                        <span className="h-2.5 w-2.5 rounded-full bg-[var(--salon-copper)]" />
-                      )}
-                    </span>
+                  <p className="font-semibold text-stone-900">
+                    Choose preferred professional
+                  </p>
 
-                    <div>
-                      <p className="font-semibold text-stone-900">
-                        Choose preferred professional
-                      </p>
-
-                      <p className="mt-1 text-sm leading-5 text-stone-500">
-                        Request a particular professional where available.
-                      </p>
-                    </div>
-                  </div>
+                  <p className="mt-1 text-sm text-stone-500">
+                    Request someone specific where available.
+                  </p>
                 </button>
               </div>
 
-              {/* CUSTOMER PREFERENCE SELECTORS */}
-
               {professionalPreference === "specific" && (
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
-                  {roles.map((role) => {
-                    const isSalon =
-                      String(role.role_name || "")
-                        .trim()
-                        .toLowerCase() === "salon";
-
-                    if (isSalon) {
-                      return null;
-                    }
-
+                  {professionalRoles.map((role) => {
                     const performer = form.performers.find(
                       (item) => Number(item.role_id) === Number(role.id),
                     );
@@ -1200,11 +1441,8 @@ export default function ServiceForm({
                           {role.role_name}
                         </label>
 
-                        {/* IMPORTANT:
-                              No role_amount/
-                              earned_amount is
-                              displayed to customer.
-                          */}
+                        {/* CUSTOMER NEVER SEES
+                              EARNED AMOUNT */}
 
                         <select
                           value={performer?.preferred_employee_id || ""}
@@ -1242,19 +1480,31 @@ export default function ServiceForm({
               )}
 
               <div className="mt-4 rounded-xl bg-stone-50 p-3 text-sm leading-6 text-stone-600">
-                A preferred professional is a request, not the final employee
-                assignment. The salon will confirm who is available, and the
-                actual professional who performs the service will be recorded
-                when the service is completed.
+                A preferred professional is a request only. The employee who
+                actually performs the service will be recorded when the service
+                is completed.
               </div>
             </section>
           )}
 
         {/* ==================================================
-            INTERNAL PROFESSIONAL ASSIGNMENT
+            INTERNAL ACTUAL PROFESSIONALS
+        ==================================================
+            
+            IMPORTANT:
+            
+            This section is visible for:
+            
+            cashier walk-in
+            cashier appointment completion
+            manager service entry
+            owner service entry
+            past service entry
+            
+            It is hidden ONLY for customer mode.
         ================================================== */}
 
-        {!isCustomer && roles.length > 0 && (
+        {!isCustomer && professionalRoles.length > 0 && (
           <section className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
             <div className="mb-4">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
@@ -1266,24 +1516,21 @@ export default function ServiceForm({
               </h3>
 
               <p className="mt-1 text-sm text-stone-500">
-                Assign the employees who actually performed each required role.
-                Completed services cannot be saved without these employees.
+                Select the employees who actually performed each part of this
+                service.
               </p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              {roles.map((role) => {
-                const isSalon =
-                  String(role.role_name || "")
-                    .trim()
-                    .toLowerCase() === "salon";
-
-                if (isSalon) {
-                  return null;
-                }
-
+              {professionalRoles.map((role) => {
                 const performer = form.performers.find(
                   (item) => Number(item.role_id) === Number(role.id),
+                );
+
+                const preferredEmployee = employees.find(
+                  (employee) =>
+                    Number(employee.id) ===
+                    Number(performer?.preferred_employee_id),
                 );
 
                 return (
@@ -1305,6 +1552,19 @@ export default function ServiceForm({
                       )}
                     </div>
 
+                    {preferredEmployee && (
+                      <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                        <p className="text-xs text-amber-700">
+                          Customer preference
+                        </p>
+
+                        <p className="text-sm font-semibold text-amber-900">
+                          {preferredEmployee.first_name}{" "}
+                          {preferredEmployee.last_name}
+                        </p>
+                      </div>
+                    )}
+
                     <select
                       value={performer?.employee_id || ""}
                       onChange={(event) =>
@@ -1321,33 +1581,6 @@ export default function ServiceForm({
                         </option>
                       ))}
                     </select>
-
-                    {performer?.preferred_employee_id && (
-                      <p className="mt-2 text-xs text-stone-500">
-                        Customer preference:{" "}
-                        <span className="font-semibold text-stone-700">
-                          {employees.find(
-                            (employee) =>
-                              Number(employee.id) ===
-                              Number(performer.preferred_employee_id),
-                          )
-                            ? `${
-                                employees.find(
-                                  (employee) =>
-                                    Number(employee.id) ===
-                                    Number(performer.preferred_employee_id),
-                                )?.first_name
-                              } ${
-                                employees.find(
-                                  (employee) =>
-                                    Number(employee.id) ===
-                                    Number(performer.preferred_employee_id),
-                                )?.last_name
-                              }`
-                            : "Selected professional"}
-                        </span>
-                      </p>
-                    )}
                   </div>
                 );
               })}
@@ -1429,24 +1662,7 @@ export default function ServiceForm({
                 type="button"
                 onClick={onClose}
                 disabled={submitting}
-                className="
-                  inline-flex
-                  items-center
-                  justify-center
-                  rounded-xl
-                  border
-                  border-stone-200
-                  bg-white
-                  px-5
-                  py-2.5
-                  text-sm
-                  font-semibold
-                  text-stone-700
-                  transition
-                  hover:bg-stone-50
-                  disabled:cursor-not-allowed
-                  disabled:opacity-50
-                "
+                className="inline-flex items-center justify-center rounded-xl border border-stone-200 bg-white px-5 py-2.5 text-sm font-semibold text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1455,33 +1671,12 @@ export default function ServiceForm({
             <button
               type="submit"
               disabled={submitting || checkingAvailability}
-              className="
-                inline-flex
-                min-w-40
-                items-center
-                justify-center
-                rounded-xl
-                bg-[var(--salon-copper)]
-                px-6
-                py-2.5
-                text-sm
-                font-semibold
-                text-white
-                shadow-sm
-                transition
-                hover:opacity-90
-                focus:outline-none
-                focus:ring-2
-                focus:ring-[var(--salon-copper)]
-                focus:ring-offset-2
-                disabled:cursor-not-allowed
-                disabled:opacity-60
-              "
+              className="inline-flex min-w-40 items-center justify-center rounded-xl bg-[var(--salon-copper)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--salon-copper)] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting
                 ? "Submitting..."
                 : serviceData
-                  ? "Save Changes"
+                  ? "Save & Complete"
                   : isCustomer
                     ? "Request Appointment"
                     : entryType === "past"
