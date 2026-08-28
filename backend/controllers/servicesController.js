@@ -2,7 +2,6 @@ import fs from "fs";
 import path from "path";
 import { redisClient } from "../config/redis.js";
 import { DateTime } from "luxon";
-import { resolveLegacyUserId } from "../models/usersModel.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -41,6 +40,19 @@ const requestError = (message, statusCode = 400) => {
   const error = new Error(message);
   error.statusCode = statusCode;
   return error;
+};
+
+const emitAppointmentChange = (req, action, transaction) => {
+  const io = req.app.get("io") || global.io;
+  const salonId = transaction?.salon_id || req.user?.salon_id;
+  if (!io || !salonId || !transaction?.id) return;
+
+  io.to(`salon:${salonId}`).emit("appointment:changed", {
+    id: transaction.id,
+    status: transaction.status,
+    action,
+    updatedAt: new Date().toISOString(),
+  });
 };
 
 // =========================================================
@@ -411,15 +423,13 @@ export const createServiceTransaction = async (req, res) => {
     // CREATED BY
     // =====================================================
 
-    data.created_by = await resolveLegacyUserId(req.user.id, salon_id);
+    data.created_by = Number(req.user.id);
 
     // =====================================================
     // INTERNAL CUSTOMER
     // =====================================================
 
-    if (!isCustomer && data.customer_id) {
-      data.customer_id = await resolveLegacyUserId(data.customer_id, salon_id);
-    }
+    if (!isCustomer && data.customer_id) data.customer_id = Number(data.customer_id);
 
     // =====================================================
     // CUSTOMER ONLINE BOOKING
@@ -456,12 +466,12 @@ export const createServiceTransaction = async (req, res) => {
       // ===================================================
 
       const minimumBookingTime = DateTime.now().setZone(KAMPALA_ZONE).plus({
-        hours: 2,
+        hours: 1,
       });
 
       if (requestedAt < minimumBookingTime) {
         throw requestError(
-          "Appointments must be booked at least 2 hours in advance",
+          "Appointments must be booked at least 1 hour in advance",
         );
       }
 
@@ -570,14 +580,7 @@ export const createServiceTransaction = async (req, res) => {
     // SOCKET EVENT
     // =====================================================
 
-    const io = req.app.get("io") || global.io;
-
-    if (io && data.status === "pending") {
-      io.emit("appointment_created", {
-        id: transaction.id,
-        data: transaction,
-      });
-    }
+    if (data.status === "pending") emitAppointmentChange(req, "created", transaction);
 
     return res.json({
       success: true,
@@ -610,16 +613,11 @@ export const getAllServiceTransactions = async (req, res) => {
 
     const userId = Number(req.user?.id);
 
-    const transactionUserId =
-      role === "customer"
-        ? await resolveLegacyUserId(userId, salon_id)
-        : userId;
-
     const visibleTransactions =
       role === "customer"
         ? transactions.filter(
             (transaction) =>
-              Number(transaction.customer_id) === transactionUserId,
+              Number(transaction.customer_id) === userId,
           )
         : role === "employee"
           ? transactions.filter((transaction) =>
@@ -667,16 +665,11 @@ export const getServiceTransactionById = async (req, res) => {
 
     const userId = Number(req.user?.id);
 
-    const transactionUserId =
-      role === "customer"
-        ? await resolveLegacyUserId(userId, salon_id)
-        : userId;
-
     const canView =
       role !== "customer" && role !== "employee"
         ? true
         : role === "customer"
-          ? Number(transaction.customer_id) === transactionUserId
+          ? Number(transaction.customer_id) === userId
           : transaction.performers?.some(
               (performer) => Number(performer.employee_id) === userId,
             );
@@ -884,6 +877,10 @@ export const updateServiceTransaction = async (req, res) => {
 
     const updated = await updateServiceTransactionModel(id, updates, salon_id);
 
+    if (updated?.appointment_date || updated?.service_source === "online_booking") {
+      emitAppointmentChange(req, "updated", updated);
+    }
+
     return res.json({
       success: true,
       data: updated,
@@ -928,12 +925,7 @@ export const updateServiceTransactionAppointment = async (req, res) => {
     // ===================================================
 
     if (req.user?.role === "customer") {
-      const transactionUserId = await resolveLegacyUserId(
-        req.user.id,
-        salon_id,
-      );
-
-      if (Number(appointment.customer_id) !== transactionUserId) {
+      if (Number(appointment.customer_id) !== Number(req.user.id)) {
         throw requestError(
           "You cannot change another customer's appointment",
           403,
@@ -1076,6 +1068,8 @@ export const updateServiceTransactionAppointment = async (req, res) => {
     );
 
     const refreshed = await fetchServiceTransactionById(updated.id, salon_id);
+
+    emitAppointmentChange(req, status, refreshed || updated);
 
     return res.json({
       success: true,

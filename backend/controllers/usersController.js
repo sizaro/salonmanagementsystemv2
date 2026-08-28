@@ -7,6 +7,7 @@ import {
   fetchBookableStaff,
   fetchUserById,
   UpdateUserById,
+  updateOwnCustomerProfile,
   DeleteUserById,
 } from "../models/usersModel.js";
 import { findUserByEmail } from "../models/usersModel.js";
@@ -163,6 +164,61 @@ export const getUserById = async (req, res) => {
   } catch (err) {
     console.error("Error fetching user by ID:", err);
     res.status(500).json({ error: "Failed to fetch user" });
+  }
+};
+
+export const getMyProfile = async (req, res) => {
+  const profile = await fetchUserById(req.user.id, req.user.salon_id);
+  if (!profile) return res.status(404).json({ error: "Profile not found" });
+  return res.json({ data: profile });
+};
+
+export const updateMyProfile = async (req, res) => {
+  try {
+    if (String(req.user.role || "").toLowerCase() !== "customer") {
+      return res.status(403).json({ error: "Customer profile access only" });
+    }
+
+    const first_name = String(req.body.first_name || "").trim();
+    const middle_name = String(req.body.middle_name || "").trim();
+    const last_name = String(req.body.last_name || "").trim();
+    const contact = String(req.body.contact || "").trim();
+    const gender = String(req.body.gender || "").trim().toLowerCase();
+
+    if (!first_name || !last_name) {
+      return res.status(400).json({ error: "First name and last name are required" });
+    }
+    if (gender && !["male", "female", "other"].includes(gender)) {
+      return res.status(400).json({ error: "Select a valid gender" });
+    }
+
+    const existing = await fetchUserById(req.user.id, req.user.salon_id);
+    if (!existing) return res.status(404).json({ error: "Profile not found" });
+
+    let image_url = null;
+    if (req.file?.filename) {
+      image_url = `/uploads/images/${req.file.filename}`;
+      if (existing.image_url?.startsWith("/uploads/images/")) {
+        const oldPath = path.join(process.cwd(), existing.image_url);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+    }
+
+    const profile = await updateOwnCustomerProfile({
+      id: req.user.id,
+      salon_id: req.user.salon_id,
+      first_name,
+      middle_name,
+      last_name,
+      contact,
+      gender,
+      image_url,
+    });
+
+    return res.json({ message: "Profile updated successfully", data: profile });
+  } catch (error) {
+    console.error("Error updating customer profile:", error);
+    return res.status(500).json({ error: "Profile could not be updated" });
   }
 };
 
@@ -359,6 +415,8 @@ export default {
   getUserById,
   createUser,
   registerCustomer,
+  getMyProfile,
+  updateMyProfile,
   updateUserById,
   deleteUserById,
 };

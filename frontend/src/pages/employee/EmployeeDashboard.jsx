@@ -488,7 +488,9 @@ export default function EmployeeDashboard() {
           Employee workspace
         </p>
 
-        <div className="relative z-10 mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="relative z-10 mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <img src={user?.image_url ? (String(user.image_url).startsWith("http") ? user.image_url : `${import.meta.env.VITE_STATIC_URL || "http://localhost:5500"}${user.image_url}`) : "/default-avatar.png"} alt="" className="h-20 w-20 rounded-3xl border-4 border-white object-cover shadow-lg" />
           <div>
             <h1 className="font-serif text-3xl font-semibold text-slate-900">
               Welcome, {user.first_name}
@@ -497,6 +499,7 @@ export default function EmployeeDashboard() {
             <p className="mt-2 text-sm text-slate-600">
               Your services, appointments and pay overview.
             </p>
+          </div>
           </div>
 
           <div className="text-sm text-slate-500">

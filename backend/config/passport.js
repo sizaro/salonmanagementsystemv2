@@ -10,7 +10,6 @@ passport.use(
   new LocalStrategy(
     { usernameField: "email" },
     async (email, password, done) => {
-      console.log("🔹 /login route hit, body:", email, password);
        const salon_id = process.env.DEFAULT_SALON_ID;
       try {
         const user = await findUserByEmail(email, salon_id);

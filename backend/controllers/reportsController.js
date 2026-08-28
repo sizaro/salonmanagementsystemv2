@@ -324,7 +324,9 @@ export async function getCashierIncomeReview(req, res) {
         service.original_amount ?? service.service_amount ?? 0,
       ),
 
-      discountPercentage: Number(service.discount_percentage ?? 0),
+      discountPercentage: Number(service.original_amount || 0) > 0
+        ? (Number(service.discount_amount || 0) / Number(service.original_amount)) * 100
+        : 0,
 
       discountAmount: Number(service.discount_amount ?? 0),
 

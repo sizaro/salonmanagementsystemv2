@@ -23,8 +23,9 @@ export const fetchBookableStaff = async (salon_id) => {
     `SELECT id, first_name, last_name, specialty, status, image_url
      FROM users
      WHERE salon_id = $1
-       AND role <> 'customer'
+       AND LOWER(COALESCE(role, '')) IN ('employee', 'manager')
        AND LOWER(COALESCE(status, 'active')) = 'active'
+       AND COALESCE(NULLIF(TRIM(specialty), ''), '-') <> '-'
      ORDER BY first_name, last_name`,
     [salon_id],
   );
@@ -197,18 +198,20 @@ export const DeleteUserById = async (id, salon_id) => {
  * Find user by email (for a specific salon)
  */
 export const findUserByEmail = async (email, salon_id) => {
-  console.log("🔹 findUserByEmail called:", { email, salon_id });
   const query = "SELECT * FROM users WHERE email = $1 AND salon_id = $2";
   const result = await db.query(query, [email, salon_id]);
   return result.rows[0];
 };
 
 /**
- * Find user by ID (limited fields) for a specific salon
+ * Find the authenticated user by ID for a specific salon. Controllers remove
+ * the password before returning the object to the browser.
  */
 export const findUserById = async (id, salon_id) => {
   const query = `
-    SELECT id, first_name, last_name, email, role, salon_id 
+    SELECT id, salon_id, first_name, middle_name, last_name, email, password,
+           birthdate, contact, next_of_kin, next_of_kin_contact, role, gender,
+           specialty, status, bio, image_url, created_at
     FROM users 
     WHERE id = $1 AND salon_id = $2
   `;
@@ -216,63 +219,41 @@ export const findUserById = async (id, salon_id) => {
   return result.rows[0];
 };
 
-/**
- * service_transactions still has legacy foreign keys to usermain. Resolve the
- * active users identity to its legacy counterpart until that table is retired.
- */
-export const resolveLegacyUserId = async (user_id, salon_id) => {
-  return db.transaction(async (client) => {
-    const { rows: activeRows } = await client.query(
-      `SELECT id, salon_id, first_name, middle_name, last_name, email, password,
-              birthdate, contact, next_of_kin, next_of_kin_contact, role,
-              specialty, status, bio, image_url
-       FROM users
-       WHERE id = $1 AND salon_id = $2`,
-      [user_id, salon_id],
-    );
-    const activeUser = activeRows[0];
-    if (!activeUser) throw new Error("Active user account not found");
-
-    await client.query(
-      "SELECT pg_advisory_xact_lock(hashtext($1))",
-      [`legacy-user:${salon_id}:${activeUser.email.toLowerCase()}`],
-    );
-
-    const { rows: existingRows } = await client.query(
-      `SELECT id FROM usermain
-       WHERE salon_id = $1 AND LOWER(email) = LOWER($2)
-       ORDER BY id LIMIT 1`,
-      [salon_id, activeUser.email],
-    );
-    if (existingRows[0]) return Number(existingRows[0].id);
-
-    const { rows: insertedRows } = await client.query(
-      `INSERT INTO usermain
-        (first_name, middle_name, last_name, email, password, birthdate,
-         contact, next_of_kin, next_of_kin_contact, role, specialty, status,
-         bio, image_url, salon_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
-       RETURNING id`,
-      [
-        activeUser.first_name || "Customer",
-        activeUser.middle_name || null,
-        activeUser.last_name || null,
-        activeUser.email,
-        activeUser.password,
-        activeUser.birthdate || null,
-        activeUser.contact || null,
-        activeUser.next_of_kin || null,
-        activeUser.next_of_kin_contact || null,
-        activeUser.role,
-        activeUser.specialty || "-",
-        activeUser.status || "active",
-        activeUser.bio || "-",
-        activeUser.image_url || "-",
-        salon_id,
-      ],
-    );
-    return Number(insertedRows[0].id);
-  });
+export const updateOwnCustomerProfile = async ({
+  id,
+  salon_id,
+  first_name,
+  middle_name,
+  last_name,
+  contact,
+  gender,
+  image_url,
+}) => {
+  const result = await db.query(
+    `UPDATE users
+     SET first_name = $1,
+         middle_name = $2,
+         last_name = $3,
+         contact = $4,
+         gender = $5,
+         image_url = COALESCE($6, image_url)
+     WHERE id = $7
+       AND salon_id = $8
+       AND LOWER(role) = 'customer'
+     RETURNING id, salon_id, first_name, middle_name, last_name, email,
+               contact, gender, role, status, image_url, created_at`,
+    [
+      first_name,
+      middle_name || null,
+      last_name,
+      contact || null,
+      gender || null,
+      image_url || null,
+      id,
+      salon_id,
+    ],
+  );
+  return result.rows[0] || null;
 };
 
 export default {
@@ -283,5 +264,4 @@ export default {
   DeleteUserById,
   findUserByEmail,
   findUserById,
-  resolveLegacyUserId,
 };

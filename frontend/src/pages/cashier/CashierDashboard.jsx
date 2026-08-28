@@ -34,12 +34,15 @@ export default function CashierDashboard() {
   const [completingAppointment, setCompletingAppointment] = useState(null);
 
   const [loadingCompletionId, setLoadingCompletionId] = useState(null);
+  const [appointmentAction, setAppointmentAction] = useState(null);
+  const [appointmentNotice, setAppointmentNotice] = useState(null);
 
   // ======================================================
   // DATA CONTEXT
   // ======================================================
 
   const {
+    user,
     transactions = [],
 
     sendFormData,
@@ -115,8 +118,10 @@ export default function CashierDashboard() {
         .toLowerCase();
 
       return (
-        ["employee", "manager", "cashier"].includes(role) &&
-        status !== "inactive"
+        ["employee", "manager"].includes(role) &&
+        status !== "inactive" &&
+        String(user.specialty || "").trim() !== "" &&
+        String(user.specialty || "").trim() !== "-"
       );
     });
   }, [users]);
@@ -505,6 +510,9 @@ export default function CashierDashboard() {
     newStatus,
     cancel_reason = null,
   ) => {
+    if (appointmentAction) return;
+    setAppointmentAction({ id: Number(serviceId), action: newStatus });
+    setAppointmentNotice(null);
     try {
       const service = await fetchServiceTransactionById(serviceId);
 
@@ -525,6 +533,7 @@ export default function CashierDashboard() {
       }
 
       await refreshAppointments();
+      setAppointmentNotice({ type: "success", text: `Appointment ${newStatus} successfully.` });
 
       return result;
     } catch (error) {
@@ -532,8 +541,10 @@ export default function CashierDashboard() {
         "Failed to update appointment:",
         error.response?.data || error.message,
       );
-
+      setAppointmentNotice({ type: "error", text: error.response?.data?.message || error.message || "The appointment could not be updated." });
       throw error;
+    } finally {
+      setAppointmentAction(null);
     }
   };
 
@@ -555,6 +566,7 @@ export default function CashierDashboard() {
   const handleOpenCompletion = async (serviceId) => {
     try {
       setLoadingCompletionId(serviceId);
+      setAppointmentNotice(null);
 
       const appointment = await fetchServiceTransactionById(serviceId);
 
@@ -572,6 +584,7 @@ export default function CashierDashboard() {
         "Unable to load appointment for completion:",
         error.response?.data || error.message,
       );
+      setAppointmentNotice({ type: "error", text: error.response?.data?.message || error.message || "The appointment could not be loaded." });
     } finally {
       setLoadingCompletionId(null);
     }
@@ -597,6 +610,7 @@ export default function CashierDashboard() {
 
   const handleCompleteAppointment = async (transactionId, formData) => {
     try {
+      setAppointmentNotice(null);
       const payload = {
         status: "completed",
 
@@ -618,6 +632,7 @@ export default function CashierDashboard() {
       await refreshAppointments();
 
       setActiveTab("completed");
+      setAppointmentNotice({ type: "success", text: "Service completed and payment recorded successfully." });
 
       closeModal();
 
@@ -627,7 +642,7 @@ export default function CashierDashboard() {
         "Failed to complete appointment:",
         error.response?.data || error.message,
       );
-
+      setAppointmentNotice({ type: "error", text: error.response?.data?.message || error.message || "The service could not be completed." });
       throw error;
     }
   };
@@ -679,6 +694,18 @@ export default function CashierDashboard() {
 
   return (
     <div className="dashboard-page space-y-6">
+      <header className="dashboard-hero flex flex-col gap-5 sm:flex-row sm:items-center">
+        <img
+          src={user?.image_url ? (String(user.image_url).startsWith("http") ? user.image_url : `${staticBaseUrl}${user.image_url}`) : "/default-avatar.png"}
+          alt=""
+          className="relative z-10 h-24 w-24 rounded-3xl border-4 border-white object-cover shadow-lg"
+        />
+        <div className="relative z-10">
+          <p className="salon-eyebrow text-[var(--salon-copper)]">{user?.role || "Salon"} workspace</p>
+          <h1 className="mt-2 font-serif text-3xl font-semibold text-[var(--salon-ink)]">Welcome, {user?.first_name} {user?.last_name}</h1>
+          <p className="mt-2 text-sm text-stone-600">Manage today&apos;s salon operations and live customer appointments.</p>
+        </div>
+      </header>
       {/* ==================================================
           CASHIER QUICK ACTIONS
       ================================================== */}
@@ -686,7 +713,7 @@ export default function CashierDashboard() {
       <section className="dashboard-panel">
         <div className="mb-5">
           <p className="salon-eyebrow text-[var(--salon-copper)]">
-            Cashier workspace
+            {user?.role || "Salon"} workspace
           </p>
 
           <h2 className="mt-1 font-serif text-2xl font-semibold text-[var(--salon-ink)]">
@@ -863,6 +890,12 @@ export default function CashierDashboard() {
           </p>
         </div>
 
+        {appointmentNotice && (
+          <p role="status" className={`mb-5 rounded-2xl border p-3 text-sm font-medium ${appointmentNotice.type === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
+            {appointmentNotice.text}
+          </p>
+        )}
+
         {/* APPOINTMENT TABS */}
 
         <div className="dashboard-tabs mb-5">
@@ -872,7 +905,7 @@ export default function CashierDashboard() {
               type="button"
               className={`dashboard-tab ${
                 activeTab === status ? "dashboard-tab-active" : ""
-              }`}
+              } ${status === "pending" && (appointmentsByStatus.pending?.length || 0) > 0 ? activeTab === status ? "!border-rose-600 !bg-rose-600 !text-white" : "border-rose-300 bg-rose-50 text-rose-700 ring-1 ring-rose-200" : ""}`}
               onClick={() => setActiveTab(status)}
             >
               {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -1056,22 +1089,24 @@ export default function CashierDashboard() {
                     <div className="mt-4 flex flex-wrap gap-2">
                       <button
                         type="button"
+                        disabled={appointmentAction !== null}
                         onClick={() =>
                           handleAppointmentStatus(transactionId, "confirmed")
                         }
-                        className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                        className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Confirm
+                        {appointmentAction?.id === Number(transactionId) && appointmentAction.action === "confirmed" ? "Confirming..." : "Confirm"}
                       </button>
 
                       <button
                         type="button"
+                        disabled={appointmentAction !== null}
                         onClick={() => {
                           setCancelServiceId(transactionId);
 
                           setShowCancelModal(true);
                         }}
-                        className="rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
+                        className="rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         Cancel
                       </button>

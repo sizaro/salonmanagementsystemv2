@@ -23,6 +23,58 @@ const normalizeRoleId = (performer) => {
   return normalizeOptionalId(performer?.role_id ?? performer?.service_role_id);
 };
 
+const getAppointmentEmployeeIds = (performers = []) => [
+  ...new Set(
+    performers
+      .map((performer) => normalizeOptionalId(
+        performer?.employee_id ?? performer?.preferred_employee_id,
+      ))
+      .filter(Boolean),
+  ),
+].sort((left, right) => left - right);
+
+const lockAppointmentProfessionals = async (client, salonId, performers = []) => {
+  for (const employeeId of getAppointmentEmployeeIds(performers)) {
+    await client.query(
+      `SELECT pg_advisory_xact_lock(hashtext($1))`,
+      [`appointment:${salonId}:employee:${employeeId}`],
+    );
+  }
+};
+
+const getPerformerSnapshots = async (client, transactionId, salonId) => {
+  const { rows } = await client.query(
+    `SELECT service_role_id, earned_amount_snapshot
+     FROM service_performers
+     WHERE service_transaction_id = $1 AND salon_id = $2`,
+    [transactionId, salonId],
+  );
+  return new Map(rows.map((row) => [Number(row.service_role_id), Number(row.earned_amount_snapshot || 0)]));
+};
+
+const insertPerformerSnapshot = async (client, { salonId, transactionId, performer, earnedAmountSnapshot = null }) => {
+  const roleId = normalizeRoleId(performer);
+  if (!roleId) throw new Error("A valid service role is required");
+
+  const { rowCount } = await client.query(
+    `INSERT INTO service_performers
+      (salon_id, service_transaction_id, service_role_id, employee_id,
+       preferred_employee_id, earned_amount_snapshot)
+     SELECT $1, $2, sr.id, $4, $5, COALESCE($6, sr.earned_amount, 0)
+     FROM service_roles sr
+     WHERE sr.id = $3 AND sr.salon_id = $1`,
+    [
+      salonId,
+      transactionId,
+      roleId,
+      normalizeOptionalId(performer.employee_id),
+      normalizeOptionalId(performer.preferred_employee_id),
+      earnedAmountSnapshot,
+    ],
+  );
+  if (!rowCount) throw new Error("The selected service role is unavailable");
+};
+
 // =========================================================
 // SERVICE DEFINITIONS CRUD
 // =========================================================
@@ -614,7 +666,9 @@ export const validateAppointmentRequestModel = async ({
 
         AND id = ANY($2::int[])
 
-        AND role <> 'customer'
+        AND LOWER(COALESCE(role, '')) IN ('employee', 'manager')
+
+        AND COALESCE(NULLIF(TRIM(specialty), ''), '-') <> '-'
 
         AND LOWER(
           COALESCE(
@@ -693,9 +747,11 @@ export const validateAppointmentRequestModel = async ({
 
         WHERE st.salon_id = $1
 
-          AND st.appointment_date = $2::date
+          AND (st.appointment_date + st.appointment_time)
+              < ($2::date + $3::time + INTERVAL '1 hour')
 
-          AND st.appointment_time = $3::time
+          AND (st.appointment_date + st.appointment_time + INTERVAL '1 hour')
+              > ($2::date + $3::time)
 
           AND LOWER(
             COALESCE(
@@ -782,6 +838,27 @@ export const saveServiceTransaction = async (data) => {
     .toLowerCase();
 
   return db.transaction(async (client) => {
+    const { rows: pricingRows } = await client.query(
+      `SELECT service_amount, salon_amount
+       FROM service_definitions
+       WHERE id = $1 AND salon_id = $2`,
+      [service_definition_id, salon_id],
+    );
+    const pricing = pricingRows[0];
+    if (!pricing) throw new Error("The selected service is unavailable");
+
+    const originalServiceAmount = Number(pricing.service_amount || 0);
+    const originalSalonAmount = Number(pricing.salon_amount || 0);
+    const isOnlineBooking = String(service_source || "").toLowerCase() === "online_booking";
+    if (isOnlineBooking && originalSalonAmount < 500) {
+      const error = new Error("This service cannot accept the UGX 500 online discount because its salon share is too low");
+      error.statusCode = 400;
+      throw error;
+    }
+    const discountAmount = isOnlineBooking ? 500 : 0;
+    const chargedServiceAmount = originalServiceAmount - discountAmount;
+    const chargedSalonAmount = originalSalonAmount - discountAmount;
+
     // ===================================================
     // LOCK BOOKING SLOT
     // ===================================================
@@ -791,16 +868,7 @@ export const saveServiceTransaction = async (data) => {
       appointment_date &&
       appointment_time
     ) {
-      const bookingLockKey = `${salon_id}:${appointment_date}:${appointment_time}`;
-
-      await client.query(
-        `
-        SELECT pg_advisory_xact_lock(
-          hashtext($1)
-        )
-        `,
-        [bookingLockKey],
-      );
+      await lockAppointmentProfessionals(client, salon_id, performers);
     }
 
     // ===================================================
@@ -842,6 +910,11 @@ export const saveServiceTransaction = async (data) => {
         status,
         entry_type,
         service_source,
+        original_service_amount,
+        charged_service_amount,
+        discount_amount,
+        original_salon_amount,
+        charged_salon_amount,
         service_timestamp
       )
 
@@ -859,6 +932,11 @@ export const saveServiceTransaction = async (data) => {
         $10,
         $11,
         $12,
+        $13,
+        $14,
+        $15,
+        $16,
+        $17,
         NOW()
       )
 
@@ -878,6 +956,11 @@ export const saveServiceTransaction = async (data) => {
       status || null,
       entry_type || "current",
       service_source || null,
+      originalServiceAmount,
+      chargedServiceAmount,
+      discountAmount,
+      originalSalonAmount,
+      chargedSalonAmount,
     ]);
 
     const transaction = rows[0];
@@ -887,40 +970,11 @@ export const saveServiceTransaction = async (data) => {
     // ===================================================
 
     for (const performer of performers) {
-      const roleId = normalizeRoleId(performer);
-
-      if (!roleId) {
-        throw new Error("A valid service role is required");
-      }
-
-      await client.query(
-        `
-        INSERT INTO service_performers
-        (
-          salon_id,
-          service_transaction_id,
-          service_role_id,
-          employee_id,
-          preferred_employee_id
-        )
-
-        VALUES
-        (
-          $1,
-          $2,
-          $3,
-          $4,
-          $5
-        )
-        `,
-        [
-          salon_id,
-          transaction.id,
-          roleId,
-          normalizeOptionalId(performer.employee_id),
-          normalizeOptionalId(performer.preferred_employee_id),
-        ],
-      );
+      await insertPerformerSnapshot(client, {
+        salonId: salon_id,
+        transactionId: transaction.id,
+        performer,
+      });
     }
 
     return transaction;
@@ -952,9 +1006,11 @@ export const fetchAppointmentBusyEmployeeIdsModel = async (
 
     WHERE st.salon_id = $1
 
-      AND st.appointment_date = $2::date
+      AND (st.appointment_date + st.appointment_time)
+          < ($2::date + $3::time + INTERVAL '1 hour')
 
-      AND st.appointment_time = $3::time
+      AND (st.appointment_date + st.appointment_time + INTERVAL '1 hour')
+          > ($2::date + $3::time)
 
       AND LOWER(
         COALESCE(
@@ -999,12 +1055,12 @@ export const fetchAllServiceTransactions = async (salon_id) => {
 
       st.appointment_time::TEXT AS appointment_time,
 
-      active_customer.id AS active_customer_id,
+      customer.id AS active_customer_id,
 
       CONCAT_WS(
         ' ',
-        active_customer.first_name,
-        active_customer.last_name
+        customer.first_name,
+        customer.last_name
       ) AS customer_name,
 
       sd.service_name,
@@ -1035,13 +1091,9 @@ export const fetchAllServiceTransactions = async (salon_id) => {
     JOIN service_sections sec
       ON sec.id = sd.section_id
 
-    LEFT JOIN usermain legacy_customer
-      ON legacy_customer.id = st.customer_id
-
-    LEFT JOIN users active_customer
-      ON active_customer.salon_id = st.salon_id
-     AND LOWER(active_customer.email) =
-         LOWER(legacy_customer.email)
+    LEFT JOIN users customer
+      ON customer.id = st.customer_id
+     AND customer.salon_id = st.salon_id
 
     LEFT JOIN LATERAL (
       SELECT
@@ -1054,10 +1106,10 @@ export const fetchAllServiceTransactions = async (salon_id) => {
             sr.role_name,
 
             'role_amount',
-            sr.earned_amount,
+            COALESCE(sp.earned_amount_snapshot, sr.earned_amount, 0),
 
             'earned_amount',
-            sr.earned_amount,
+            COALESCE(sp.earned_amount_snapshot, sr.earned_amount, 0),
 
             'employee_id',
             actual_employee.id,
@@ -1156,7 +1208,7 @@ export const fetchServiceTransactionById = async (id, salon_id) => {
 
       st.appointment_time::TEXT AS appointment_time,
 
-      active_customer.id AS active_customer_id,
+      customer.id AS active_customer_id,
 
       sd.service_name,
 
@@ -1176,8 +1228,8 @@ export const fetchServiceTransactionById = async (id, salon_id) => {
 
       CONCAT_WS(
         ' ',
-        active_customer.first_name,
-        active_customer.last_name
+        customer.first_name,
+        customer.last_name
       ) AS customer_name,
 
       COALESCE(
@@ -1193,10 +1245,10 @@ export const fetchServiceTransactionById = async (id, salon_id) => {
                 sr.role_name,
 
                 'role_amount',
-                sr.earned_amount,
+                COALESCE(sp.earned_amount_snapshot, sr.earned_amount, 0),
 
                 'earned_amount',
-                sr.earned_amount,
+                COALESCE(sp.earned_amount_snapshot, sr.earned_amount, 0),
 
                 'employee_id',
                 actual_employee.id,
@@ -1268,21 +1320,13 @@ export const fetchServiceTransactionById = async (id, salon_id) => {
       ON sec.id = sd.section_id
      AND sec.salon_id = $2
 
-    LEFT JOIN usermain legacy_creator
-      ON legacy_creator.id = st.created_by
-
     LEFT JOIN users creator
-      ON creator.salon_id = st.salon_id
-     AND LOWER(creator.email) =
-         LOWER(legacy_creator.email)
+      ON creator.id = st.created_by
+     AND creator.salon_id = st.salon_id
 
-    LEFT JOIN usermain legacy_customer
-      ON legacy_customer.id = st.customer_id
-
-    LEFT JOIN users active_customer
-      ON active_customer.salon_id = st.salon_id
-     AND LOWER(active_customer.email) =
-         LOWER(legacy_customer.email)
+    LEFT JOIN users customer
+      ON customer.id = st.customer_id
+     AND customer.salon_id = st.salon_id
 
     WHERE st.id = $1
       AND st.salon_id = $2;
@@ -1311,6 +1355,10 @@ export const updateServiceTransactionModel = async (id, updates, salon_id) => {
   } = updates;
 
   return db.transaction(async (client) => {
+    if (["pending", "confirmed"].includes(String(status || "").toLowerCase())) {
+      await lockAppointmentProfessionals(client, salon_id, performers);
+    }
+
     const updateTrans = `
       UPDATE service_transactions
 
@@ -1407,6 +1455,8 @@ export const updateServiceTransactionModel = async (id, updates, salon_id) => {
       });
     }
 
+    const performerSnapshots = await getPerformerSnapshots(client, id, salon_id);
+
     await client.query(
       `
       DELETE FROM service_performers
@@ -1419,39 +1469,12 @@ export const updateServiceTransactionModel = async (id, updates, salon_id) => {
 
     for (const performer of performers) {
       const roleId = normalizeRoleId(performer);
-
-      if (!roleId) {
-        throw new Error("A valid service role is required");
-      }
-
-      await client.query(
-        `
-        INSERT INTO service_performers
-        (
-          salon_id,
-          service_transaction_id,
-          service_role_id,
-          employee_id,
-          preferred_employee_id
-        )
-
-        VALUES
-        (
-          $1,
-          $2,
-          $3,
-          $4,
-          $5
-        )
-        `,
-        [
-          salon_id,
-          id,
-          roleId,
-          normalizeOptionalId(performer.employee_id),
-          normalizeOptionalId(performer.preferred_employee_id),
-        ],
-      );
+      await insertPerformerSnapshot(client, {
+        salonId: salon_id,
+        transactionId: id,
+        performer,
+        earnedAmountSnapshot: performerSnapshots.get(roleId) ?? null,
+      });
     }
 
     return updated;
@@ -1480,6 +1503,10 @@ export const updateServiceTransactionAppointmentModel = async (
   }
 
   return db.transaction(async (client) => {
+    if (["pending", "confirmed"].includes(String(status || "").toLowerCase()) && Array.isArray(performers)) {
+      await lockAppointmentProfessionals(client, salon_id, performers);
+    }
+
     const query = `
       UPDATE service_transactions
 
@@ -1615,6 +1642,8 @@ export const updateServiceTransactionAppointmentModel = async (
     // ===================================================
 
     if (Array.isArray(performers)) {
+      const performerSnapshots = await getPerformerSnapshots(client, id, salon_id);
+
       await client.query(
         `
         DELETE FROM service_performers
@@ -1627,39 +1656,12 @@ export const updateServiceTransactionAppointmentModel = async (
 
       for (const performer of performers) {
         const roleId = normalizeRoleId(performer);
-
-        if (!roleId) {
-          throw new Error("A valid service role is required");
-        }
-
-        await client.query(
-          `
-          INSERT INTO service_performers
-          (
-            salon_id,
-            service_transaction_id,
-            service_role_id,
-            employee_id,
-            preferred_employee_id
-          )
-
-          VALUES
-          (
-            $1,
-            $2,
-            $3,
-            $4,
-            $5
-          )
-          `,
-          [
-            salon_id,
-            id,
-            roleId,
-            normalizeOptionalId(performer.employee_id),
-            normalizeOptionalId(performer.preferred_employee_id),
-          ],
-        );
+        await insertPerformerSnapshot(client, {
+          salonId: salon_id,
+          transactionId: id,
+          performer,
+          earnedAmountSnapshot: performerSnapshots.get(roleId) ?? null,
+        });
       }
     }
 

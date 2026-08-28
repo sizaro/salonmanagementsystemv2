@@ -17,15 +17,14 @@ export const createPasswordReset = async (userId, token, expiresAt, salon_id) =>
 /**
  * Get password reset entry by token (only if not expired)
  */
-export const getPasswordResetByToken = async (token, salon_id) => {
+export const getPasswordResetByToken = async (token) => {
   const query = `
     SELECT * FROM password_resets
     WHERE token = $1
       AND expires_at > NOW()
-      AND salon_id = $2
     LIMIT 1;
   `;
-  const result = await db.query(query, [token, salon_id]);
+  const result = await db.query(query, [token]);
   return result.rows[0];
 };
 

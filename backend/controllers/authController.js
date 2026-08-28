@@ -54,6 +54,36 @@ export const checkAuth = (req, res) => {
   res.json({ user: userSafe });
 };
 
+export const changePasswordController = async (req, res) => {
+  try {
+    if (!req.isAuthenticated() || !req.user?.id) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    const currentPassword = String(req.body.currentPassword || "");
+    const newPassword = String(req.body.newPassword || "");
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "Current and new passwords are required" });
+    }
+    if (!/^(?=.*[0-9])(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/.test(newPassword)) {
+      return res.status(400).json({ message: "New password must be at least 8 characters and include a number and special character" });
+    }
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ message: "Choose a new password different from the current password" });
+    }
+
+    const valid = await bcrypt.compare(currentPassword, req.user.password);
+    if (!valid) return res.status(400).json({ message: "Current password is incorrect" });
+
+    const hashedPassword = await bcrypt.hash(newPassword, await bcrypt.genSalt(10));
+    await updateUserPasswordById(req.user.id, hashedPassword, req.user.salon_id);
+    return res.json({ message: "Password changed successfully" });
+  } catch (error) {
+    console.error("Change password error:", error);
+    return res.status(500).json({ message: "Password could not be changed" });
+  }
+};
+
 // ---------------- ROLE PROTECTION ----------------
 export const ensureRole = (role) => (req, res, next) => {
   if (req.isAuthenticated() && req.user.role === role) return next();
@@ -154,4 +184,5 @@ export default {
   ensureRole,
   forgotPasswordController,
   resetPasswordController,
+  changePasswordController,
 };

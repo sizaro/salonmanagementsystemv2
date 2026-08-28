@@ -7,6 +7,8 @@ import {
   getUserById,
   createUser,
   registerCustomer,
+  getMyProfile,
+  updateMyProfile,
   updateUserById,
   deleteUserById
 } from '../controllers/usersController.js';
@@ -18,10 +20,15 @@ import { requireAuth, requireRole, requireSalonContext, requireOpenSalon } from 
 // required; the controller always forces the role to "customer".
 router.post('/register-customer', upload.single("image_url"), registerCustomer);
 
-router.use(requireAuth, requireSalonContext, requireOpenSalon);
+router.use(requireAuth, requireSalonContext);
+
+router.get('/me', requireRole('customer'), getMyProfile);
+router.put('/me', requireRole('customer'), upload.single("image_url"), updateMyProfile);
 
 // Safe public staff fields used by the customer booking screen.
 router.get('/bookable-staff', requireRole('owner', 'manager', 'cashier', 'employee', 'customer'), getBookableStaff);
+
+router.use(requireOpenSalon);
 
 // GET all users
 router.get('/', requireRole('owner', 'manager', 'cashier', 'employee'), getAllUsers);

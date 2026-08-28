@@ -1167,7 +1167,7 @@ export default function OwnerDashboard() {
               type="button"
               className={`dashboard-tab ${
                 activeTab === status ? "dashboard-tab-active" : ""
-              }`}
+              } ${status === "pending" && (appointmentsByStatus.pending?.length || 0) > 0 ? activeTab === status ? "!border-rose-600 !bg-rose-600 !text-white" : "border-rose-300 bg-rose-50 text-rose-700 ring-1 ring-rose-200" : ""}`}
               onClick={() => setActiveTab(status)}
             >
               {status.charAt(0).toUpperCase() + status.slice(1)}

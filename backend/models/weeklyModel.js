@@ -52,7 +52,7 @@ export const getServicesByDateRange = async (startDate, endDate, salon_id) => {
       SELECT json_agg(
         jsonb_build_object(
           'role_name', sr.role_name,
-          'role_amount', sr.earned_amount,
+          'role_amount', COALESCE(sp.earned_amount_snapshot, sr.earned_amount, 0),
           'employee_id', u.id,
           'first_name', u.first_name,
           'last_name', u.last_name

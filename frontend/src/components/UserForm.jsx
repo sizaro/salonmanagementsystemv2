@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import ProfilePhotoInput from "./common/ProfilePhotoInput.jsx";
 
 const UserForm = ({ user, onSubmit, onClose, role = "" }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -113,16 +114,7 @@ const UserForm = ({ user, onSubmit, onClose, role = "" }) => {
       </h2>
 
       {/* IMAGE UPLOAD */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Profile Image</label>
-        <input
-          type="file"
-          name="image_url"
-          accept="image/*"
-          onChange={handleChange}
-          className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"
-        />
-      </div>
+      <div><label className="mb-2 block text-sm font-medium text-gray-700">Profile image</label><ProfilePhotoInput value={formData.image_url instanceof File ? formData.image_url : null} currentUrl={typeof formData.image_url === "string" ? formData.image_url : ""} onChange={(file) => setFormData((previous) => ({ ...previous, image_url: file }))} /></div>
 
       {/* BASIC NAMES */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

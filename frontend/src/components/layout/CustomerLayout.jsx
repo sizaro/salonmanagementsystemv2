@@ -3,6 +3,8 @@ import CustomerSidebar from "../sidebars/CustomerSidebar.jsx";
 
 import CustomerDashboard from "../../pages/customer/CustomerDashboard.jsx"
 import CustomerAppointments from "../../pages/customer/CustomerAppointments.jsx";
+import CustomerServiceHistory from "../../pages/customer/CustomerServiceHistory.jsx";
+import CustomerSettings from "../../pages/customer/CustomerSettings.jsx";
 
 const CustomerLayout = () => {
   return (
@@ -16,6 +18,8 @@ const CustomerLayout = () => {
 
           {/* View My Appointments */}
           <Route path="appointments" element={<CustomerAppointments />} />
+          <Route path="history" element={<CustomerServiceHistory />} />
+          <Route path="settings" element={<CustomerSettings />} />
 
         </Routes>
       </main>

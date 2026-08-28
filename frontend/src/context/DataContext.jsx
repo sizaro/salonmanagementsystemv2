@@ -9,6 +9,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { DateTime } from "luxon";
+import { io } from "socket.io-client";
 
 axios.defaults.withCredentials = true;
 
@@ -45,6 +46,11 @@ export const DataProvider = ({ children }) => {
 
   // const SOCKET_API_URL = import.meta.env.VITE_API_URL || "https://salonmanagementsystemv2-ru0i.onrender.com";
   const API_URL = import.meta.env.VITE_API_URL || "/api";
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (
+    API_URL.startsWith("http")
+      ? API_URL.replace(/\/api\/?$/, "")
+      : window.location.origin
+  );
 
   //   const socket = io(SOCKET_API_URL.replace("/api", ""), {
   //     withCredentials: true,
@@ -407,6 +413,22 @@ export const DataProvider = ({ children }) => {
       console.error(`error updating ${userData.role}`, err);
       throw err;
     }
+  };
+
+  const fetchMyProfile = async () => {
+    const response = await axios.get(`${API_URL}/users/me`);
+    return response.data.data;
+  };
+
+  const updateMyProfile = async (profileData) => {
+    const response = await axios.put(`${API_URL}/users/me`, profileData);
+    setUser(response.data.data);
+    return response.data;
+  };
+
+  const changeMyPassword = async (passwordData) => {
+    const response = await axios.post(`${API_URL}/auth/change-password`, passwordData);
+    return response.data;
   };
 
   const deleteUser = async (id) => {
@@ -1093,6 +1115,16 @@ export const DataProvider = ({ children }) => {
     if (!user) return;
 
     let appointmentRefreshInterval;
+    const socket = io(SOCKET_URL, {
+      withCredentials: true,
+      transports: ["websocket", "polling"],
+    });
+
+    socket.on("appointment:changed", () => {
+      void fetchServiceTransactionsApp().catch((err) => {
+        console.error("Unable to refresh live appointments:", err);
+      });
+    });
 
     const loadRoleData = async () => {
       try {
@@ -1118,7 +1150,7 @@ export const DataProvider = ({ children }) => {
           void fetchServiceTransactionsApp().catch((err) => {
             console.error("Unable to refresh appointments:", err);
           });
-        }, 30_000);
+        }, 120_000);
       } catch (err) {
         console.error("Error loading authorised dashboard data:", err);
       }
@@ -1134,10 +1166,29 @@ export const DataProvider = ({ children }) => {
     return () => {
       if (appointmentRefreshInterval) clearInterval(appointmentRefreshInterval);
       if (sessionRefreshInterval) clearInterval(sessionRefreshInterval);
+      socket.disconnect();
     };
     // The role bootstrap deliberately reruns only when the authenticated user changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  useEffect(() => {
+    const applicationName = "Salehish Salon";
+    const attentionRoles = new Set(["owner", "manager", "cashier", "customer"]);
+    const showAttention = attentionRoles.has(String(user?.role || "").toLowerCase()) && pendingCount > 0;
+    document.title = showAttention ? `(${pendingCount}) ${applicationName}` : applicationName;
+
+    let favicon = document.querySelector("link[rel~='icon']");
+    if (!favicon) {
+      favicon = document.createElement("link");
+      favicon.rel = "icon";
+      favicon.href = "/salon-mark.svg";
+      document.head.appendChild(favicon);
+    }
+    const normalIcon = "/salon-mark.svg";
+    const attentionIcon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#dc2626"/><text x="32" y="43" text-anchor="middle" font-size="36" font-family="Arial" font-weight="700" fill="white">!</text></svg>')}`;
+    favicon.href = showAttention ? attentionIcon : normalIcon;
+  }, [pendingCount, user?.role]);
 
   //   useEffect(() => {
   //   // Listen for new appointments
@@ -1210,6 +1261,9 @@ export const DataProvider = ({ children }) => {
         fetchUserById,
         createUser,
         updateUser,
+        fetchMyProfile,
+        updateMyProfile,
+        changeMyPassword,
         deleteUser,
         fetchAdvances,
         fetchAdvanceById,

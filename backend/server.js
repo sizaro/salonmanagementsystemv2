@@ -117,7 +117,8 @@ const sessionConfig = {
 };
 
 app.set("trust proxy", 1);
-app.use(session(sessionConfig));
+const sessionMiddleware = session(sessionConfig);
+app.use(sessionMiddleware);
 
 
 // --- Passport ---
@@ -170,14 +171,20 @@ app.set("io", io);
 // optional easy global: global.io (use with caution)
 global.io = io;
 
+io.engine.use(sessionMiddleware);
+io.engine.use(passport.initialize());
+io.engine.use(passport.session());
+
+io.use((socket, next) => {
+  const user = socket.request.user;
+  if (!user?.id || !user?.salon_id) return next(new Error("Authentication required"));
+  next();
+});
+
 io.on("connection", (socket) => {
   console.log("🟢 Socket connected:", socket.id);
-
-  // you can handle custom events from clients here, e.g. join rooms
-  socket.on("join_room", (room) => {
-    console.log(`Socket ${socket.id} joining room ${room}`);
-    socket.join(room);
-  });
+  socket.join(`salon:${socket.request.user.salon_id}`);
+  socket.join(`user:${socket.request.user.id}`);
 
   socket.on("disconnect", (reason) => {
     console.log("🔴 Socket disconnected:", socket.id, "reason:", reason);

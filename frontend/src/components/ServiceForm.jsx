@@ -135,7 +135,7 @@ export default function ServiceForm({
   const now = DateTime.now().setZone(ZONE);
 
   const minimumAppointmentTime = now.plus({
-    hours: 2,
+    hours: 1,
   });
 
   const minimumAppointmentDate = now.toISODate();
@@ -583,9 +583,15 @@ export default function ServiceForm({
               .trim()
               .toLowerCase(),
           ) &&
-          appointment.appointment_date?.slice(0, 10) ===
-            form.appointment_date &&
-          appointment.appointment_time?.slice(0, 5) === requestedTime
+          Math.abs(
+            DateTime.fromISO(
+              `${appointment.appointment_date?.slice(0, 10)}T${appointment.appointment_time?.slice(0, 5)}`,
+              { zone: ZONE },
+            ).diff(
+              DateTime.fromISO(`${form.appointment_date}T${requestedTime}`, { zone: ZONE }),
+              "minutes",
+            ).minutes,
+          ) < 60
         );
       })
       .flatMap((appointment) => appointment.performers || [])
@@ -781,7 +787,7 @@ export default function ServiceForm({
 
   const onlinePrice = Math.max(
     0,
-    Math.round(Number(serviceAmount || 0) * 0.95),
+    Number(serviceAmount || 0) - 500,
   );
 
   // ======================================================
@@ -828,12 +834,12 @@ export default function ServiceForm({
       }
 
       const minimumTime = DateTime.now().setZone(ZONE).plus({
-        hours: 2,
+        hours: 1,
       });
 
       if (requestedAt < minimumTime) {
         setSubmitError(
-          "Appointments must be booked at least 2 hours in advance.",
+          "Appointments must be booked at least 1 hour in advance.",
         );
 
         return;
@@ -1098,7 +1104,7 @@ export default function ServiceForm({
               <div className="mt-1 space-y-1 text-sm leading-6 text-amber-800">
                 <p>
                   Appointments must be booked at least{" "}
-                  <strong>2 hours in advance</strong>.
+                  <strong>1 hour in advance</strong>.
                 </p>
 
                 <p>
@@ -1273,7 +1279,7 @@ export default function ServiceForm({
               </h3>
 
               <p className="mt-1 text-sm text-stone-500">
-                Select a date and time at least two hours from now.
+                Select a date and time at least one hour from now.
               </p>
             </div>
 
@@ -1610,7 +1616,7 @@ export default function ServiceForm({
               </div>
 
               <p className="mt-2 text-sm text-emerald-700">
-                5% online booking discount applied.
+                UGX 500 online booking discount applied from the salon share.
               </p>
             </div>
           </section>

@@ -95,15 +95,15 @@ const serviceQuery = `
     -- CUSTOMER
     -- =====================================================
 
-    active_customer.id AS active_customer_id,
+    customer.id AS active_customer_id,
 
     CASE
-      WHEN active_customer.id IS NOT NULL
+      WHEN customer.id IS NOT NULL
       THEN TRIM(
         CONCAT(
-          COALESCE(active_customer.first_name, ''),
+          COALESCE(customer.first_name, ''),
           ' ',
-          COALESCE(active_customer.last_name, '')
+          COALESCE(customer.last_name, '')
         )
       )
       ELSE NULL
@@ -142,10 +142,10 @@ const serviceQuery = `
               sr.role_name,
 
               'role_amount',
-              sr.earned_amount,
+              COALESCE(sp.earned_amount_snapshot, sr.earned_amount, 0),
 
               'earned_amount',
-              sr.earned_amount,
+              COALESCE(sp.earned_amount_snapshot, sr.earned_amount, 0),
 
               'employee_id',
               actual_employee.id,
@@ -236,35 +236,13 @@ const serviceQuery = `
     ON sec.id = sd.section_id
    AND sec.salon_id = $3
 
-  -- =======================================================
-  -- LEGACY CUSTOMER -> ACTIVE USER
-  -- =======================================================
-  -- service_transactions.customer_id can contain the
-  -- legacy usermain ID.
-  --
-  -- Resolve the current users record using the email
-  -- attached to the legacy record.
-  -- =======================================================
-
-  LEFT JOIN usermain legacy_customer
-    ON legacy_customer.id = st.customer_id
-
-  LEFT JOIN users active_customer
-    ON active_customer.salon_id = st.salon_id
-   AND LOWER(active_customer.email) =
-       LOWER(legacy_customer.email)
-
-  -- =======================================================
-  -- LEGACY CREATOR -> ACTIVE USER
-  -- =======================================================
-
-  LEFT JOIN usermain legacy_creator
-    ON legacy_creator.id = st.created_by
+  LEFT JOIN users customer
+    ON customer.id = st.customer_id
+   AND customer.salon_id = st.salon_id
 
   LEFT JOIN users creator
-    ON creator.salon_id = st.salon_id
-   AND LOWER(creator.email) =
-       LOWER(legacy_creator.email)
+    ON creator.id = st.created_by
+   AND creator.salon_id = st.salon_id
 
   -- =======================================================
   -- REPORT PERIOD
