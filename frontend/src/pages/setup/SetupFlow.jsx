@@ -4,11 +4,7 @@ import { useData } from "../../context/DataContext";
 
 export default function SalonSetup() {
   const navigate = useNavigate();
-  const {
-    createSalon,
-    createOwner,
-    createSalonProfile,
-  } = useData();
+  const { createSalon, createOwner, createSalonProfile } = useData();
 
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -107,9 +103,7 @@ export default function SalonSetup() {
     <div className="max-w-md mx-auto p-6">
       <h1 className="text-xl font-bold mb-4">Salon Setup</h1>
 
-      {error && (
-        <p className="text-red-500 mb-3">{error}</p>
-      )}
+      {error && <p className="text-red-500 mb-3">{error}</p>}
 
       {/* STEP 1 */}
       {step === 1 && (
@@ -135,9 +129,7 @@ export default function SalonSetup() {
       {/* STEP 2 */}
       {step === 2 && (
         <>
-          <p className="text-sm text-gray-600 mb-2">
-            Create owner account
-          </p>
+          <p className="text-sm text-gray-600 mb-2">Create owner account</p>
           <input
             className="input"
             type="password"
@@ -175,9 +167,7 @@ export default function SalonSetup() {
       {/* STEP 4 */}
       {step === 4 && (
         <>
-          <p className="mb-2 font-medium">
-            Your online salon link:
-          </p>
+          <p className="mb-2 font-medium">Your online salon link:</p>
           <a
             href={`/${slug}`}
             target="_blank"
@@ -187,10 +177,7 @@ export default function SalonSetup() {
             {window.location.origin}/{slug}
           </a>
 
-          <button
-            className="mt-4"
-            onClick={() => navigate(`/${slug}`)}
-          >
+          <button className="mt-4" onClick={() => navigate(`/${slug}`)}>
             Finish Setup
           </button>
         </>
