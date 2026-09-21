@@ -6,6 +6,7 @@ import ExpenseForm from "../../components/ExpenseForm";
 import AdvanceForm from "../../components/AdvanceForm";
 import ClockForm from "../../components/ClockForm";
 import CancelReasonForm from "../../components/CancelReasonForm.jsx";
+import useSalonSessionTimer from "../../hooks/useSalonSessionTimer";
 
 import { useData } from "../../context/DataContext.jsx";
 
@@ -36,6 +37,8 @@ export default function CashierDashboard() {
   const [loadingCompletionId, setLoadingCompletionId] = useState(null);
   const [appointmentAction, setAppointmentAction] = useState(null);
   const [appointmentNotice, setAppointmentNotice] = useState(null);
+
+  const [salonStatus, setSalonStatus] = useState("closed");
 
   // ======================================================
   // DATA CONTEXT
@@ -78,7 +81,59 @@ export default function CashierDashboard() {
     fetchServiceTransactionById,
 
     updateServiceTransactionAppointment,
+
+    sessions,
+
+    openSalonSession,
+
+    closeSalonSession,
   } = useData();
+
+  // ======================================================
+  // CURRENT SALON SESSION
+  // ======================================================
+
+  const session = Array.isArray(sessions) ? sessions[0] : sessions || null;
+
+  const sessionDuration = useSalonSessionTimer(
+    session?.open_date,
+    session?.open_time,
+  );
+
+  // ======================================================
+  // SYNC SALON STATUS
+  // ======================================================
+
+  useEffect(() => {
+    setSalonStatus(session?.status || "closed");
+  }, [session?.status]);
+
+  // ======================================================
+  // SALON SESSION HANDLER
+  // ======================================================
+
+  const handleSalonSession = async (status) => {
+    try {
+      if (status === "open") {
+        const result = await openSalonSession();
+
+        console.log("SALON OPENED:", result);
+
+        setSalonStatus("open");
+      } else {
+        const result = await closeSalonSession();
+
+        console.log("SALON CLOSED:", result);
+
+        setSalonStatus("closed");
+      }
+    } catch (error) {
+      console.error(
+        "Salon session error:",
+        error.response?.data || error.message,
+      );
+    }
+  };
 
   // ======================================================
   // SERVICES WITH MATERIALS
@@ -533,7 +588,10 @@ export default function CashierDashboard() {
       }
 
       await refreshAppointments();
-      setAppointmentNotice({ type: "success", text: `Appointment ${newStatus} successfully.` });
+      setAppointmentNotice({
+        type: "success",
+        text: `Appointment ${newStatus} successfully.`,
+      });
 
       return result;
     } catch (error) {
@@ -541,7 +599,13 @@ export default function CashierDashboard() {
         "Failed to update appointment:",
         error.response?.data || error.message,
       );
-      setAppointmentNotice({ type: "error", text: error.response?.data?.message || error.message || "The appointment could not be updated." });
+      setAppointmentNotice({
+        type: "error",
+        text:
+          error.response?.data?.message ||
+          error.message ||
+          "The appointment could not be updated.",
+      });
       throw error;
     } finally {
       setAppointmentAction(null);
@@ -584,7 +648,13 @@ export default function CashierDashboard() {
         "Unable to load appointment for completion:",
         error.response?.data || error.message,
       );
-      setAppointmentNotice({ type: "error", text: error.response?.data?.message || error.message || "The appointment could not be loaded." });
+      setAppointmentNotice({
+        type: "error",
+        text:
+          error.response?.data?.message ||
+          error.message ||
+          "The appointment could not be loaded.",
+      });
     } finally {
       setLoadingCompletionId(null);
     }
@@ -632,7 +702,10 @@ export default function CashierDashboard() {
       await refreshAppointments();
 
       setActiveTab("completed");
-      setAppointmentNotice({ type: "success", text: "Service completed and payment recorded successfully." });
+      setAppointmentNotice({
+        type: "success",
+        text: "Service completed and payment recorded successfully.",
+      });
 
       closeModal();
 
@@ -642,7 +715,13 @@ export default function CashierDashboard() {
         "Failed to complete appointment:",
         error.response?.data || error.message,
       );
-      setAppointmentNotice({ type: "error", text: error.response?.data?.message || error.message || "The service could not be completed." });
+      setAppointmentNotice({
+        type: "error",
+        text:
+          error.response?.data?.message ||
+          error.message ||
+          "The service could not be completed.",
+      });
       throw error;
     }
   };
@@ -696,34 +775,149 @@ export default function CashierDashboard() {
     <div className="dashboard-page space-y-6">
       <header className="dashboard-hero flex flex-col gap-5 sm:flex-row sm:items-center">
         <img
-          src={user?.image_url ? (String(user.image_url).startsWith("http") ? user.image_url : `${staticBaseUrl}${user.image_url}`) : "/default-avatar.png"}
+          src={
+            user?.image_url
+              ? String(user.image_url).startsWith("http")
+                ? user.image_url
+                : `${staticBaseUrl}${user.image_url}`
+              : "/default-avatar.png"
+          }
           alt=""
           className="relative z-10 h-24 w-24 rounded-3xl border-4 border-white object-cover shadow-lg"
         />
+
         <div className="relative z-10">
-          <p className="salon-eyebrow text-[var(--salon-copper)]">{user?.role || "Salon"} workspace</p>
-          <h1 className="mt-2 font-serif text-3xl font-semibold text-[var(--salon-ink)]">Welcome, {user?.first_name} {user?.last_name}</h1>
-          <p className="mt-2 text-sm text-stone-600">Manage today&apos;s salon operations and live customer appointments.</p>
+          <p className="salon-eyebrow text-[var(--salon-copper)]">
+            {user?.role || "Salon"} workspace
+          </p>
+
+          <h1 className="mt-2 font-serif text-3xl font-semibold text-[var(--salon-ink)]">
+            Welcome, {user?.last_name}
+          </h1>
+
+          <p className="mt-2 text-sm text-stone-600">
+            Manage today&apos;s salon operations and live customer appointments.
+          </p>
         </div>
       </header>
+
       {/* ==================================================
           CASHIER QUICK ACTIONS
       ================================================== */}
 
       <section className="dashboard-panel">
-        <div className="mb-5">
-          <p className="salon-eyebrow text-[var(--salon-copper)]">
-            {user?.role || "Salon"} workspace
-          </p>
+        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="salon-eyebrow text-base font-semibold text-[var(--salon-copper)]">
+              {user?.role || "Salon"} workspace
+            </p>
 
-          <h2 className="mt-1 font-serif text-2xl font-semibold text-[var(--salon-ink)]">
-            Quick Actions
-          </h2>
+            <h2 className="mt-1 font-serif text-2xl font-semibold text-[var(--salon-ink)]">
+              Quick Actions
+            </h2>
 
-          <p className="mt-1 text-sm text-stone-500">
-            Record daily salon activity and manage staff operations from one
-            place.
-          </p>
+            <p className="mt-1 text-base text-stone-500">
+              Record daily salon activity and manage staff operations from one
+              place.
+            </p>
+          </div>
+
+          <div
+            className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-base font-semibold ${
+              salonStatus === "open"
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-stone-100 text-stone-600"
+            }`}
+          >
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                salonStatus === "open" ? "bg-emerald-500" : "bg-stone-400"
+              }`}
+            />
+
+            {salonStatus === "open" ? "Salon Open" : "Salon Closed"}
+          </div>
+        </div>
+
+        {/* ==================================================
+            SALON SESSION
+        ================================================== */}
+
+        <div className="mb-5 rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-base font-semibold text-stone-800">
+                Salon Session
+              </p>
+
+              {salonStatus === "open" ? (
+                <p className="mt-1 text-base text-stone-500">
+                  Open for{" "}
+                  <span className="font-semibold text-stone-700">
+                    {sessionDuration.hours} hrs {sessionDuration.minutes} mins
+                  </span>
+                </p>
+              ) : (
+                <p className="mt-1 text-base text-stone-500">
+                  Start today&apos;s salon session when operations begin.
+                </p>
+              )}
+            </div>
+
+            {salonStatus === "closed" ? (
+              <button
+                type="button"
+                onClick={() => handleSalonSession("open")}
+                className="
+                  inline-flex
+                  items-center
+                  justify-center
+                  rounded-xl
+                  bg-emerald-600
+                  px-5
+                  py-2.5
+                  text-base
+                  font-semibold
+                  text-white
+                  shadow-sm
+                  transition
+                  hover:bg-emerald-700
+                  focus:outline-none
+                  focus:ring-2
+                  focus:ring-emerald-500
+                  focus:ring-offset-2
+                "
+              >
+                Open Salon
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleSalonSession("closed")}
+                className="
+                  inline-flex
+                  items-center
+                  justify-center
+                  rounded-xl
+                  bg-rose-600
+                  px-5
+                  py-2.5
+                  text-base
+                  font-semibold
+                  text-white
+                  shadow-sm
+                  transition
+                  hover:bg-rose-700
+                  focus:outline-none
+                  focus:ring-2
+                  focus:ring-rose-500
+                  focus:ring-offset-2
+                "
+              >
+                Close Salon
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-2">
@@ -733,15 +927,15 @@ export default function CashierDashboard() {
 
           <div className="rounded-2xl border border-stone-200 bg-white p-4">
             <div className="mb-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-stone-400">
                 Services
               </p>
 
-              <h3 className="mt-1 font-semibold text-stone-900">
+              <h3 className="mt-1 text-lg font-semibold text-stone-900">
                 Service Operations
               </h3>
 
-              <p className="mt-1 text-sm text-stone-500">
+              <p className="mt-1 text-base text-stone-500">
                 Record services performed for salon customers.
               </p>
             </div>
@@ -770,11 +964,11 @@ export default function CashierDashboard() {
                 "
               >
                 <span>
-                  <span className="block text-sm font-semibold text-stone-800">
+                  <span className="block text-base font-semibold text-stone-800">
                     Add Service
                   </span>
 
-                  <span className="mt-0.5 block text-xs text-stone-500">
+                  <span className="mt-0.5 block text-sm text-stone-500">
                     Record a completed walk-in service
                   </span>
                 </span>
@@ -792,15 +986,15 @@ export default function CashierDashboard() {
 
           <div className="rounded-2xl border border-stone-200 bg-white p-4">
             <div className="mb-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-stone-400">
                 Staff & Finance
               </p>
 
-              <h3 className="mt-1 font-semibold text-stone-900">
+              <h3 className="mt-1 text-lg font-semibold text-stone-900">
                 Daily Records
               </h3>
 
-              <p className="mt-1 text-sm text-stone-500">
+              <p className="mt-1 text-base text-stone-500">
                 Record staff clocking, salon expenses and employee advances.
               </p>
             </div>
@@ -812,11 +1006,11 @@ export default function CashierDashboard() {
                 className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3.5 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50 hover:shadow-sm"
               >
                 <span>
-                  <span className="block text-sm font-semibold text-stone-800">
+                  <span className="block text-base font-semibold text-stone-800">
                     Employee Clocking
                   </span>
 
-                  <span className="mt-0.5 block text-xs text-stone-500">
+                  <span className="mt-0.5 block text-sm text-stone-500">
                     Clock employees in or out
                   </span>
                 </span>
@@ -832,11 +1026,11 @@ export default function CashierDashboard() {
                 className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3.5 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50 hover:shadow-sm"
               >
                 <span>
-                  <span className="block text-sm font-semibold text-stone-800">
+                  <span className="block text-base font-semibold text-stone-800">
                     Add Expense
                   </span>
 
-                  <span className="mt-0.5 block text-xs text-stone-500">
+                  <span className="mt-0.5 block text-sm text-stone-500">
                     Record a salon operating expense
                   </span>
                 </span>
@@ -852,11 +1046,11 @@ export default function CashierDashboard() {
                 className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3.5 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50 hover:shadow-sm"
               >
                 <span>
-                  <span className="block text-sm font-semibold text-stone-800">
+                  <span className="block text-base font-semibold text-stone-800">
                     Add Advance
                   </span>
 
-                  <span className="mt-0.5 block text-xs text-stone-500">
+                  <span className="mt-0.5 block text-sm text-stone-500">
                     Record an employee salary advance
                   </span>
                 </span>
@@ -891,7 +1085,14 @@ export default function CashierDashboard() {
         </div>
 
         {appointmentNotice && (
-          <p role="status" className={`mb-5 rounded-2xl border p-3 text-sm font-medium ${appointmentNotice.type === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
+          <p
+            role="status"
+            className={`mb-5 rounded-2xl border p-3 text-sm font-medium ${
+              appointmentNotice.type === "error"
+                ? "border-rose-200 bg-rose-50 text-rose-700"
+                : "border-emerald-200 bg-emerald-50 text-emerald-700"
+            }`}
+          >
             {appointmentNotice.text}
           </p>
         )}
@@ -905,7 +1106,14 @@ export default function CashierDashboard() {
               type="button"
               className={`dashboard-tab ${
                 activeTab === status ? "dashboard-tab-active" : ""
-              } ${status === "pending" && (appointmentsByStatus.pending?.length || 0) > 0 ? activeTab === status ? "!border-rose-600 !bg-rose-600 !text-white" : "border-rose-300 bg-rose-50 text-rose-700 ring-1 ring-rose-200" : ""}`}
+              } ${
+                status === "pending" &&
+                (appointmentsByStatus.pending?.length || 0) > 0
+                  ? activeTab === status
+                    ? "!border-rose-600 !bg-rose-600 !text-white"
+                    : "border-rose-300 bg-rose-50 text-rose-700 ring-1 ring-rose-200"
+                  : ""
+              }`}
               onClick={() => setActiveTab(status)}
             >
               {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -1095,7 +1303,10 @@ export default function CashierDashboard() {
                         }
                         className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {appointmentAction?.id === Number(transactionId) && appointmentAction.action === "confirmed" ? "Confirming..." : "Confirm"}
+                        {appointmentAction?.id === Number(transactionId) &&
+                        appointmentAction.action === "confirmed"
+                          ? "Confirming..."
+                          : "Confirm"}
                       </button>
 
                       <button
@@ -1377,8 +1588,6 @@ export default function CashierDashboard() {
         {modalType === "service" && (
           <ServiceForm
             isCustomer={false}
-            // New walk-in:
-            // cashier MUST be able to choose section/service.
             canEditServiceDetails={true}
             onSubmit={handleCreateWalkInService}
             onClose={closeModal}
@@ -1387,8 +1596,6 @@ export default function CashierDashboard() {
             Employees={Employees}
             Sections={sections}
             createdBy={createdbyID?.id}
-            // Cashier-entered walk-in has already happened.
-            // Therefore actual professionals are mandatory.
             serviceStatus="completed"
             entryType="current"
           />
@@ -1401,12 +1608,6 @@ export default function CashierDashboard() {
         {modalType === "complete_appointment" && completingAppointment && (
           <ServiceForm
             isCustomer={false}
-            // CRITICAL CASHIER PERMISSION:
-            //
-            // Appointment already has a service.
-            // Cashier must NOT change section/service.
-            //
-            // Cashier only records actual performers.
             canEditServiceDetails={false}
             onSubmit={handleCompleteAppointment}
             onClose={closeModal}

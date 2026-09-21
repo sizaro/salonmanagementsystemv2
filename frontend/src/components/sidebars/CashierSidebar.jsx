@@ -13,11 +13,7 @@ export default function CashierSidebar() {
   const isActive = (path) => location.pathname === path;
 
   const linkClass = (path) =>
-    `dashboard-nav-link ${
-      isActive(path)
-        ? "dashboard-nav-active"
-        : ""
-    }`;
+    `dashboard-nav-link ${isActive(path) ? "dashboard-nav-active" : ""}`;
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -30,11 +26,7 @@ export default function CashierSidebar() {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
-    return () =>
-      document.removeEventListener(
-        "mousedown",
-        handleClickOutside
-      );
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
   useEffect(() => {
@@ -45,9 +37,7 @@ export default function CashierSidebar() {
     <>
       {/* ================= Mobile Header ================= */}
       <div className="dashboard-sidebar md:hidden p-4 flex justify-between items-center fixed top-0 left-0 right-0 z-50">
-        <span className="font-bold text-lg">
-          Salon Management
-        </span>
+        <span className="font-bold text-lg">Salon Management</span>
 
         <div className="relative">
           <Link
@@ -55,7 +45,6 @@ export default function CashierSidebar() {
             className={linkClass("/cashier/dashboard")}
           >
             Pending:
-
             {pendingCount > 0 && (
               <span className="top-1/2 -translate-y-1/2 bg-red-600 text-white text-xs px-2 py-0.5 rounded-full">
                 {pendingCount}
@@ -74,20 +63,16 @@ export default function CashierSidebar() {
 
       {/* ================= Desktop Sidebar ================= */}
       <aside className="dashboard-sidebar hidden md:flex w-64 h-screen fixed top-0 left-0 flex-col shadow-xl pt-12">
-        <div className="px-6 font-bold text-xl mb-4">
-          Salon Management
-        </div>
+        <div className="px-6 font-bold text-xl mb-4">Salon Management</div>
 
         <div className="flex-1 overflow-y-auto px-2">
           <ul className="space-y-1 text-sm">
-
             <li className="relative">
               <Link
                 to="/cashier/dashboard"
                 className={linkClass("/cashier/dashboard")}
               >
                 Pending:
-
                 {pendingCount > 0 && (
                   <span className="top-1/2 -translate-y-1/2 bg-red-600 text-white text-xs px-2 py-0.5 rounded-full">
                     {pendingCount}
@@ -104,8 +89,22 @@ export default function CashierSidebar() {
                 Dashboard
               </Link>
             </li>
-            <li><Link to="/cashier/staff-payments" className={linkClass("/cashier/staff-payments")}>Staff Payments</Link></li>
-            <li><Link to="/cashier/income-review" className={linkClass("/cashier/income-review")}>Income Review</Link></li>
+            <li>
+              <Link
+                to="/cashier/staff-payments"
+                className={linkClass("/cashier/staff-payments")}
+              >
+                Staff Payments
+              </Link>
+            </li>
+            <li>
+              {/* <Link
+                to="/cashier/income-review"
+                className={linkClass("/cashier/income-review")}
+              >
+                Income Review
+              </Link> */}
+            </li>
 
             <li>
               {/* <Link
@@ -174,14 +173,10 @@ export default function CashierSidebar() {
       <div
         ref={menuRef}
         className={`dashboard-sidebar fixed top-0 left-0 h-screen w-[min(88vw,22rem)] z-50 transform transition-transform duration-300 pt-16 px-4 md:hidden shadow-2xl ${
-          menuOpen
-            ? "translate-x-0"
-            : "-translate-x-full"
+          menuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="px-6 font-bold text-xl">
-          Salon Management
-        </div>
+        <div className="px-6 font-bold text-xl">Salon Management</div>
 
         <button
           onClick={() => setMenuOpen(false)}
@@ -192,7 +187,6 @@ export default function CashierSidebar() {
 
         <div className="h-full overflow-y-auto mt-6 mb-10">
           <ul className="space-y-1 text-sm">
-
             <li>
               <Link
                 to="/cashier/dashboard"
@@ -202,8 +196,16 @@ export default function CashierSidebar() {
                 Dashboard
               </Link>
             </li>
-            <li><Link to="/cashier/staff-payments" onClick={() => setMenuOpen(false)} className={linkClass("/cashier/staff-payments")}>Staff Payments</Link></li>
-            <li><Link to="/cashier/income-review" onClick={() => setMenuOpen(false)} className={linkClass("/cashier/income-review")}>Income Review</Link></li>
+            <li>
+              <Link
+                to="/cashier/staff-payments"
+                onClick={() => setMenuOpen(false)}
+                className={linkClass("/cashier/staff-payments")}
+              >
+                Staff Payments
+              </Link>
+            </li>
+            {/* <li><Link to="/cashier/income-review" onClick={() => setMenuOpen(false)} className={linkClass("/cashier/income-review")}>Income Review</Link></li> */}
 
             <li>
               {/* <Link
@@ -258,7 +260,6 @@ export default function CashierSidebar() {
             <li className="mt-10">
               <SidebarFooter />
             </li>
-
           </ul>
         </div>
       </div>

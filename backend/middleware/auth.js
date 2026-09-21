@@ -11,17 +11,6 @@ export const requireAuth = (req, res, next) => {
 export const requireRole =
   (...roles) =>
   (req, res, next) => {
-    console.log("[AUTH ROLE DEBUG]", {
-      path: req.originalUrl,
-      method: req.method,
-      userId: req.user?.id,
-      email: req.user?.email,
-      role: req.user?.role,
-      salon_id: req.user?.salon_id,
-      allowedRoles: roles,
-      authenticated: req.isAuthenticated?.(),
-    });
-
     if (!roles.includes(req.user?.role)) {
       return res
         .status(403)
