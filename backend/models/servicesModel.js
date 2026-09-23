@@ -23,22 +23,28 @@ const normalizeRoleId = (performer) => {
   return normalizeOptionalId(performer?.role_id ?? performer?.service_role_id);
 };
 
-const getAppointmentEmployeeIds = (performers = []) => [
-  ...new Set(
-    performers
-      .map((performer) => normalizeOptionalId(
-        performer?.employee_id ?? performer?.preferred_employee_id,
-      ))
-      .filter(Boolean),
-  ),
-].sort((left, right) => left - right);
+const getAppointmentEmployeeIds = (performers = []) =>
+  [
+    ...new Set(
+      performers
+        .map((performer) =>
+          normalizeOptionalId(
+            performer?.employee_id ?? performer?.preferred_employee_id,
+          ),
+        )
+        .filter(Boolean),
+    ),
+  ].sort((left, right) => left - right);
 
-const lockAppointmentProfessionals = async (client, salonId, performers = []) => {
+const lockAppointmentProfessionals = async (
+  client,
+  salonId,
+  performers = [],
+) => {
   for (const employeeId of getAppointmentEmployeeIds(performers)) {
-    await client.query(
-      `SELECT pg_advisory_xact_lock(hashtext($1))`,
-      [`appointment:${salonId}:employee:${employeeId}`],
-    );
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+      `appointment:${salonId}:employee:${employeeId}`,
+    ]);
   }
 };
 
@@ -49,10 +55,18 @@ const getPerformerSnapshots = async (client, transactionId, salonId) => {
      WHERE service_transaction_id = $1 AND salon_id = $2`,
     [transactionId, salonId],
   );
-  return new Map(rows.map((row) => [Number(row.service_role_id), Number(row.earned_amount_snapshot || 0)]));
+  return new Map(
+    rows.map((row) => [
+      Number(row.service_role_id),
+      Number(row.earned_amount_snapshot || 0),
+    ]),
+  );
 };
 
-const insertPerformerSnapshot = async (client, { salonId, transactionId, performer, earnedAmountSnapshot = null }) => {
+const insertPerformerSnapshot = async (
+  client,
+  { salonId, transactionId, performer, earnedAmountSnapshot = null },
+) => {
   const roleId = normalizeRoleId(performer);
   if (!roleId) throw new Error("A valid service role is required");
 
@@ -666,7 +680,7 @@ export const validateAppointmentRequestModel = async ({
 
         AND id = ANY($2::int[])
 
-        AND LOWER(COALESCE(role, '')) IN ('employee', 'manager')
+        AND LOWER(COALESCE(role, '')) IN ('employee', 'manager', 'cashier')
 
         AND COALESCE(NULLIF(TRIM(specialty), ''), '-') <> '-'
 
@@ -849,9 +863,12 @@ export const saveServiceTransaction = async (data) => {
 
     const originalServiceAmount = Number(pricing.service_amount || 0);
     const originalSalonAmount = Number(pricing.salon_amount || 0);
-    const isOnlineBooking = String(service_source || "").toLowerCase() === "online_booking";
+    const isOnlineBooking =
+      String(service_source || "").toLowerCase() === "online_booking";
     if (isOnlineBooking && originalSalonAmount < 500) {
-      const error = new Error("This service cannot accept the UGX 500 online discount because its salon share is too low");
+      const error = new Error(
+        "This service cannot accept the UGX 500 online discount because its salon share is too low",
+      );
       error.statusCode = 400;
       throw error;
     }
@@ -1455,7 +1472,11 @@ export const updateServiceTransactionModel = async (id, updates, salon_id) => {
       });
     }
 
-    const performerSnapshots = await getPerformerSnapshots(client, id, salon_id);
+    const performerSnapshots = await getPerformerSnapshots(
+      client,
+      id,
+      salon_id,
+    );
 
     await client.query(
       `
@@ -1503,7 +1524,10 @@ export const updateServiceTransactionAppointmentModel = async (
   }
 
   return db.transaction(async (client) => {
-    if (["pending", "confirmed"].includes(String(status || "").toLowerCase()) && Array.isArray(performers)) {
+    if (
+      ["pending", "confirmed"].includes(String(status || "").toLowerCase()) &&
+      Array.isArray(performers)
+    ) {
       await lockAppointmentProfessionals(client, salon_id, performers);
     }
 
@@ -1642,7 +1666,11 @@ export const updateServiceTransactionAppointmentModel = async (
     // ===================================================
 
     if (Array.isArray(performers)) {
-      const performerSnapshots = await getPerformerSnapshots(client, id, salon_id);
+      const performerSnapshots = await getPerformerSnapshots(
+        client,
+        id,
+        salon_id,
+      );
 
       await client.query(
         `

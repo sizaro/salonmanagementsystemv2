@@ -162,8 +162,31 @@ export default function CashierDashboard() {
   // ACTIVE EMPLOYEES
   // ======================================================
 
+  // const Employees = useMemo(() => {
+  //   return (users || []).filter((user) => {
+  //     const role = String(user.role || "")
+  //       .trim()
+  //       .toLowerCase();
+
+  //     const status = String(user.status || "active")
+  //       .trim()
+  //       .toLowerCase();
+
+  //     return (
+  //       ["employee", "manager"].includes(role) &&
+  //       status !== "inactive" &&
+  //       String(user.specialty || "").trim() !== "" &&
+  //       String(user.specialty || "").trim() !== "-"
+  //     );
+  //   });
+  // }, [users]);
+
+  // ======================================================
+  // ACTIVE EMPLOYEES
+  // ======================================================
+
   const Employees = useMemo(() => {
-    return (users || []).filter((user) => {
+    const activeEmployees = (users || []).filter((user) => {
       const role = String(user.role || "")
         .trim()
         .toLowerCase();
@@ -179,7 +202,31 @@ export default function CashierDashboard() {
         String(user.specialty || "").trim() !== "-"
       );
     });
-  }, [users]);
+
+    const currentUserRole = String(user?.role || "")
+      .trim()
+      .toLowerCase();
+
+    const currentUserStatus = String(user?.status || "active")
+      .trim()
+      .toLowerCase();
+
+    const isCashierWorker =
+      currentUserRole === "cashier" &&
+      currentUserStatus !== "inactive" &&
+      user?.id;
+
+    if (
+      isCashierWorker &&
+      !activeEmployees.some(
+        (employee) => Number(employee.id) === Number(user.id),
+      )
+    ) {
+      return [...activeEmployees, user];
+    }
+
+    return activeEmployees;
+  }, [users, user]);
 
   // ======================================================
   // CUSTOMERS
