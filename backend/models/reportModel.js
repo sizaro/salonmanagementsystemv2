@@ -353,7 +353,19 @@ export async function getReportData({
     db.query(
       `
       SELECT
-        a.*,
+        a.id,
+        a.employee_id,
+        a.amount,
+        a.description,
+        a.salon_id,
+
+        a.advance_date::text AS advance_date,
+
+        a.advance_time::text AS advance_time,
+
+        a.entry_type,
+
+        a.created_at,
 
         u.first_name,
 
