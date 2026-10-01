@@ -1,20 +1,24 @@
-import { 
-  saveAdvance, 
-  fetchAllAdvances, 
-  fetchAdvanceById, 
-  UpdateAdvanceById, 
-  DeleteAdvanceById 
+import {
+  saveAdvance,
+  fetchAllAdvances,
+  fetchAdvanceById,
+  UpdateAdvanceById,
+  DeleteAdvanceById,
 } from "../models/advancesModel.js";
 
 import dotenv from "dotenv";
 
-const envFile = process.env.NODE_ENV === "production" ? ".env.production" : ".env.development";
+const envFile =
+  process.env.NODE_ENV === "production"
+    ? ".env.production"
+    : ".env.development";
 dotenv.config({ path: envFile });
 
 console.log("Loaded env:", envFile);
 
 // Helper: get salon_id from req.user if available, else use env default
-const getSalonId = (req) => Number(req.user?.salon_id || process.env.DEFAULT_SALON_ID);
+const getSalonId = (req) =>
+  Number(req.user?.salon_id || process.env.DEFAULT_SALON_ID);
 
 /**
  * Get all advances
@@ -25,8 +29,8 @@ export const getAllAdvances = async (req, res) => {
     const advances = await fetchAllAdvances(salon_id);
     res.status(200).json(advances);
   } catch (err) {
-    console.error('Error fetching advances:', err);
-    res.status(500).json({ error: 'Failed to fetch advances' });
+    console.error("Error fetching advances:", err);
+    res.status(500).json({ error: "Failed to fetch advances" });
   }
 };
 
@@ -54,19 +58,49 @@ export const getAdvanceById = async (req, res) => {
 export const createAdvance = async (req, res) => {
   try {
     const salon_id = getSalonId(req);
-    const { employee_id, amount, description } = req.body;
+
+    const {
+      employee_id,
+      amount,
+      description,
+      entry_type = "current",
+      advance_date,
+      advance_time,
+    } = req.body;
+
+    // Only owners may create historical advances.
+    if (entry_type === "past" && req.user?.role !== "owner") {
+      return res.status(403).json({
+        error: "Only owners can create past advances",
+      });
+    }
+
+    if (entry_type === "past" && (!advance_date || !advance_time)) {
+      return res.status(400).json({
+        error: "Past advance requires advance date and advance time",
+      });
+    }
 
     const newAdvance = await saveAdvance({
       employee_id,
       amount,
       description,
-      salon_id
+      salon_id,
+      entry_type,
+      advance_date,
+      advance_time,
     });
 
-    res.status(201).json({ message: "Advance created successfully", data: newAdvance });
+    res.status(201).json({
+      message: "Advance created successfully",
+      data: newAdvance,
+    });
   } catch (err) {
     console.error("Error creating advance:", err);
-    res.status(500).json({ error: "Failed to create advance" });
+
+    res.status(500).json({
+      error: err.message || "Failed to create advance",
+    });
   }
 };
 
@@ -77,7 +111,8 @@ export const updateAdvanceById = async (req, res) => {
   try {
     const salon_id = getSalonId(req);
     const { id } = req.params;
-    const { employee_id, amount, description, advance_date, advance_time } = req.body;
+    const { employee_id, amount, description, advance_date, advance_time } =
+      req.body;
 
     if (!id) return res.status(400).json({ error: "Missing advance ID" });
 
@@ -88,12 +123,17 @@ export const updateAdvanceById = async (req, res) => {
       description,
       advance_date,
       advance_time,
-      salon_id
+      salon_id,
     });
 
-    if (!updatedAdvance) return res.status(404).json({ error: "Advance not found or not updated" });
+    if (!updatedAdvance)
+      return res
+        .status(404)
+        .json({ error: "Advance not found or not updated" });
 
-    res.status(200).json({ message: "Advance updated successfully", data: updatedAdvance });
+    res
+      .status(200)
+      .json({ message: "Advance updated successfully", data: updatedAdvance });
   } catch (err) {
     console.error("Error updating advance:", err);
     res.status(500).json({ error: "Failed to update advance" });
@@ -123,5 +163,5 @@ export default {
   getAdvanceById,
   createAdvance,
   updateAdvanceById,
-  deleteAdvanceById
+  deleteAdvanceById,
 };

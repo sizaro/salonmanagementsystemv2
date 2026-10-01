@@ -1038,6 +1038,28 @@ export default function OwnerDashboard() {
                 </span>
               </button>
 
+              {/* PAST ADVANCE */}
+
+              <button
+                type="button"
+                onClick={() => setModalType("past_advance")}
+                className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50"
+              >
+                <span>
+                  <span className="block text-sm font-semibold text-stone-800">
+                    Add Past Advance
+                  </span>
+
+                  <span className="mt-0.5 block text-xs text-stone-500">
+                    Record an employee advance from an earlier date
+                  </span>
+                </span>
+
+                <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
+                  →
+                </span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setModalType("tagfee")}
@@ -1167,7 +1189,14 @@ export default function OwnerDashboard() {
               type="button"
               className={`dashboard-tab ${
                 activeTab === status ? "dashboard-tab-active" : ""
-              } ${status === "pending" && (appointmentsByStatus.pending?.length || 0) > 0 ? activeTab === status ? "!border-rose-600 !bg-rose-600 !text-white" : "border-rose-300 bg-rose-50 text-rose-700 ring-1 ring-rose-200" : ""}`}
+              } ${
+                status === "pending" &&
+                (appointmentsByStatus.pending?.length || 0) > 0
+                  ? activeTab === status
+                    ? "!border-rose-600 !bg-rose-600 !text-white"
+                    : "border-rose-300 bg-rose-50 text-rose-700 ring-1 ring-rose-200"
+                  : ""
+              }`}
               onClick={() => setActiveTab(status)}
             >
               {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -1767,10 +1796,24 @@ export default function OwnerDashboard() {
           <ExpenseForm onSubmit={createExpense} onClose={closeModal} />
         )}
 
-        {/* ADVANCE */}
+        {/* CURRENT ADVANCE */}
 
         {modalType === "advance" && (
-          <AdvanceForm onSubmit={createAdvance} onClose={closeModal} />
+          <AdvanceForm
+            onSubmit={createAdvance}
+            onClose={closeModal}
+            entryType="current"
+          />
+        )}
+
+        {/* PAST ADVANCE */}
+
+        {modalType === "past_advance" && (
+          <AdvanceForm
+            onSubmit={createAdvance}
+            onClose={closeModal}
+            entryType="past"
+          />
         )}
 
         {/* CLOCKING */}

@@ -6,14 +6,22 @@ const TIMEZONE = "Africa/Kampala";
 /**
  * Save a new advance record.
  *
- * The business date and time are generated in Kampala time.
- * created_at remains an audit timestamp.
+ * current:
+ *   - date/time are generated from Kampala now
+ *
+ * past:
+ *   - date/time must be supplied by the owner
+ *
+ * created_at always records when the database row was actually created.
  */
 export const saveAdvance = async ({
   employee_id,
   amount,
   description,
   salon_id,
+  entry_type = "current",
+  advance_date,
+  advance_time,
 }) => {
   if (!employee_id) {
     throw new Error("employee_id is required");
@@ -27,10 +35,24 @@ export const saveAdvance = async ({
     throw new Error("amount is required");
   }
 
-  const now = DateTime.now().setZone(TIMEZONE);
+  let finalAdvanceDate;
+  let finalAdvanceTime;
 
-  const advance_date = now.toFormat("yyyy-MM-dd");
-  const advance_time = now.toFormat("HH:mm:ss");
+  if (entry_type === "current") {
+    const now = DateTime.now().setZone(TIMEZONE);
+
+    finalAdvanceDate = now.toFormat("yyyy-MM-dd");
+    finalAdvanceTime = now.toFormat("HH:mm:ss");
+  } else if (entry_type === "past") {
+    if (!advance_date || !advance_time) {
+      throw new Error("Past advance requires advance date and advance time");
+    }
+
+    finalAdvanceDate = advance_date;
+    finalAdvanceTime = advance_time;
+  } else {
+    throw new Error("Invalid advance entry type");
+  }
 
   const query = `
     INSERT INTO advances (
@@ -40,6 +62,7 @@ export const saveAdvance = async ({
       salon_id,
       advance_date,
       advance_time,
+      entry_type,
       created_at
     )
     VALUES (
@@ -49,6 +72,7 @@ export const saveAdvance = async ({
       $4,
       $5,
       $6,
+      $7,
       NOW()
     )
     RETURNING
@@ -59,6 +83,7 @@ export const saveAdvance = async ({
       salon_id,
       advance_date::TEXT AS advance_date,
       advance_time::TEXT AS advance_time,
+      entry_type,
       created_at;
   `;
 
@@ -67,8 +92,9 @@ export const saveAdvance = async ({
     Number(amount),
     description || null,
     Number(salon_id),
-    advance_date,
-    advance_time,
+    finalAdvanceDate,
+    finalAdvanceTime,
+    entry_type,
   ];
 
   const { rows } = await db.query(query, values);
@@ -77,10 +103,7 @@ export const saveAdvance = async ({
 };
 
 /**
- * Fetch all advances recorded today.
- *
- * Today is calculated using Africa/Kampala rather than the
- * PostgreSQL server timezone.
+ * Fetch all advances recorded for today.
  */
 export const fetchAllAdvances = async (salon_id) => {
   if (!salon_id) {
@@ -98,6 +121,7 @@ export const fetchAllAdvances = async (salon_id) => {
       a.salon_id,
       a.advance_date::TEXT AS advance_date,
       a.advance_time::TEXT AS advance_time,
+      a.entry_type,
       a.created_at,
 
       u.first_name,
@@ -123,7 +147,7 @@ export const fetchAllAdvances = async (salon_id) => {
 };
 
 /**
- * Fetch a single advance by its ID.
+ * Fetch a single advance by ID.
  */
 export const fetchAdvanceById = async (id, salon_id) => {
   if (!id) {
@@ -143,6 +167,7 @@ export const fetchAdvanceById = async (id, salon_id) => {
       a.salon_id,
       a.advance_date::TEXT AS advance_date,
       a.advance_time::TEXT AS advance_time,
+      a.entry_type,
       a.created_at,
 
       u.first_name,
@@ -166,13 +191,6 @@ export const fetchAdvanceById = async (id, salon_id) => {
 
 /**
  * Update an advance.
- *
- * advance_date and advance_time are optional:
- * - when supplied, they replace the saved business date/time;
- * - when omitted, the existing database values are retained.
- *
- * created_at is not changed because it records when the row
- * was originally created.
  */
 export const UpdateAdvanceById = async ({
   id,
@@ -198,16 +216,6 @@ export const UpdateAdvanceById = async ({
   if (amount === undefined || amount === null || amount === "") {
     throw new Error("amount is required");
   }
-
-  console.log("Data in advances model update:", {
-    id,
-    employee_id,
-    amount,
-    description,
-    advance_date,
-    advance_time,
-    salon_id,
-  });
 
   const query = `
     UPDATE advances
@@ -238,6 +246,7 @@ export const UpdateAdvanceById = async ({
       salon_id,
       advance_date::TEXT AS advance_date,
       advance_time::TEXT AS advance_time,
+      entry_type,
       created_at;
   `;
 
