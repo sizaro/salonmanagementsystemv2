@@ -22,6 +22,7 @@ export const saveAdvance = async ({
   entry_type = "current",
   advance_date,
   advance_time,
+  backdate_reason,
 }) => {
   if (!employee_id) {
     throw new Error("employee_id is required");
@@ -63,6 +64,7 @@ export const saveAdvance = async ({
       advance_date,
       advance_time,
       entry_type,
+      backdate_reason,
       created_at
     )
     VALUES (
@@ -73,6 +75,7 @@ export const saveAdvance = async ({
       $5,
       $6,
       $7,
+      $8,
       NOW()
     )
     RETURNING
@@ -84,6 +87,7 @@ export const saveAdvance = async ({
       advance_date::TEXT AS advance_date,
       advance_time::TEXT AS advance_time,
       entry_type,
+      backdate_reason,
       created_at;
   `;
 
@@ -95,6 +99,7 @@ export const saveAdvance = async ({
     finalAdvanceDate,
     finalAdvanceTime,
     entry_type,
+    backdate_reason || null,
   ];
 
   const { rows } = await db.query(query, values);
@@ -122,6 +127,7 @@ export const fetchAllAdvances = async (salon_id) => {
       a.advance_date::TEXT AS advance_date,
       a.advance_time::TEXT AS advance_time,
       a.entry_type,
+      a.backdate_reason,
       a.created_at,
 
       u.first_name,
@@ -168,6 +174,7 @@ export const fetchAdvanceById = async (id, salon_id) => {
       a.advance_date::TEXT AS advance_date,
       a.advance_time::TEXT AS advance_time,
       a.entry_type,
+      a.backdate_reason,
       a.created_at,
 
       u.first_name,
@@ -199,6 +206,7 @@ export const UpdateAdvanceById = async ({
   description,
   advance_date,
   advance_time,
+  backdate_reason,
   salon_id,
 }) => {
   if (!id) {
@@ -233,10 +241,12 @@ export const UpdateAdvanceById = async ({
       advance_time = COALESCE(
         $5::TIME,
         advance_time
-      )
+      ),
 
-    WHERE id = $6
-      AND salon_id = $7
+      backdate_reason = $6
+
+    WHERE id = $7
+      AND salon_id = $8
 
     RETURNING
       id,
@@ -247,6 +257,7 @@ export const UpdateAdvanceById = async ({
       advance_date::TEXT AS advance_date,
       advance_time::TEXT AS advance_time,
       entry_type,
+      backdate_reason,
       created_at;
   `;
 
@@ -256,6 +267,7 @@ export const UpdateAdvanceById = async ({
     description || null,
     advance_date || null,
     advance_time || null,
+    backdate_reason || null,
     Number(id),
     Number(salon_id),
   ];

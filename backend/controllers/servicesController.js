@@ -358,6 +358,7 @@ export const createServiceTransaction = async (req, res) => {
       service_date,
       service_time,
       service_source,
+      backdate_reason,
       performers = [],
     } = req.body;
 
@@ -388,10 +389,17 @@ export const createServiceTransaction = async (req, res) => {
 
       finalServiceTime = now.toFormat("HH:mm:ss");
     } else if (entry_type === "past") {
+      if (String(req.user?.role || "").toLowerCase() !== "owner") {
+        return res.status(403).json({ success: false, message: "Only the salon owner can add past service records" });
+      }
       if (!service_date || !service_time) {
         throw requestError(
           "Past service requires service date and service time",
         );
+      }
+
+      if (!String(backdate_reason || "").trim()) {
+        throw requestError("A backdate reason is required for a past service record");
       }
 
       finalServiceDate = service_date;
@@ -417,6 +425,8 @@ export const createServiceTransaction = async (req, res) => {
       service_date: finalServiceDate,
 
       service_time: finalServiceTime,
+
+      backdate_reason: entry_type === "past" ? String(backdate_reason).trim() : null,
     };
 
     // =====================================================
@@ -757,6 +767,10 @@ export const updateServiceTransaction = async (req, res) => {
 
     if (!existing) {
       throw requestError("Transaction not found", 404);
+    }
+
+    if (existing.entry_type === "past" && req.user?.role !== "owner") {
+      throw requestError("Only the salon owner can edit a past service record", 403);
     }
 
     const {
@@ -1148,6 +1162,12 @@ export const updateServiceTransactiont = async (req, res) => {
     const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
 
     const { newTime } = req.body;
+
+    const existing = await fetchServiceTransactionById(id, salon_id);
+    if (!existing) throw requestError("Transaction not found", 404);
+    if (existing.entry_type === "past" && req.user?.role !== "owner") {
+      throw requestError("Only the salon owner can edit a past service record", 403);
+    }
 
     const updated = await updateServiceTransactionModelt(id, newTime, salon_id);
 

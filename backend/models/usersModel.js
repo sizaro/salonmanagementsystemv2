@@ -8,7 +8,7 @@ export const fetchAllUsers = async (salon_id) => {
     SELECT u.id, u.salon_id, u.first_name, u.middle_name, u.last_name,
            u.email, u.birthdate, u.contact, u.next_of_kin,
            u.next_of_kin_contact, u.role, u.gender, u.specialty,
-           u.status, u.bio, u.image_url, u.created_at,
+           u.status, u.bio, u.image_url, u.national_id_number, u.id_document_front_url, u.id_document_back_url, u.id_document_pdf_url, u.created_at,
            (u.created_at AT TIME ZONE 'Africa/Kampala') AS user_time
     FROM users u
     WHERE u.salon_id = $1
@@ -39,7 +39,7 @@ export const fetchUserById = async (id, salon_id) => {
   const query = `SELECT id, salon_id, first_name, middle_name, last_name,
                         email, birthdate, contact, next_of_kin,
                         next_of_kin_contact, role, gender, specialty,
-                        status, bio, image_url, created_at
+                        status, bio, image_url, national_id_number, id_document_front_url, id_document_back_url, id_document_pdf_url, created_at
                  FROM users WHERE id = $1 AND salon_id = $2;`;
   const result = await db.query(query, [id, salon_id]);
   return result.rows[0];
@@ -64,20 +64,24 @@ export const saveUser = async ({
   specialty,
   status,
   bio,
-  image_url
+  image_url,
+  national_id_number,
+  id_document_front_url,
+  id_document_back_url,
+  id_document_pdf_url,
 }) => {
   const query = `
     INSERT INTO users 
       (
         first_name, middle_name, last_name, email, password, 
         birthdate, contact, next_of_kin, next_of_kin_contact, 
-        role, gender, specialty, status, bio, image_url, salon_id, created_at
+        role, gender, specialty, status, bio, image_url, national_id_number, id_document_front_url, id_document_back_url, id_document_pdf_url, salon_id, created_at
       ) 
     VALUES 
-      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW())
+      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,NOW())
     RETURNING id, salon_id, first_name, middle_name, last_name, email,
               birthdate, contact, next_of_kin, next_of_kin_contact,
-              role, gender, specialty, status, bio, image_url, created_at;
+              role, gender, specialty, status, bio, image_url, national_id_number, id_document_front_url, id_document_back_url, id_document_pdf_url, created_at;
   `;
 
   const values = [
@@ -96,6 +100,10 @@ export const saveUser = async ({
     status || 'active',
     bio || null,
     image_url || null,
+    national_id_number || null,
+    id_document_front_url || null,
+    id_document_back_url || null,
+    id_document_pdf_url || null,
     salon_id
   ];
 
@@ -125,6 +133,10 @@ export const UpdateUserById = async (data) => {
     status,
     bio,
     image_url,
+    national_id_number,
+    id_document_front_url,
+    id_document_back_url,
+    id_document_pdf_url,
   } = data;
 
   id = parseInt(id, 10);
@@ -168,6 +180,10 @@ export const UpdateUserById = async (data) => {
     fields.push(`image_url = $${fields.length + 1}`);
     values.push(image_url);
   }
+  if (national_id_number !== undefined) { fields.push(`national_id_number = $${fields.length + 1}`); values.push(national_id_number || null); }
+  if (id_document_front_url !== undefined && id_document_front_url !== "") { fields.push(`id_document_front_url = $${fields.length + 1}`); values.push(id_document_front_url); }
+  if (id_document_back_url !== undefined && id_document_back_url !== "") { fields.push(`id_document_back_url = $${fields.length + 1}`); values.push(id_document_back_url); }
+  if (id_document_pdf_url !== undefined && id_document_pdf_url !== "") { fields.push(`id_document_pdf_url = $${fields.length + 1}`); values.push(id_document_pdf_url); }
 
   // Add id and salon_id for WHERE clause
   values.push(id, salon_id);
@@ -178,7 +194,7 @@ export const UpdateUserById = async (data) => {
     WHERE id = $${values.length - 1} AND salon_id = $${values.length}
     RETURNING id, salon_id, first_name, middle_name, last_name, email,
               birthdate, contact, next_of_kin, next_of_kin_contact,
-              role, gender, specialty, status, bio, image_url, created_at;
+              role, gender, specialty, status, bio, image_url, national_id_number, id_document_front_url, id_document_back_url, id_document_pdf_url, created_at;
   `;
 
   const result = await db.query(query, values);

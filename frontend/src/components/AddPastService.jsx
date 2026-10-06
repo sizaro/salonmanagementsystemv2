@@ -32,6 +32,7 @@ export default function AddPastService({
     service_definition_id: "",
     service_date: "",
     service_time: "",
+    backdate_reason: "",
     customerNote: "",
     performers: [],
   });
@@ -192,6 +193,11 @@ export default function AddPastService({
       return;
     }
 
+    if (!form.backdate_reason.trim()) {
+      setSubmitError("Explain why this historical service is being recorded now.");
+      return;
+    }
+
     const missingRole = roles.find((role) => {
       const isSalon =
         String(role.role_name || "")
@@ -223,6 +229,8 @@ export default function AddPastService({
       service_date: form.service_date,
 
       service_time: form.service_time,
+
+      backdate_reason: form.backdate_reason.trim(),
 
       appointment_date: null,
 
@@ -563,6 +571,14 @@ export default function AddPastService({
                 Enter the approximate time if the exact time is not known.
               </p>
             </div>
+          </div>
+
+          <div className="mt-4">
+            <label className={labelClass}>Why is this being recorded late?</label>
+            <textarea required rows={3} value={form.backdate_reason}
+              onChange={(event) => setForm((current) => ({ ...current, backdate_reason: event.target.value }))}
+              placeholder="Explain why this historical service is being entered now"
+              className={`${fieldClass} resize-none`} />
           </div>
         </section>
 

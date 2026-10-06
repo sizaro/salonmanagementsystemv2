@@ -82,28 +82,26 @@ const PgSessionStore = pgSession(session);
 
 const isProd = process.env.NODE_ENV === "production";
 
-/*
- * TEMPORARY REMOTE DATABASE CHECK
- *
- * Normally, development sessions use the local PostgreSQL database
- * running through Docker on localhost:5433.
- *
- * For the current recovery/data inspection, .env.development points
- * DATABASE_URL to the remote salon_db_oct database.
- *
- * The session store must temporarily use that same remote database,
- * otherwise login attempts try localhost:5433 and fail with ECONNREFUSED.
- *
- * IMPORTANT:
- * After the remote database inspection/recovery work is complete,
- * restore the normal development session configuration that points
- * to the local Docker PostgreSQL database.
- */
 const sessionStore = new PgSessionStore({
-  conObject: {
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-  },
+  // PRODUCTION → use DATABASE_URL + SSL
+  ...(isProd
+    ? {
+        conObject: {
+          connectionString: process.env.DATABASE_URL,
+          ssl: { rejectUnauthorized: false },
+        },
+      }
+    : {
+        // DEVELOPMENT → localhost
+        conObject: {
+          host: "localhost",
+          port: 5433,
+          user: "postgres",
+          password: "postgres",
+          database: "salonmanagementsystemv2_db",
+          ssl: false,
+        },
+      }),
   createTableIfMissing: true,
 });
 
@@ -134,16 +132,15 @@ app.use(
   "/uploads/images",
   express.static(path.join(__dirname, "/uploads/images")),
 );
-
 app.use(
   "/uploads/documents",
   express.static(path.join(__dirname, "/uploads/documents")),
 );
 
 // --- Routes ---
+// after other app.use routes
 app.use("/api/salon-profile", salonProfileRoutes);
 app.use("/api/services", servicesRoutes);
-
 app.use(
   "/api/servicet",
   requireAuth,
@@ -152,7 +149,6 @@ app.use(
   requireOpenSalon,
   serviceRoutet,
 );
-
 app.use(
   "/api/expenses",
   requireAuth,
@@ -161,7 +157,6 @@ app.use(
   requireOpenSalon,
   expensesRoutes,
 );
-
 app.use(
   "/api/advances",
   requireAuth,
@@ -170,7 +165,6 @@ app.use(
   requireOpenSalon,
   advancesRoutes,
 );
-
 app.use(
   "/api/clockings",
   requireAuth,
@@ -179,11 +173,8 @@ app.use(
   requireOpenSalon,
   clockingsRoutes,
 );
-
 app.use("/api/sessions", requireAuth, requireSalonContext, sessionsRoutes);
-
 app.use("/api/users", usersRoutes);
-
 app.use(
   "/api/reports",
   requireAuth,
@@ -191,7 +182,6 @@ app.use(
   requireOpenSalon,
   reportsRoutes,
 );
-
 app.use(
   "/api/fees",
   requireAuth,
@@ -199,7 +189,6 @@ app.use(
   requireRole("owner"),
   feesRoutes,
 );
-
 app.use("/api/auth", authRoutes);
 app.use("/api/sections", sectionsRoutes);
 app.use("/api/salon", salonRoutes);
@@ -225,7 +214,6 @@ const io = new IOServer(server, {
 
 // attach io to app for controllers to access
 app.set("io", io);
-
 // optional easy global: global.io (use with caution)
 global.io = io;
 
@@ -235,17 +223,13 @@ io.engine.use(passport.session());
 
 io.use((socket, next) => {
   const user = socket.request.user;
-
-  if (!user?.id || !user?.salon_id) {
+  if (!user?.id || !user?.salon_id)
     return next(new Error("Authentication required"));
-  }
-
   next();
 });
 
 io.on("connection", (socket) => {
   console.log("🟢 Socket connected:", socket.id);
-
   socket.join(`salon:${socket.request.user.salon_id}`);
   socket.join(`user:${socket.request.user.id}`);
 
@@ -253,7 +237,6 @@ io.on("connection", (socket) => {
     console.log("🔴 Socket disconnected:", socket.id, "reason:", reason);
   });
 });
-
 // start server
 (async () => {
   try {
@@ -270,9 +253,7 @@ io.on("connection", (socket) => {
     }
 
     // --- Start server ---
-    server.listen(PORT, () => {
-      console.log(`✅ Server running on port ${PORT}`);
-    });
+    server.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
   } catch (err) {
     console.error("❌ Failed to start server:", err);
   }

@@ -834,6 +834,7 @@ export const saveServiceTransaction = async (data) => {
     customer_note,
     status,
     entry_type,
+    backdate_reason,
     service_source,
     performers = [],
     salon_id,
@@ -926,6 +927,7 @@ export const saveServiceTransaction = async (data) => {
         customer_note,
         status,
         entry_type,
+        backdate_reason,
         service_source,
         original_service_amount,
         charged_service_amount,
@@ -954,6 +956,7 @@ export const saveServiceTransaction = async (data) => {
         $15,
         $16,
         $17,
+        $18,
         NOW()
       )
 
@@ -972,6 +975,7 @@ export const saveServiceTransaction = async (data) => {
       customer_note || null,
       status || null,
       entry_type || "current",
+      backdate_reason || null,
       service_source || null,
       originalServiceAmount,
       chargedServiceAmount,

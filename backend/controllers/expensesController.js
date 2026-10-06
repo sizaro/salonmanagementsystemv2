@@ -1,164 +1,43 @@
 import dotenv from "dotenv";
+import { saveExpense, fetchAllExpenses, fetchExpenseById, UpdateExpenseById, DeleteExpenseById } from "../models/expensesModel.js";
+import { assertHistoricalRecordAccess, resolveBusinessDateTime } from "../utils/businessRecord.js";
 dotenv.config();
 
-import { 
-  saveExpense, 
-  fetchAllExpenses, 
-  fetchExpenseById, 
-  UpdateExpenseById, 
-  DeleteExpenseById 
-} from "../models/expensesModel.js";
+const resolveSalonId = (req) => req.user?.salon_id || req.salon_id || Number(process.env.DEFAULT_SALON_ID);
 
-
-const resolveSalonId = (req) => {
-  return (
-    req.user?.salon_id ||
-    req.salon_id ||
-    Number(process.env.DEFAULT_SALON_ID)
-  );
+const businessValues = ({ body, user, existing }) => {
+  const entry_type = body.entry_type || existing?.entry_type || "current";
+  assertHistoricalRecordAccess({ user, entryType: entry_type, reason: body.backdate_reason ?? existing?.backdate_reason, label: "expense" });
+  if (existing && entry_type === "current") return { entry_type, expense_date: existing.expense_date, expense_time: existing.expense_time, backdate_reason: null };
+  const value = resolveBusinessDateTime({ entryType: entry_type, date: body.expense_date, time: body.expense_time, label: "expense" });
+  return { entry_type, expense_date: value.date, expense_time: value.time, backdate_reason: entry_type === "past" ? String(body.backdate_reason).trim() : null };
 };
 
-/**
- * Get all expenses
- */
 export const getAllExpenses = async (req, res) => {
-  try {
-    const salon_id = resolveSalonId(req);
-    if (!salon_id) {
-      return res.status(400).json({ error: "Salon context missing" });
-    }
-
-    const expenses = await fetchAllExpenses(salon_id);
-    res.status(200).json(expenses);
-  } catch (err) {
-    console.error("Error fetching expenses:", err);
-    res.status(500).json({ error: "Failed to fetch expenses" });
-  }
+  try { const salon_id = resolveSalonId(req); if (!salon_id) return res.status(400).json({ error: "Salon context missing" }); res.status(200).json(await fetchAllExpenses(salon_id)); }
+  catch (err) { console.error("Error fetching expenses:", err); res.status(500).json({ error: "Failed to fetch expenses" }); }
 };
-
-/**
- * Get expense by ID
- */
 export const getExpenseById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const salon_id = resolveSalonId(req);
-
-    if (!salon_id) {
-      return res.status(400).json({ error: "Salon context missing" });
-    }
-
-    const expense = await fetchExpenseById(id, salon_id);
-    if (!expense) {
-      return res.status(404).json({ error: "Expense not found" });
-    }
-
-    res.status(200).json(expense);
-  } catch (err) {
-    console.error("Error fetching expense by ID:", err);
-    res.status(500).json({ error: "Failed to fetch expense" });
-  }
+  try { const expense = await fetchExpenseById(req.params.id, resolveSalonId(req)); if (!expense) return res.status(404).json({ error: "Expense not found" }); res.status(200).json(expense); }
+  catch (err) { console.error("Error fetching expense:", err); res.status(500).json({ error: "Failed to fetch expense" }); }
 };
-
-/**
- * Create new expense
- */
 export const createExpense = async (req, res) => {
   try {
-    const { name, amount, description } = req.body;
-    const salon_id = resolveSalonId(req);
-
-    if (!salon_id) {
-      return res.status(400).json({ error: "Salon context missing" });
-    }
-
-    console.log("Creating expense:", { name, amount, salon_id });
-
-    const newExpense = await saveExpense({
-      name,
-      amount,
-      description,
-      salon_id
-    });
-
-    res.status(201).json({
-      message: "Expense created successfully",
-      data: newExpense
-    });
-  } catch (err) {
-    console.error("Error creating expense:", err);
-    res.status(500).json({ error: "Failed to create expense" });
-  }
+    const salon_id = resolveSalonId(req); if (!salon_id) return res.status(400).json({ error: "Salon context missing" });
+    const data = await saveExpense({ name: req.body.name, amount: req.body.amount, description: req.body.description, salon_id, ...businessValues({ body: req.body, user: req.user }) });
+    res.status(201).json({ message: "Expense created successfully", data });
+  } catch (err) { console.error("Error creating expense:", err); res.status(err.statusCode || 500).json({ error: err.statusCode ? err.message : "Failed to create expense" }); }
 };
-
-/**
- * Update expense by ID
- */
 export const updateExpenseById = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { name, amount, description, created_at } = req.body;
-    const salon_id = resolveSalonId(req);
-
-    if (!id) {
-      return res.status(400).json({ error: "Missing expense ID" });
-    }
-
-    if (!salon_id) {
-      return res.status(400).json({ error: "Salon context missing" });
-    }
-
-    const updatedExpense = await UpdateExpenseById({
-      id,
-      name,
-      amount,
-      description,
-      created_at,
-      salon_id
-    });
-
-    if (!updatedExpense) {
-      return res.status(404).json({ error: "Expense not found or not updated" });
-    }
-
-    res.status(200).json({
-      message: "Expense updated successfully",
-      data: updatedExpense
-    });
-  } catch (err) {
-    console.error("Error updating expense:", err);
-    res.status(500).json({ error: "Failed to update expense" });
-  }
+    const salon_id = resolveSalonId(req); const existing = await fetchExpenseById(req.params.id, salon_id);
+    if (!existing) return res.status(404).json({ error: "Expense not found" });
+    const data = await UpdateExpenseById({ id: req.params.id, name: req.body.name, amount: req.body.amount, description: req.body.description, salon_id, ...businessValues({ body: req.body, user: req.user, existing }) });
+    res.status(200).json({ message: "Expense updated successfully", data });
+  } catch (err) { console.error("Error updating expense:", err); res.status(err.statusCode || 500).json({ error: err.statusCode ? err.message : "Failed to update expense" }); }
 };
-
-/**
- * Delete expense by ID
- */
 export const deleteExpenseById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const salon_id = resolveSalonId(req);
-
-    if (!salon_id) {
-      return res.status(400).json({ error: "Salon context missing" });
-    }
-
-    const deleted = await DeleteExpenseById(id, salon_id);
-    if (!deleted) {
-      return res.status(404).json({ error: "Expense not found" });
-    }
-
-    res.status(200).json({ message: "Expense deleted successfully" });
-  } catch (err) {
-    console.error("Error deleting expense:", err);
-    res.status(500).json({ error: "Failed to delete expense" });
-  }
+  try { const deleted = await DeleteExpenseById(req.params.id, resolveSalonId(req)); if (!deleted) return res.status(404).json({ error: "Expense not found" }); res.status(200).json({ message: "Expense deleted successfully" }); }
+  catch (err) { console.error("Error deleting expense:", err); res.status(500).json({ error: "Failed to delete expense" }); }
 };
-
-export default {
-  getAllExpenses,
-  getExpenseById,
-  createExpense,
-  updateExpenseById,
-  deleteExpenseById
-};
+export default { getAllExpenses, getExpenseById, createExpense, updateExpenseById, deleteExpenseById };

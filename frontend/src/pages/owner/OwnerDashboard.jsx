@@ -1020,6 +1020,14 @@ export default function OwnerDashboard() {
 
               <button
                 type="button"
+                onClick={() => setModalType("past_expense")}
+                className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50"
+              >
+                <span><span className="block text-sm font-semibold text-stone-800">Add Past Expense</span><span className="mt-0.5 block text-xs text-stone-500">Record an expense using its original business date.</span></span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setModalType("advance")}
                 className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50"
               >
@@ -1080,6 +1088,10 @@ export default function OwnerDashboard() {
                 </span>
               </button>
 
+              <button type="button" onClick={() => setModalType("past_tagfee")} className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50">
+                <span><span className="block text-sm font-semibold text-stone-800">Add Past Tag Fee</span><span className="mt-0.5 block text-xs text-stone-500">Record a historical equipment fee with its original time.</span></span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setModalType("latefee")}
@@ -1098,6 +1110,10 @@ export default function OwnerDashboard() {
                 <span className="text-xl text-stone-400 transition group-hover:translate-x-1 group-hover:text-[var(--salon-copper)]">
                   →
                 </span>
+              </button>
+
+              <button type="button" onClick={() => setModalType("past_latefee")} className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50">
+                <span><span className="block text-sm font-semibold text-stone-800">Add Past Late Fee</span><span className="mt-0.5 block text-xs text-stone-500">Record a historical late-arrival fee with its original time.</span></span>
               </button>
             </div>
           </div>
@@ -1796,6 +1812,10 @@ export default function OwnerDashboard() {
           <ExpenseForm onSubmit={createExpense} onClose={closeModal} />
         )}
 
+        {modalType === "past_expense" && (
+          <ExpenseForm onSubmit={createExpense} onClose={closeModal} entryType="past" />
+        )}
+
         {/* CURRENT ADVANCE */}
 
         {modalType === "advance" && (
@@ -1838,6 +1858,10 @@ export default function OwnerDashboard() {
           />
         )}
 
+        {modalType === "past_tagfee" && (
+          <TagFeeForm onSubmit={CreateTagFee} onClose={closeModal} feeData={selectedFee} employees={employees} entryType="past" />
+        )}
+
         {/* LATE FEE */}
 
         {modalType === "latefee" && (
@@ -1847,6 +1871,10 @@ export default function OwnerDashboard() {
             feeData={selectedFee}
             employees={Employees || []}
           />
+        )}
+
+        {modalType === "past_latefee" && (
+          <LateFeeForm onSubmit={CreateLateFee} onClose={closeModal} feeData={selectedFee} employees={employees} entryType="past" />
         )}
 
         {/* NEW SECTION */}

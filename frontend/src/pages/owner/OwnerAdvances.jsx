@@ -704,6 +704,13 @@ const OwnerAdvances = () => {
                 </p>
               </div>
 
+              {isPastAdvance(viewingAdvance) && (
+                <div>
+                  <p className="text-sm text-gray-500">Backdate Reason</p>
+                  <p className="font-medium">{viewingAdvance.backdate_reason || "—"}</p>
+                </div>
+              )}
+
               <div>
                 <p className="text-sm text-gray-500">Created At</p>
 

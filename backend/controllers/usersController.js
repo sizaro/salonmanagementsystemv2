@@ -12,10 +12,16 @@ import {
 } from "../models/usersModel.js";
 import { findUserByEmail } from "../models/usersModel.js";
 import dotenv from "dotenv";
+import { storeEmployeeEvidence } from "../utils/employeeEvidenceStorage.js";
 dotenv.config();
 const ALLOWED_ROLES = new Set(["owner", "manager", "cashier", "employee", "customer"]);
 
 const normalizedEmail = (email) => String(email || "").trim().toLowerCase();
+const removeLocalUpload = async (url) => {
+  if (!url || !String(url).startsWith("/uploads/")) return;
+  const filePath = path.join(process.cwd(), url);
+  if (fs.existsSync(filePath)) await fs.promises.unlink(filePath);
+};
 
 const createCustomerAccount = async ({ body, file, salon_id }) => {
   const first_name = String(body.first_name || "").trim();
@@ -244,6 +250,7 @@ export const createUser = async (req, res) => {
       specialty,
       status,
       bio,
+      national_id_number,
     } = req.body;
 
     const email = normalizedEmail(submittedEmail);
@@ -263,9 +270,13 @@ export const createUser = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, await bcrypt.genSalt(10));
 
-    const image_url = req.file
-      ? `/uploads/images/${req.file.filename}`
-      : null;
+    const uploads = await storeEmployeeEvidence(req.files);
+    if (role !== "customer" && !String(national_id_number || "").trim()) {
+      return res.status(400).json({ error: "National ID number is required for an employee record." });
+    }
+    if (role !== "customer" && !((uploads.id_document_front_url && uploads.id_document_back_url) || uploads.id_document_pdf_url)) {
+      return res.status(400).json({ error: "Provide both front and back ID images, or one PDF ID document." });
+    }
 
     const newUser = await saveUser({
       salon_id,
@@ -283,7 +294,8 @@ export const createUser = async (req, res) => {
       specialty,
       status,
       bio,
-      image_url,
+      national_id_number: String(national_id_number || "").trim() || null,
+      ...uploads,
     });
 
     res.status(201).json({
@@ -319,6 +331,7 @@ export const updateUserById = async (req, res) => {
       specialty,
       status,
       bio,
+      national_id_number,
     } = req.body;
 
     if (!id) {
@@ -330,6 +343,7 @@ export const updateUserById = async (req, res) => {
     }
     if (!ALLOWED_ROLES.has(role)) return res.status(400).json({ error: "Invalid role" });
     if (role === "owner" && existingUser.role !== "owner") return res.status(403).json({ error: "Only secure salon setup can assign the owner role" });
+    if (req.user?.role === "manager" && existingUser.role === "owner") return res.status(403).json({ error: "Managers cannot edit the salon owner account" });
 
     const updatedData = {
       id,
@@ -347,6 +361,7 @@ export const updateUserById = async (req, res) => {
       specialty,
       status,
       bio,
+      national_id_number: national_id_number ?? existingUser.national_id_number ?? null,
     };
 
     // ✅ Hash password only if needed
@@ -362,13 +377,14 @@ export const updateUserById = async (req, res) => {
     }
 
     // ✅ Handle image upload and delete old image
-    if (req.file && req.file.filename) {
-      if (existingUser.image_url) {
-        const oldPath = path.join(process.cwd(), existingUser.image_url);
-        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-      }
-      updatedData.image_url = `/uploads/images/${req.file.filename}`;
+    const uploads = await storeEmployeeEvidence(req.files);
+    if (uploads.image_url) {
+      await removeLocalUpload(existingUser.image_url);
+      updatedData.image_url = uploads.image_url;
     }
+    if (uploads.id_document_front_url) updatedData.id_document_front_url = uploads.id_document_front_url;
+    if (uploads.id_document_back_url) updatedData.id_document_back_url = uploads.id_document_back_url;
+    if (uploads.id_document_pdf_url) updatedData.id_document_pdf_url = uploads.id_document_pdf_url;
 
     const updatedUser = await UpdateUserById(updatedData);
 
@@ -394,12 +410,12 @@ export const deleteUserById = async (req, res) => {
     if (!existingUser) {
       return res.status(404).json({ error: "User not found" });
     }
+    if (req.user?.role === "manager" && existingUser.role === "owner") {
+      return res.status(403).json({ error: "Managers cannot delete the salon owner account" });
+    }
 
     // Delete image from disk if exists
-    if (existingUser.image_url) {
-      const imagePath = path.join(process.cwd(), existingUser.image_url);
-      if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
-    }
+    await removeLocalUpload(existingUser.image_url);
 
     await DeleteUserById(id, salon_id);
 

@@ -59,6 +59,8 @@ const serviceQuery = `
 
     st.entry_type,
 
+    st.backdate_reason,
+
     st.service_source,
 
     st.service_date::text AS service_date,
@@ -331,19 +333,17 @@ export async function getReportData({
 
     db.query(
       `
-      SELECT *
-
-      FROM expenses
-
-      WHERE salon_id = $3
-
-        AND (
-          created_at AT TIME ZONE $4
-        )::date BETWEEN $1::date AND $2::date
-
-      ORDER BY created_at DESC
+      SELECT
+        e.id, e.name, e.amount, e.description, e.salon_id,
+        e.expense_date::text AS expense_date,
+        e.expense_time::text AS expense_time,
+        e.entry_type, e.backdate_reason, e.created_at
+      FROM expenses e
+      WHERE e.salon_id = $3
+        AND e.expense_date BETWEEN $1::date AND $2::date
+      ORDER BY e.expense_date DESC, e.expense_time DESC, e.id DESC
       `,
-      [startDate, endDate, salonId, timezone],
+      [startDate, endDate, salonId],
     ),
 
     // =====================================================
@@ -364,6 +364,8 @@ export async function getReportData({
         a.advance_time::text AS advance_time,
 
         a.entry_type,
+
+        a.backdate_reason,
 
         a.created_at,
 
@@ -446,7 +448,10 @@ export async function getReportData({
     db.query(
       `
       SELECT
-        tf.*,
+        tf.id, tf.employee_id, tf.amount, tf.reason, tf.salon_id,
+        tf.fee_date::text AS fee_date,
+        tf.fee_time::text AS fee_time,
+        tf.entry_type, tf.backdate_reason, tf.created_at,
 
         CONCAT(
           u.first_name,
@@ -462,13 +467,11 @@ export async function getReportData({
 
       WHERE tf.salon_id = $3
 
-        AND (
-          tf.created_at AT TIME ZONE $4
-        )::date BETWEEN $1::date AND $2::date
+        AND tf.fee_date BETWEEN $1::date AND $2::date
 
-      ORDER BY tf.created_at DESC
+      ORDER BY tf.fee_date DESC, tf.fee_time DESC, tf.id DESC
       `,
-      [startDate, endDate, salonId, timezone],
+      [startDate, endDate, salonId],
     ),
 
     // =====================================================
@@ -478,7 +481,10 @@ export async function getReportData({
     db.query(
       `
       SELECT
-        lf.*,
+        lf.id, lf.employee_id, lf.amount, lf.reason, lf.salon_id,
+        lf.fee_date::text AS fee_date,
+        lf.fee_time::text AS fee_time,
+        lf.entry_type, lf.backdate_reason, lf.created_at,
 
         CONCAT(
           u.first_name,
@@ -494,13 +500,11 @@ export async function getReportData({
 
       WHERE lf.salon_id = $3
 
-        AND (
-          lf.created_at AT TIME ZONE $4
-        )::date BETWEEN $1::date AND $2::date
+        AND lf.fee_date BETWEEN $1::date AND $2::date
 
-      ORDER BY lf.created_at DESC
+      ORDER BY lf.fee_date DESC, lf.fee_time DESC, lf.id DESC
       `,
-      [startDate, endDate, salonId, timezone],
+      [startDate, endDate, salonId],
     ),
 
     // =====================================================

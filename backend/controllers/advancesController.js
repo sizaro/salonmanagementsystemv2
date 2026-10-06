@@ -66,6 +66,7 @@ export const createAdvance = async (req, res) => {
       entry_type = "current",
       advance_date,
       advance_time,
+      backdate_reason,
     } = req.body;
 
     // Only owners may create historical advances.
@@ -75,9 +76,9 @@ export const createAdvance = async (req, res) => {
       });
     }
 
-    if (entry_type === "past" && (!advance_date || !advance_time)) {
+    if (entry_type === "past" && (!advance_date || !advance_time || !String(backdate_reason || "").trim())) {
       return res.status(400).json({
-        error: "Past advance requires advance date and advance time",
+        error: "Past advance requires a business date, time, and backdate reason",
       });
     }
 
@@ -89,6 +90,7 @@ export const createAdvance = async (req, res) => {
       entry_type,
       advance_date,
       advance_time,
+      backdate_reason: entry_type === "past" ? String(backdate_reason).trim() : null,
     });
 
     res.status(201).json({
@@ -111,18 +113,31 @@ export const updateAdvanceById = async (req, res) => {
   try {
     const salon_id = getSalonId(req);
     const { id } = req.params;
-    const { employee_id, amount, description, advance_date, advance_time } =
-      req.body;
+    const { employee_id, amount, description, advance_date, advance_time, backdate_reason } = req.body;
 
     if (!id) return res.status(400).json({ error: "Missing advance ID" });
+
+    const existing = await fetchAdvanceById(id, salon_id);
+    if (!existing) return res.status(404).json({ error: "Advance not found" });
+
+    if (existing.entry_type === "past" && req.user?.role !== "owner") {
+      return res.status(403).json({ error: "Only owners can edit past advances" });
+    }
+
+    if (existing.entry_type === "past" && !String(backdate_reason ?? existing.backdate_reason ?? "").trim()) {
+      return res.status(400).json({ error: "A backdate reason is required for a past advance" });
+    }
 
     const updatedAdvance = await UpdateAdvanceById({
       id,
       employee_id,
       amount,
       description,
-      advance_date,
-      advance_time,
+      // Current records retain the server-created business timestamp. Only
+      // an owner editing an existing historical record may adjust it.
+      advance_date: existing.entry_type === "past" ? advance_date : undefined,
+      advance_time: existing.entry_type === "past" ? advance_time : undefined,
+      backdate_reason: existing.entry_type === "past" ? String(backdate_reason ?? existing.backdate_reason).trim() : null,
       salon_id,
     });
 

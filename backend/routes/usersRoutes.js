@@ -13,7 +13,7 @@ import {
   deleteUserById
 } from '../controllers/usersController.js';
 
-import upload from "../middleware/upload.js";
+import upload, { employeeEvidenceUpload } from "../middleware/upload.js";
 import { requireAuth, requireRole, requireSalonContext, requireOpenSalon } from "../middleware/auth.js";
 
 // Public customer self-registration. Authentication and an open salon are not
@@ -37,12 +37,12 @@ router.get('/', requireRole('owner', 'manager', 'cashier', 'employee'), getAllUs
 router.get('/:id', requireRole('owner', 'manager', 'cashier', 'employee'), getUserById);
 
 // POST create a new user
-router.post('/', requireRole('owner', 'manager'), upload.single("image_url"), createUser);
+router.post('/', requireRole('owner', 'manager'), employeeEvidenceUpload.fields([{ name: "image_url", maxCount: 1 }, { name: "id_document_front", maxCount: 1 }, { name: "id_document_back", maxCount: 1 }, { name: "id_document_pdf", maxCount: 1 }]), createUser);
 
 // PUT update an existing user by ID
-router.put('/:id', requireRole('owner', 'manager'), upload.single("image_url"), updateUserById);
+router.put('/:id', requireRole('owner', 'manager'), employeeEvidenceUpload.fields([{ name: "image_url", maxCount: 1 }, { name: "id_document_front", maxCount: 1 }, { name: "id_document_back", maxCount: 1 }, { name: "id_document_pdf", maxCount: 1 }]), updateUserById);
 
 // DELETE remove a user by ID
-router.delete('/:id', requireRole('owner'), deleteUserById);
+router.delete('/:id', requireRole('owner', 'manager'), deleteUserById);
 
 export default router;
