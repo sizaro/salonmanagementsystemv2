@@ -3,6 +3,12 @@ import { useData } from "../../context/DataContext.jsx";
 import UserForm from "../../components/UserForm.jsx";
 import ConfirmModal from "../../components/ConfirmModal.jsx";
 import Modal from "../../components/Modal.jsx";
+import { useNavigate } from "react-router-dom";
+
+const displayValue = (value) => {
+  const normalized = String(value ?? "").trim();
+  return !normalized || normalized.toLowerCase() === "null" ? "—" : value;
+};
 
 const ManagerEmployees = () => {
   const {
@@ -13,6 +19,7 @@ const ManagerEmployees = () => {
     updateUser,
     deleteUser,
   } = useData();
+  const navigate = useNavigate();
 
   const employees = users.filter(
     (user) =>user.role !== "customer"
@@ -106,19 +113,23 @@ const ManagerEmployees = () => {
               <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
                 Next of Kin Phone
               </th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {employees.map((emp) => (
               <tr key={emp.id} className="hover:bg-gray-50">
-                <td className="px-4 py-2">{emp.first_name}</td>
-                <td className="px-4 py-2">{emp.middle_name}</td>
-                <td className="px-4 py-2">{emp.last_name}</td>
-                <td className="px-4 py-2">{emp.email}</td>
-                <td className="px-4 py-2">{emp.role}</td>
-                <td className="px-4 py-2">{emp.contact}</td>
-                <td className="px-4 py-2">{emp.next_of_kin}</td>
-                <td className="px-4 py-2">{emp.next_of_kin_phone}</td>
+                <td className="px-4 py-2">{displayValue(emp.first_name)}</td>
+                <td className="px-4 py-2">{displayValue(emp.middle_name)}</td>
+                <td className="px-4 py-2">{displayValue(emp.last_name)}</td>
+                <td className="px-4 py-2">{displayValue(emp.email)}</td>
+                <td className="px-4 py-2">{displayValue(emp.role)}</td>
+                <td className="px-4 py-2">{displayValue(emp.contact)}</td>
+                <td className="px-4 py-2">{displayValue(emp.next_of_kin)}</td>
+                <td className="px-4 py-2">{displayValue(emp.next_of_kin_contact)}</td>
+                <td className="px-4 py-2">
+                  <button onClick={() => navigate(`/manager/employees/${emp.id}`)} className="rounded-md bg-slate-700 px-3 py-1 text-sm text-white hover:bg-slate-800">View</button>
+                </td>
               </tr>
             ))}
           </tbody>

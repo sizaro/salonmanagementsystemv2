@@ -31,7 +31,6 @@ import salonProfileRoutes from "./routes/salonProfileRoutes.js";
 import mobileAuthRoutes from "./routes/mobileAuth.js";
 import employeeFinanceRoutes from "./routes/employeeFinanceRoutes.js";
 import employeeFinanceOperationsRoutes from "./routes/employeeFinanceOperationsRoutes.js";
-import employeeProfileRoutes from "./routes/employeeProfileRoutes.js";
 import {
   requireAuth,
   requireRole,
@@ -102,11 +101,10 @@ const isProd = process.env.NODE_ENV === "production";
  * restore the normal development session configuration that points
  * to the local Docker PostgreSQL database.
  */
-
 const sessionStore = new PgSessionStore({
   conObject: {
     connectionString: process.env.DATABASE_URL,
-    ssl: isProd ? { rejectUnauthorized: false } : false,
+    ssl: { rejectUnauthorized: false },
   },
   createTableIfMissing: true,
 });
@@ -191,13 +189,6 @@ app.use(
   requireAuth,
   requireSalonContext,
   employeeFinanceRoutes,
-);
-
-app.use(
-  "/api/employee-profiles",
-  requireAuth,
-  requireSalonContext,
-  employeeProfileRoutes,
 );
 
 app.use(

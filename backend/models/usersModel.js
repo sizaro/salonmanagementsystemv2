@@ -1,5 +1,17 @@
 import db from './database.js';
 
+// Multipart form submissions turn JavaScript null into the literal text
+// "null". Convert all intentionally empty profile values back to SQL NULL
+// before PostgreSQL receives them (especially DATE columns).
+const nullIfBlank = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string") return value;
+  const normalized = value.trim();
+  return !normalized || ["null", "undefined"].includes(normalized.toLowerCase())
+    ? null
+    : normalized;
+};
+
 /**
  * Fetch all users for a given salon
  */
@@ -8,7 +20,11 @@ export const fetchAllUsers = async (salon_id) => {
     SELECT u.id, u.salon_id, u.first_name, u.middle_name, u.last_name,
            u.email, u.birthdate, u.contact, u.next_of_kin,
            u.next_of_kin_contact, u.role, u.gender, u.specialty,
-           u.status, u.bio, u.image_url, u.national_id_number, u.id_document_front_url, u.id_document_back_url, u.id_document_pdf_url, u.created_at,
+           u.status, u.bio, u.image_url,
+           CASE WHEN u.id_document_pdf_url IS NOT NULL
+                  OR (u.id_document_front_url IS NOT NULL AND u.id_document_back_url IS NOT NULL)
+                THEN TRUE ELSE FALSE END AS has_identity_evidence,
+           u.created_at,
            (u.created_at AT TIME ZONE 'Africa/Kampala') AS user_time
     FROM users u
     WHERE u.salon_id = $1
@@ -85,25 +101,25 @@ export const saveUser = async ({
   `;
 
   const values = [
-    first_name || null,
-    middle_name || null,
-    last_name || null,
-    email || null,
-    password || null,
-    birthdate || null,
-    contact || null,
-    next_of_kin || null,
-    next_of_kin_contact || null,
+    nullIfBlank(first_name),
+    nullIfBlank(middle_name),
+    nullIfBlank(last_name),
+    nullIfBlank(email),
+    nullIfBlank(password),
+    nullIfBlank(birthdate),
+    nullIfBlank(contact),
+    nullIfBlank(next_of_kin),
+    nullIfBlank(next_of_kin_contact),
     role || 'customer',
-    gender || null,
-    specialty || null,
+    nullIfBlank(gender),
+    nullIfBlank(specialty),
     status || 'active',
-    bio || null,
-    image_url || null,
-    national_id_number || null,
-    id_document_front_url || null,
-    id_document_back_url || null,
-    id_document_pdf_url || null,
+    nullIfBlank(bio),
+    nullIfBlank(image_url),
+    nullIfBlank(national_id_number),
+    nullIfBlank(id_document_front_url),
+    nullIfBlank(id_document_back_url),
+    nullIfBlank(id_document_pdf_url),
     salon_id
   ];
 
@@ -160,30 +176,30 @@ export const UpdateUserById = async (data) => {
   ];
 
   const values = [
-    first_name || null,
-    middle_name || null,
-    last_name || null,
-    email || null,
-    password || null,
-    birthdate || null,
-    contact || null,
-    next_of_kin || null,
-    next_of_kin_contact || null,
+    nullIfBlank(first_name),
+    nullIfBlank(middle_name),
+    nullIfBlank(last_name),
+    nullIfBlank(email),
+    nullIfBlank(password),
+    nullIfBlank(birthdate),
+    nullIfBlank(contact),
+    nullIfBlank(next_of_kin),
+    nullIfBlank(next_of_kin_contact),
     role || "customer",
-    gender || null,
-    specialty || null,
+    nullIfBlank(gender),
+    nullIfBlank(specialty),
     status || "active",
-    bio || null,
+    nullIfBlank(bio),
   ];
 
-  if (image_url !== undefined && image_url !== "") {
+  if (nullIfBlank(image_url)) {
     fields.push(`image_url = $${fields.length + 1}`);
-    values.push(image_url);
+    values.push(nullIfBlank(image_url));
   }
-  if (national_id_number !== undefined) { fields.push(`national_id_number = $${fields.length + 1}`); values.push(national_id_number || null); }
-  if (id_document_front_url !== undefined && id_document_front_url !== "") { fields.push(`id_document_front_url = $${fields.length + 1}`); values.push(id_document_front_url); }
-  if (id_document_back_url !== undefined && id_document_back_url !== "") { fields.push(`id_document_back_url = $${fields.length + 1}`); values.push(id_document_back_url); }
-  if (id_document_pdf_url !== undefined && id_document_pdf_url !== "") { fields.push(`id_document_pdf_url = $${fields.length + 1}`); values.push(id_document_pdf_url); }
+  if (national_id_number !== undefined) { fields.push(`national_id_number = $${fields.length + 1}`); values.push(nullIfBlank(national_id_number)); }
+  if (nullIfBlank(id_document_front_url)) { fields.push(`id_document_front_url = $${fields.length + 1}`); values.push(nullIfBlank(id_document_front_url)); }
+  if (nullIfBlank(id_document_back_url)) { fields.push(`id_document_back_url = $${fields.length + 1}`); values.push(nullIfBlank(id_document_back_url)); }
+  if (nullIfBlank(id_document_pdf_url)) { fields.push(`id_document_pdf_url = $${fields.length + 1}`); values.push(nullIfBlank(id_document_pdf_url)); }
 
   // Add id and salon_id for WHERE clause
   values.push(id, salon_id);

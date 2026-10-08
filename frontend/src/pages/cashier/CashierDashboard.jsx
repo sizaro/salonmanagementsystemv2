@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import Modal from "../../components/Modal.jsx";
 import ServiceForm from "../../components/ServiceForm";
@@ -11,6 +12,7 @@ import useSalonSessionTimer from "../../hooks/useSalonSessionTimer";
 import { useData } from "../../context/DataContext.jsx";
 
 export default function CashierDashboard() {
+  const navigate = useNavigate();
   // ======================================================
   // STATIC FILE BASE URL
   // ======================================================
@@ -1089,16 +1091,16 @@ export default function CashierDashboard() {
 
               <button
                 type="button"
-                onClick={() => setModalType("advance")}
+                onClick={() => navigate("/cashier/staff-payments?action=advance")}
                 className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3.5 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50 hover:shadow-sm"
               >
                 <span>
                   <span className="block text-base font-semibold text-stone-800">
-                    Add Advance
+                    Create Advance Request
                   </span>
 
                   <span className="mt-0.5 block text-sm text-stone-500">
-                    Record an employee salary advance
+                    Start the approval and disbursement workflow
                   </span>
                 </span>
 

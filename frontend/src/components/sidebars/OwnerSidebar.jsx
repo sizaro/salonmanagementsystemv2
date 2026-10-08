@@ -129,6 +129,7 @@ export default function OwnerSidebar() {
                 Employees Advances
               </Link>
             </li>
+            <li><Link to="/owner/finance" className={linkClass("/owner/finance")}>Employee Finance</Link></li>
             <li>
               <Link
                 to="/owner/staff-performance"
@@ -225,6 +226,7 @@ export default function OwnerSidebar() {
                 Employees Advances
               </Link>
             </li>
+            <li><Link to="/owner/finance" onClick={() => setMenuOpen(false)} className={linkClass("/owner/finance")}>Employee Finance</Link></li>
             <li>
               <Link
                 to="/owner/staff-performance"

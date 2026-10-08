@@ -14,7 +14,7 @@ let pool = new Pool({
   ssl:
     process.env.NODE_ENV === "production"
       ? { rejectUnauthorized: false }
-      : true,
+      : false,
 });
 
 pool.connect().catch((err) => console.error("❌ DB connection error:", err));

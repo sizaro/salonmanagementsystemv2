@@ -1,5 +1,6 @@
 import db from "./database.js";
 import { servicePricingSelect } from "../utils/servicePricingSql.js";
+import { recordEarningsForCompletedService } from "../utils/employeeEarningsLedger.js";
 
 // =========================================================
 // SMALL ID HELPERS
@@ -998,6 +999,11 @@ export const saveServiceTransaction = async (data) => {
       });
     }
 
+    await recordEarningsForCompletedService(client, {
+      salonId: salon_id,
+      transactionId: transaction.id,
+    });
+
     return transaction;
   });
 };
@@ -1502,6 +1508,11 @@ export const updateServiceTransactionModel = async (id, updates, salon_id) => {
       });
     }
 
+    await recordEarningsForCompletedService(client, {
+      salonId: salon_id,
+      transactionId: id,
+    });
+
     return updated;
   });
 };
@@ -1696,6 +1707,11 @@ export const updateServiceTransactionAppointmentModel = async (
         });
       }
     }
+
+    await recordEarningsForCompletedService(client, {
+      salonId: salon_id,
+      transactionId: id,
+    });
 
     return updated;
   });

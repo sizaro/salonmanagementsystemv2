@@ -13,6 +13,7 @@ import {
 import { findUserByEmail } from "../models/usersModel.js";
 import dotenv from "dotenv";
 import { storeEmployeeEvidence } from "../utils/employeeEvidenceStorage.js";
+import { employeeHasHistoricalRecords, logEmployeeActivity } from "../models/employeeProfileModel.js";
 dotenv.config();
 const ALLOWED_ROLES = new Set(["owner", "manager", "cashier", "employee", "customer"]);
 
@@ -163,6 +164,14 @@ export const getUserById = async (req, res) => {
     const { id } = req.params;
     const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
 
+    const currentRole = String(req.user?.role || "").toLowerCase();
+    if (currentRole === "cashier") {
+      return res.status(403).json({ error: "Use the employee profile view for authorised staff information" });
+    }
+    if (currentRole === "employee" && Number(id) !== Number(req.user?.id)) {
+      return res.status(403).json({ error: "Employees may only open their own record" });
+    }
+
     const user = await fetchUserById(id, salon_id);
     if (!user) return res.status(404).json({ error: "User not found" });
 
@@ -298,6 +307,14 @@ export const createUser = async (req, res) => {
       ...uploads,
     });
 
+    await logEmployeeActivity({
+      salonId: salon_id,
+      employeeId: newUser.id,
+      actorId: req.user?.id || null,
+      action: "EMPLOYEE_CREATED",
+      metadata: { role: newUser.role, has_identity_evidence: Boolean(uploads.id_document_pdf_url || (uploads.id_document_front_url && uploads.id_document_back_url)) },
+    });
+
     res.status(201).json({
       message: "User created successfully",
       data: newUser,
@@ -388,6 +405,18 @@ export const updateUserById = async (req, res) => {
 
     const updatedUser = await UpdateUserById(updatedData);
 
+    await logEmployeeActivity({
+      salonId: salon_id,
+      employeeId: updatedUser.id,
+      actorId: req.user?.id || null,
+      action: "EMPLOYEE_UPDATED",
+      metadata: {
+        role: updatedUser.role,
+        profile_image_updated: Boolean(uploads.image_url),
+        identity_evidence_updated: Boolean(uploads.id_document_pdf_url || uploads.id_document_front_url || uploads.id_document_back_url),
+      },
+    });
+
     res.status(200).json({
       message: "User updated successfully",
       data: updatedUser,
@@ -412,6 +441,12 @@ export const deleteUserById = async (req, res) => {
     }
     if (req.user?.role === "manager" && existingUser.role === "owner") {
       return res.status(403).json({ error: "Managers cannot delete the salon owner account" });
+    }
+
+    if (await employeeHasHistoricalRecords({ salonId: salon_id, employeeId: existingUser.id })) {
+      return res.status(409).json({
+        error: "This employee has linked service or finance history and cannot be deleted. Keep the record for audit instead.",
+      });
     }
 
     // Delete image from disk if exists

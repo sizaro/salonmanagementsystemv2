@@ -8,7 +8,11 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "db:appointment-upgrade": "node scripts/applyAppointmentFlowUpgrade.js",
-    "db:historical-records-upgrade": "node scripts/applyHistoricalBusinessRecordsUpgrade.js"
+    "db:historical-records-upgrade": "node scripts/applyHistoricalBusinessRecordsUpgrade.js",
+    "db:employee-finance-foundation": "node scripts/applyEmployeeFinanceFoundation.js",
+    "db:employee-finance-operations": "node scripts/applyEmployeeFinanceOperations.js",
+    "db:employee-advance-settlements": "node scripts/applyEmployeeAdvanceSettlements.js",
+    "db:employee-profile-audit": "node scripts/applyEmployeeProfileAudit.js"
   },
   "author": "",
   "license": "ISC",

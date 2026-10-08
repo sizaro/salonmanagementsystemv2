@@ -254,7 +254,9 @@ const employeeTotals = useMemo(() => {
     totalHours = `${diffHrs} hrs ${diffMins} mins`;
   }
 
-  const netSalary = totalSalary - (totalAdvances + totalTagFees + totalLateFees);
+  // Advances and fee records are tracked separately; payment settlement is
+  // handled by the Employee Finance workflow.
+  const netSalary = totalSalary;
 
   const user = users.find((u) => u.id === employeeId);
 
@@ -460,7 +462,7 @@ useEffect(() => {
                   <p className="font-bold text-l text-gray-600">Total Late Fees</p><br />
                   {emp.totalLateFees.toLocaleString()} UGX</div>
                   <div className="border px-4 py-2 text-center font-semibold">
-                  <p className="font-bold text-l text-gray-600">Net Salary</p><br />
+                  <p className="font-bold text-l text-gray-600">Earnings before settlement</p><br />
                   {emp.netSalary.toLocaleString()} UGX</div>
                 </div>
               ))}
@@ -542,7 +544,7 @@ useEffect(() => {
                     <th className="border px-4 py-2 text-right">Advances</th>
                     <th className="border px-4 py-2 text-right">Tag Fees</th>
                     <th className="border px-4 py-2 text-right">Late Fees</th>
-                    <th className="border px-4 py-2 text-right">Net Salary</th>
+                    <th className="border px-4 py-2 text-right">Earnings before settlement</th>
                   </tr>
                 </thead>
                 <tbody>

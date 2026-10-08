@@ -3,6 +3,12 @@ import { useData } from "../../context/DataContext.jsx";
 import UserForm from "../../components/UserForm.jsx";
 import ConfirmModal from "../../components/ConfirmModal.jsx";
 import Modal from "../../components/Modal.jsx";
+import { useNavigate } from "react-router-dom";
+
+const displayValue = (value) => {
+  const normalized = String(value ?? "").trim();
+  return !normalized || normalized.toLowerCase() === "null" ? "—" : value;
+};
 
 const OwnerEmployees = () => {
   const {
@@ -13,6 +19,7 @@ const OwnerEmployees = () => {
     updateUser,
     deleteUser,
   } = useData();
+  const navigate = useNavigate();
 
   // Filter out 'Saleh Ntege' and customers
   const employees = users.filter(
@@ -121,15 +128,21 @@ const OwnerEmployees = () => {
           <tbody className="divide-y divide-gray-200">
             {employees.map((emp) => (
               <tr key={emp.id} className="hover:bg-gray-50">
-                <td className="px-4 py-2">{emp.first_name}</td>
-                <td className="px-4 py-2">{emp.middle_name}</td>
-                <td className="px-4 py-2">{emp.last_name}</td>
-                <td className="px-4 py-2">{emp.email}</td>
-                <td className="px-4 py-2">{emp.role}</td>
-                <td className="px-4 py-2">{emp.contact}</td>
-                <td className="px-4 py-2">{emp.next_of_kin}</td>
-                <td className="px-4 py-2">{emp.next_of_kin_phone}</td>
+                <td className="px-4 py-2">{displayValue(emp.first_name)}</td>
+                <td className="px-4 py-2">{displayValue(emp.middle_name)}</td>
+                <td className="px-4 py-2">{displayValue(emp.last_name)}</td>
+                <td className="px-4 py-2">{displayValue(emp.email)}</td>
+                <td className="px-4 py-2">{displayValue(emp.role)}</td>
+                <td className="px-4 py-2">{displayValue(emp.contact)}</td>
+                <td className="px-4 py-2">{displayValue(emp.next_of_kin)}</td>
+                <td className="px-4 py-2">{displayValue(emp.next_of_kin_contact)}</td>
                 <td className="px-4 py-2 flex gap-2">
+                  <button
+                    onClick={() => navigate(`/owner/employees/${emp.id}`)}
+                    className="bg-slate-700 hover:bg-slate-800 text-white px-3 py-1 rounded-md text-sm"
+                  >
+                    View
+                  </button>
                   <button
                     onClick={() => handleEdit(emp.id)}
                     className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded-md text-sm"

@@ -79,6 +79,8 @@ export default function EmployeeSidebar() {
                 Income Reports
               </Link>
             </li>
+            <li><Link to="/employee/finance" className={linkClass("/employee/finance")}>My Finance</Link></li>
+            <li><Link to="/employee/profile" className={linkClass("/employee/profile")}>My Profile</Link></li>
 
             <li className="mt-10">
               <SidebarFooter />
@@ -126,6 +128,8 @@ export default function EmployeeSidebar() {
                 Income Reports
               </Link>
             </li>
+            <li><Link to="/employee/finance" onClick={() => setMenuOpen(false)} className={linkClass("/employee/finance")}>My Finance</Link></li>
+            <li><Link to="/employee/profile" onClick={() => setMenuOpen(false)} className={linkClass("/employee/profile")}>My Profile</Link></li>
 
             <li className="mt-10">
               <SidebarFooter />

@@ -6,6 +6,8 @@ import SalonOpeningGate from "../common/SalonOpeningGate.jsx";
 import CashierDashboard from "../../pages/cashier/CashierDashboard.jsx";
 import CashierStaffPayments from "../../pages/cashier/CashierStaffPayments.jsx";
 import CashierIncomeReview from "../../pages/cashier/CashierIncomeReview.jsx";
+import EmployeeFinanceWorkspace from "../../pages/finance/EmployeeFinanceWorkspace.jsx";
+import EmployeeProfilePage from "../../pages/employees/EmployeeProfilePage.jsx";
 // import CashierIncomeReport from "../../pages/cashier/CashierIncomeReport.jsx";
 // import CashierExpensesReport from "../../pages/cashier/CashierExpensesReport.jsx";
 // import CashierEmployees from "../../pages/cashier/CashierEmployees.jsx";
@@ -23,7 +25,8 @@ const CashierLayout = () => {
           {/* Dashboard */}
           <Route index element={<CashierDashboard />} />
           <Route path="dashboard" element={<CashierDashboard />} />
-          <Route path="staff-payments" element={<CashierStaffPayments />} />
+          <Route path="staff-payments" element={<EmployeeFinanceWorkspace />} />
+          <Route path="employees/:id" element={<EmployeeProfilePage />} />
           <Route path="income-review" element={<CashierIncomeReview />} />
 
           {/* Income Reports

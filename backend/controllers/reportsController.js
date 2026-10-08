@@ -113,7 +113,13 @@ const buildPayroll = (report) =>
 
         advances,
 
-        netSalary: grossSalary - advances,
+        // An advance is a separate cash record. It must never silently turn
+        // earned income into a lower "net salary" before an explicit finance
+        // settlement exists. Keep netSalary as a compatibility alias for old
+        // screens, but make it equal the earned amount.
+        netSalary: grossSalary,
+        paymentEligibleEarnings: grossSalary,
+        advancesDoNotReduceEarnings: true,
 
         clockIn: shifts[0]?.clock_in || null,
 
@@ -569,7 +575,11 @@ export async function getMyIncomeReport(req, res) {
 
         advances,
 
-        netEarnings: grossEarnings - advances,
+        // Kept for older clients; advances are disclosed separately and do
+        // not reduce this earning total automatically.
+        netEarnings: grossEarnings,
+        paymentEligibleEarnings: grossEarnings,
+        advancesDoNotReduceEarnings: true,
 
         workedMinutes: Math.round(workedMinutes),
       },

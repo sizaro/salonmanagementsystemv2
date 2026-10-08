@@ -387,6 +387,16 @@ export const DataProvider = ({ children }) => {
     }
   };
 
+  const fetchEmployeeProfile = async (id) => {
+    try {
+      const res = await axios.get(`${API_URL}/employee-profiles/${id}`);
+      return res.data;
+    } catch (err) {
+      console.error("Error fetching employee profile:", err);
+      throw err;
+    }
+  };
+
   const createUser = async (userData) => {
     try {
       const submittedRole =
@@ -1173,7 +1183,7 @@ export const DataProvider = ({ children }) => {
   }, [user]);
 
   useEffect(() => {
-    const applicationName = "Salehish Salon";
+    const applicationName = "Salehish Beauty Parlour & Spa";
     const attentionRoles = new Set(["owner", "manager", "cashier", "customer"]);
     const showAttention = attentionRoles.has(String(user?.role || "").toLowerCase()) && pendingCount > 0;
     document.title = showAttention ? `(${pendingCount}) ${applicationName}` : applicationName;
@@ -1182,10 +1192,10 @@ export const DataProvider = ({ children }) => {
     if (!favicon) {
       favicon = document.createElement("link");
       favicon.rel = "icon";
-      favicon.href = "/salon-mark.svg";
+      favicon.href = "/salehishicon.webp?v=20261007";
       document.head.appendChild(favicon);
     }
-    const normalIcon = "/salon-mark.svg";
+    const normalIcon = "/salehishicon.webp?v=20261007";
     const attentionIcon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#dc2626"/><text x="32" y="43" text-anchor="middle" font-size="36" font-family="Arial" font-weight="700" fill="white">!</text></svg>')}`;
     favicon.href = showAttention ? attentionIcon : normalIcon;
   }, [pendingCount, user?.role]);
@@ -1259,6 +1269,7 @@ export const DataProvider = ({ children }) => {
         fetchUsers,
         fetchBookableStaff,
         fetchUserById,
+        fetchEmployeeProfile,
         createUser,
         updateUser,
         fetchMyProfile,

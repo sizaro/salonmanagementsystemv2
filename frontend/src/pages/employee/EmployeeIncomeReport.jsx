@@ -64,8 +64,9 @@ export default function EmployeeIncomeReport() {
       {loading && !report ? <ReportLoadingState message="Loading your income and performance..." /> : null}
       {report ? <>
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[['Services performed', summary.totalServices || 0, 'text-slate-900'], ['Gross earnings', money(summary.grossEarnings), 'text-slate-900'], ['Advances', money(summary.advances), 'text-amber-700'], ['Net earnings', money(summary.netEarnings), 'text-emerald-700']].map(([label, value, color]) => <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-sm text-slate-500">{label}</p><p className={`mt-2 text-xl font-semibold ${color}`}>{value}</p></div>)}
+        {[['Services performed', summary.totalServices || 0, 'text-slate-900'], ['Completed-service earnings', money(summary.grossEarnings), 'text-slate-900'], ['Advances recorded separately', money(summary.advances), 'text-amber-700'], ['Earnings eligible for payment', money(summary.paymentEligibleEarnings ?? summary.grossEarnings), 'text-emerald-700']].map(([label, value, color]) => <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-sm text-slate-500">{label}</p><p className={`mt-2 text-xl font-semibold ${color}`}>{value}</p></div>)}
       </section>
+      <p className="text-sm text-slate-600">Advances are not automatically deducted from earnings. Open <span className="font-semibold text-slate-800">My Finance</span> to review approved payments, receipts and acknowledgements.</p>
       <p className="text-sm text-slate-600">Completed clocked hours in this period: <span className="font-semibold text-slate-800">{hours(summary.workedMinutes)}</span></p>
 
       <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">

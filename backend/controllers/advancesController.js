@@ -2,6 +2,7 @@ import {
   saveAdvance,
   fetchAllAdvances,
   fetchAdvanceById,
+  isFinanceWorkflowAdvance,
   UpdateAdvanceById,
   DeleteAdvanceById,
 } from "../models/advancesModel.js";
@@ -120,6 +121,12 @@ export const updateAdvanceById = async (req, res) => {
     const existing = await fetchAdvanceById(id, salon_id);
     if (!existing) return res.status(404).json({ error: "Advance not found" });
 
+    if (await isFinanceWorkflowAdvance(id, salon_id)) {
+      return res.status(409).json({
+        error: "This advance was issued through the employee finance workflow and cannot be edited. Use a finance correction record instead.",
+      });
+    }
+
     if (existing.entry_type === "past" && req.user?.role !== "owner") {
       return res.status(403).json({ error: "Only owners can edit past advances" });
     }
@@ -162,6 +169,12 @@ export const deleteAdvanceById = async (req, res) => {
   try {
     const { id } = req.params;
     const salon_id = getSalonId(req);
+
+    if (await isFinanceWorkflowAdvance(id, salon_id)) {
+      return res.status(409).json({
+        error: "This advance was issued through the employee finance workflow and cannot be deleted.",
+      });
+    }
 
     const deleted = await DeleteAdvanceById(id, salon_id);
     if (!deleted) return res.status(404).json({ error: "Advance not found" });

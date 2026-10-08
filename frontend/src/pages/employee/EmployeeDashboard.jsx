@@ -610,7 +610,7 @@ export default function EmployeeDashboard() {
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Your service earnings and advances for the current month.
+              Completed-service earnings and separately recorded advances for the current month.
             </p>
           </div>
 
@@ -667,11 +667,11 @@ export default function EmployeeDashboard() {
 
             <div className="rounded-2xl bg-emerald-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-                Net earnings
+                Earnings eligible for payment
               </p>
 
               <p className="mt-2 text-xl font-bold text-emerald-800">
-                {formatMoney(paySummary?.netSalary)}
+                {formatMoney(paySummary?.paymentEligibleEarnings ?? paySummary?.netSalary)}
               </p>
             </div>
 
@@ -692,6 +692,7 @@ export default function EmployeeDashboard() {
             </div>
           </div>
         )}
+        <p className="mt-4 text-xs text-slate-500">Advances are listed for transparency and do not automatically reduce earned income. Payment status and acknowledgements are managed in My Finance.</p>
       </section>
 
       {/* ==================================================

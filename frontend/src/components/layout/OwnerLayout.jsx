@@ -12,6 +12,8 @@ import StaffPerformance from "../../pages/owner/OwnerStaffReport.jsx";
 import LateFeesReport from "../../pages/owner/OwnerLateFeesReport.jsx";
 import TagFeesReport from "../../pages/owner/OwnerTagFeesReport.jsx";
 import OwnerSalonReport from "../../pages/owner/OwnerSalonReport.jsx";
+import EmployeeFinanceWorkspace from "../../pages/finance/EmployeeFinanceWorkspace.jsx";
+import EmployeeProfilePage from "../../pages/employees/EmployeeProfilePage.jsx";
 
 const OwnerLayout = () => {
   return (
@@ -32,7 +34,9 @@ const OwnerLayout = () => {
           {/* Employees & Advances */}
           <Route path="employees" element={<EmployeeReport />} />
           <Route path="advances" element={<Advances />} />
+          <Route path="finance" element={<EmployeeFinanceWorkspace />} />
           <Route path="employees-management" element={<Employees />} />
+          <Route path="employees/:id" element={<EmployeeProfilePage />} />
           <Route path="employee-report" element={<EmployeeReport />} />
           <Route path="salon-report" element={<OwnerSalonReport />} />
 

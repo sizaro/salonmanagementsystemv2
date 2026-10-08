@@ -197,6 +197,21 @@ export const fetchAdvanceById = async (id, salon_id) => {
 };
 
 /**
+ * New workflow advances are financial records issued through an approved
+ * request. They must not be silently edited or deleted from legacy CRUD.
+ */
+export const isFinanceWorkflowAdvance = async (id, salon_id) => {
+  const { rows } = await db.query(
+    `SELECT 1
+     FROM employee_advance_requests
+     WHERE advance_id = $1 AND salon_id = $2
+     LIMIT 1`,
+    [Number(id), Number(salon_id)],
+  );
+  return Boolean(rows[0]);
+};
+
+/**
  * Update an advance.
  */
 export const UpdateAdvanceById = async ({
@@ -311,6 +326,7 @@ export default {
   saveAdvance,
   fetchAllAdvances,
   fetchAdvanceById,
+  isFinanceWorkflowAdvance,
   UpdateAdvanceById,
   DeleteAdvanceById,
 };

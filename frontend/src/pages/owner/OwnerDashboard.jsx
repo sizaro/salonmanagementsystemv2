@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import Modal from "../../components/Modal.jsx";
 import ServiceForm from "../../components/ServiceForm";
@@ -18,6 +19,7 @@ import Button from "../../components/Button";
 import { useData } from "../../context/DataContext.jsx";
 
 export default function OwnerDashboard() {
+  const navigate = useNavigate();
   // ======================================================
   // STATIC BASE URL
   // ======================================================
@@ -1028,16 +1030,16 @@ export default function OwnerDashboard() {
 
               <button
                 type="button"
-                onClick={() => setModalType("advance")}
+                onClick={() => navigate("/owner/finance?action=advance")}
                 className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50"
               >
                 <span>
                   <span className="block text-sm font-semibold text-stone-800">
-                    Add Advance
+                    Create Advance Request
                   </span>
 
                   <span className="mt-0.5 block text-xs text-stone-500">
-                    Record an employee salary advance
+                    Start the approval and disbursement workflow
                   </span>
                 </span>
 

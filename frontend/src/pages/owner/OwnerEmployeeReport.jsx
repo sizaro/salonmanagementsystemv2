@@ -310,8 +310,9 @@ const OwnerEmployeeReport = () => {
       totalHours = `${diffHrs} hrs ${diffMins} mins`;
     }
 
-    const netSalary =
-      totalSalary - (totalAdvances + totalTagFees + totalLateFees);
+    // Finance settlements now live in Employee Finance. Advances and fee
+    // records remain visible here but must not silently reduce earned work.
+    const netSalary = totalSalary;
 
     const user = users.find((u) => u.id === employeeId);
 
@@ -559,7 +560,7 @@ const OwnerEmployeeReport = () => {
                     {emp.totalLateFees.toLocaleString()} UGX
                   </div>
                   <div className="border px-4 py-2 text-center font-semibold">
-                    <p className="font-bold text-l text-gray-600">Net Salary</p>
+                    <p className="font-bold text-l text-gray-600">Earnings before settlement</p>
                     <br />
                     {emp.netSalary.toLocaleString()} UGX
                   </div>
@@ -689,7 +690,7 @@ const OwnerEmployeeReport = () => {
                     <th className="border px-4 py-2 text-right">Advances</th>
                     <th className="border px-4 py-2 text-right">Tag Fees</th>
                     <th className="border px-4 py-2 text-right">Late Fees</th>
-                    <th className="border px-4 py-2 text-right">Net Salary</th>
+                    <th className="border px-4 py-2 text-right">Earnings before settlement</th>
                   </tr>
                 </thead>
                 <tbody>
