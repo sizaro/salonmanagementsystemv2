@@ -5,7 +5,8 @@ import { createSalonProfile, getSalonProfileBySalonId, updateSalonProfile } from
  */
 export const setupSalonProfile = async (req, res) => {
   try {
-    const { salon_id, name, tagline, logo, slug } = req.body;
+    const { name, tagline, logo, slug } = req.body;
+    const salon_id = req.salon_id;
 
     if (!salon_id || !name || !slug) {
       return res.status(400).json({ message: "Missing required fields" });
@@ -30,7 +31,8 @@ export const setupSalonProfile = async (req, res) => {
  */
 export const updateProfile = async (req, res) => {
   try {
-    const { salon_id, name, tagline, logo, slug } = req.body;
+    const { name, tagline, logo, slug } = req.body;
+    const salon_id = req.salon_id;
 
     if (!salon_id || !name || !slug) {
       return res.status(400).json({ message: "Missing required fields" });

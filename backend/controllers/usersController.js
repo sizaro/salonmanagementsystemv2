@@ -136,8 +136,11 @@ export const setupOwnerUser = async (req, res) => {
 export const getAllUsers = async (req, res) => {
   try {
     const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
-
-    const users = await fetchAllUsers(salon_id);
+    // Cashiers only need a safe staff directory for booking and service
+    // assignment; they must not receive employee/customer private details.
+    const users = String(req.user?.role || "").toLowerCase() === "cashier"
+      ? await fetchBookableStaff(salon_id)
+      : await fetchAllUsers(salon_id);
     res.status(200).json(users);
   } catch (err) {
     console.error("Error fetching users:", err);

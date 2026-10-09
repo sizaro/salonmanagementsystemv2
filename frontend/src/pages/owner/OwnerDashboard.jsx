@@ -1861,7 +1861,7 @@ export default function OwnerDashboard() {
         )}
 
         {modalType === "past_tagfee" && (
-          <TagFeeForm onSubmit={CreateTagFee} onClose={closeModal} feeData={selectedFee} employees={employees} entryType="past" />
+          <TagFeeForm onSubmit={CreateTagFee} onClose={closeModal} feeData={selectedFee} employees={Employees || []} entryType="past" />
         )}
 
         {/* LATE FEE */}
@@ -1876,7 +1876,7 @@ export default function OwnerDashboard() {
         )}
 
         {modalType === "past_latefee" && (
-          <LateFeeForm onSubmit={CreateLateFee} onClose={closeModal} feeData={selectedFee} employees={employees} entryType="past" />
+          <LateFeeForm onSubmit={CreateLateFee} onClose={closeModal} feeData={selectedFee} employees={Employees || []} entryType="past" />
         )}
 
         {/* NEW SECTION */}

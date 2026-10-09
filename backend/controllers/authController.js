@@ -22,10 +22,11 @@ const resolveSalonId = (req) => {
   );
 };
 
+const strongPassword = (value) => /^(?=.*[0-9])(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/.test(value);
+
 // ---------------- LOGIN ----------------
 export const login = (req, res, next) => {
   passport.authenticate("local", (err, user, info) => {
-    console.log("authed user in auth controller", user)
     if (err) return next(err);
     if (!user) return res.status(400).json({ message: info.message });
 
@@ -65,7 +66,7 @@ export const changePasswordController = async (req, res) => {
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ message: "Current and new passwords are required" });
     }
-    if (!/^(?=.*[0-9])(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/.test(newPassword)) {
+    if (!strongPassword(newPassword)) {
       return res.status(400).json({ message: "New password must be at least 8 characters and include a number and special character" });
     }
     if (currentPassword === newPassword) {
@@ -100,8 +101,9 @@ export const forgotPasswordController = async (req, res) => {
   try {
     // 1️⃣ Find user by email + salon_id
     const user = await findUserByEmail(email, salon_id);
-    if (!user)
-      return res.status(404).json({ message: "No user with that email" });
+    // Always return the same outcome. This prevents password-reset requests
+    // from being used to discover which email addresses have accounts.
+    if (!user) return res.status(200).json({ message: "If that account exists, a password reset link has been sent." });
 
     // 2️⃣ Generate reset token
     const token = crypto.randomBytes(32).toString("hex");
@@ -136,7 +138,7 @@ export const forgotPasswordController = async (req, res) => {
       `,
     });
 
-    res.status(200).json({ message: "Password reset link sent" });
+    res.status(200).json({ message: "If that account exists, a password reset link has been sent." });
   } catch (err) {
     console.error("Forgot password error:", err);
     res.status(500).json({ message: "Server error" });
@@ -148,6 +150,9 @@ export const resetPasswordController = async (req, res) => {
   const { token, newPassword } = req.body;
   if (!token || !newPassword)
     return res.status(400).json({ message: "Token and new password required" });
+  if (!strongPassword(String(newPassword))) {
+    return res.status(400).json({ message: "New password must be at least 8 characters and include a number and special character" });
+  }
 
   try {
     // 1️⃣ Get reset entry (already includes salon_id)

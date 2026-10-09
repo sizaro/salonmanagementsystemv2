@@ -7,19 +7,7 @@ import {
   DeleteAdvanceById,
 } from "../models/advancesModel.js";
 
-import dotenv from "dotenv";
-
-const envFile =
-  process.env.NODE_ENV === "production"
-    ? ".env.production"
-    : ".env.development";
-dotenv.config({ path: envFile });
-
-console.log("Loaded env:", envFile);
-
-// Helper: get salon_id from req.user if available, else use env default
-const getSalonId = (req) =>
-  Number(req.user?.salon_id || process.env.DEFAULT_SALON_ID);
+const getSalonId = (req) => Number(req.salon_id || req.user?.salon_id);
 
 /**
  * Get all advances
@@ -70,8 +58,15 @@ export const createAdvance = async (req, res) => {
       backdate_reason,
     } = req.body;
 
-    // Only owners may create historical advances.
-    if (entry_type === "past" && req.user?.role !== "owner") {
+    if (entry_type !== "past") {
+      return res.status(409).json({
+        error:
+          "New current advances must be requested through Employee Finance so approval, signatures, and settlement are recorded.",
+        code: "USE_EMPLOYEE_FINANCE_WORKFLOW",
+      });
+    }
+
+    if (req.user?.role !== "owner") {
       return res.status(403).json({
         error: "Only owners can create past advances",
       });

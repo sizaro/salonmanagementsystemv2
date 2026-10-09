@@ -8,10 +8,14 @@ import {
   disburseAdvanceRequest,
   disburseEmployeePayment,
   getEmployeeFinanceReceipts,
+  getEmployeeFinanceReceiptDetail,
+  getEmployeeFinanceReceiptSignature,
   listAdvanceRequests,
   listEmployeePayments,
   settleAdvanceRequest,
 } from "../models/employeeFinanceOperationsModel.js";
+import { sendPrivateArtifact } from "../utils/privateArtifactStorage.js";
+import db from "../models/database.js";
 
 const respond = (res, error) => {
   console.error("Employee finance operation failed:", error);
@@ -48,6 +52,7 @@ export const postAdvanceDecision = async (req, res) => {
     const request = await decideAdvanceRequest({
       ...actor(req), requestId: Number(req.params.id), approved: Boolean(req.body?.approved),
       rejectionReason: req.body?.rejection_reason,
+      signatureDataUrl: req.body?.signature_data_url,
     });
     res.json({ request });
   } catch (error) { respond(res, error); }
@@ -59,7 +64,7 @@ export const postAdvanceDisbursement = async (req, res) => {
 };
 
 export const postAdvanceAcknowledgement = async (req, res) => {
-  try { res.json({ request: await acknowledgeAdvanceRequest({ salonId: req.salon_id, actorId: req.user.id, requestId: Number(req.params.id) }) }); }
+  try { res.json({ request: await acknowledgeAdvanceRequest({ salonId: req.salon_id, actorId: req.user.id, requestId: Number(req.params.id), signatureDataUrl: req.body?.signature_data_url }) }); }
   catch (error) { respond(res, error); }
 };
 
@@ -97,6 +102,7 @@ export const postPaymentDecision = async (req, res) => {
     const payment = await decideEmployeePayment({
       ...actor(req), paymentId: Number(req.params.id), approved: Boolean(req.body?.approved),
       rejectionReason: req.body?.rejection_reason,
+      signatureDataUrl: req.body?.signature_data_url,
     });
     res.json({ payment });
   } catch (error) { respond(res, error); }
@@ -108,11 +114,46 @@ export const postPaymentDisbursement = async (req, res) => {
 };
 
 export const postPaymentAcknowledgement = async (req, res) => {
-  try { res.json({ payment: await acknowledgeEmployeePayment({ salonId: req.salon_id, actorId: req.user.id, paymentId: Number(req.params.id) }) }); }
+  try { res.json({ payment: await acknowledgeEmployeePayment({ salonId: req.salon_id, actorId: req.user.id, paymentId: Number(req.params.id), signatureDataUrl: req.body?.signature_data_url }) }); }
   catch (error) { respond(res, error); }
 };
 
 export const getFinanceReceipts = async (req, res) => {
   try { res.json({ receipts: await getEmployeeFinanceReceipts(actor(req)) }); }
   catch (error) { respond(res, error); }
+};
+
+export const getFinanceReceiptDetail = async (req, res) => {
+  try {
+    res.json(await getEmployeeFinanceReceiptDetail({
+      ...actor(req), receiptId: Number(req.params.id),
+    }));
+  } catch (error) { respond(res, error); }
+};
+
+export const openFinanceReceiptPdf = async (req, res) => {
+  try {
+    const detail = await getEmployeeFinanceReceiptDetail({
+      ...actor(req), receiptId: Number(req.params.id),
+    });
+    if (!detail.receipt.pdf_available) {
+      return res.status(409).json({ error: "This receipt has not yet been fully signed and finalised." });
+    }
+    // The public view intentionally omits storage references. This lookup is
+    // made only after the receipt-level permission check above.
+    const { rows } = await db.query(
+      "SELECT pdf_url FROM employee_finance_receipts WHERE id = $1 AND salon_id = $2",
+      [Number(req.params.id), req.salon_id],
+    );
+    return sendPrivateArtifact(res, rows[0]?.pdf_url, { downloadName: `${detail.receipt.receipt_number}.pdf` });
+  } catch (error) { return respond(res, error); }
+};
+
+export const openFinanceReceiptSignature = async (req, res) => {
+  try {
+    const reference = await getEmployeeFinanceReceiptSignature({
+      ...actor(req), receiptId: Number(req.params.id), signatureId: Number(req.params.signatureId),
+    });
+    return sendPrivateArtifact(res, reference);
+  } catch (error) { return respond(res, error); }
 };

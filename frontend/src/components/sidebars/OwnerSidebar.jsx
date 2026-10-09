@@ -100,7 +100,7 @@ export default function OwnerSidebar() {
             <li>
               <Link
                 to="/owner/employees-management"
-                className={linkClass("/owner/employee-management")}
+                className={linkClass("/owner/employees-management")}
               >
                 Employee Management
               </Link>
@@ -130,6 +130,8 @@ export default function OwnerSidebar() {
               </Link>
             </li>
             <li><Link to="/owner/finance" className={linkClass("/owner/finance")}>Employee Finance</Link></li>
+            <li><Link to="/owner/intelligence" className={linkClass("/owner/intelligence")}>Analytics, Goals & Campaigns</Link></li>
+            <li><Link to="/owner/statistics" className={linkClass("/owner/statistics")}>Statistics & Analytics</Link></li>
             <li>
               <Link
                 to="/owner/staff-performance"
@@ -194,7 +196,7 @@ export default function OwnerSidebar() {
               <Link
                 to="/owner/employees-management"
                 onClick={() => setMenuOpen(false)}
-                className={linkClass("/owner/employee-management")}
+                className={linkClass("/owner/employees-management")}
               >
                 Employee Management
               </Link>
@@ -227,6 +229,8 @@ export default function OwnerSidebar() {
               </Link>
             </li>
             <li><Link to="/owner/finance" onClick={() => setMenuOpen(false)} className={linkClass("/owner/finance")}>Employee Finance</Link></li>
+            <li><Link to="/owner/intelligence" onClick={() => setMenuOpen(false)} className={linkClass("/owner/intelligence")}>Analytics, Goals & Campaigns</Link></li>
+            <li><Link to="/owner/statistics" onClick={() => setMenuOpen(false)} className={linkClass("/owner/statistics")}>Statistics & Analytics</Link></li>
             <li>
               <Link
                 to="/owner/staff-performance"

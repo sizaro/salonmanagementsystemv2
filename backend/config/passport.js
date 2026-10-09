@@ -2,8 +2,8 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcryptjs";
 import { findUserByEmail, findUserById } from "../models/usersModel.js";
-import dotenv from "dotenv";
-dotenv.config();
+import { loadEnvironment } from "./environment.js";
+loadEnvironment();
 
 
 passport.use(

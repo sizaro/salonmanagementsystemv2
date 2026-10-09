@@ -2,7 +2,10 @@ import express from "express";
 import {
   getAdvanceRequests,
   getEmployeePayments,
+  getFinanceReceiptDetail,
   getFinanceReceipts,
+  openFinanceReceiptPdf,
+  openFinanceReceiptSignature,
   postAdvanceAcknowledgement,
   postAdvanceDecision,
   postAdvanceDisbursement,
@@ -31,5 +34,8 @@ router.post("/payments/:id/disburse", requireRole("owner", "manager", "cashier")
 router.post("/payments/:id/acknowledge", requireRole("employee", "manager", "cashier"), postPaymentAcknowledgement);
 
 router.get("/receipts", requireRole("owner", "manager", "cashier", "employee"), getFinanceReceipts);
+router.get("/receipts/:id", requireRole("owner", "manager", "cashier", "employee"), getFinanceReceiptDetail);
+router.get("/receipts/:id/pdf", requireRole("owner", "manager", "cashier", "employee"), openFinanceReceiptPdf);
+router.get("/receipts/:id/signatures/:signatureId", requireRole("owner", "manager", "cashier", "employee"), openFinanceReceiptSignature);
 
 export default router;

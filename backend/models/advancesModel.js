@@ -129,6 +129,19 @@ export const fetchAllAdvances = async (salon_id) => {
       a.entry_type,
       a.backdate_reason,
       a.created_at,
+      finance_request.id AS finance_request_id,
+      finance_request.workflow_status AS finance_workflow_status,
+      finance_request.requested_amount AS finance_requested_amount,
+      finance_request.disbursed_at AS finance_disbursed_at,
+      finance_request.acknowledged_at AS finance_acknowledged_at,
+      finance_request.receipt_number AS finance_receipt_number,
+      finance_receipt.id AS finance_receipt_id,
+      COALESCE(settlements.settled_amount, 0)::numeric AS finance_settled_amount,
+      CASE WHEN finance_request.id IS NULL THEN NULL
+           ELSE GREATEST(finance_request.requested_amount - COALESCE(settlements.settled_amount, 0), 0)::numeric
+      END AS finance_outstanding_amount,
+      settlements.latest_settlement_at,
+      settlements.settlement_receipt_numbers,
 
       u.first_name,
       u.last_name
@@ -137,6 +150,23 @@ export const fetchAllAdvances = async (salon_id) => {
 
     LEFT JOIN users u
       ON u.id = a.employee_id
+
+    LEFT JOIN employee_advance_requests finance_request
+      ON finance_request.advance_id = a.id
+     AND finance_request.salon_id = a.salon_id
+
+    LEFT JOIN employee_finance_receipts finance_receipt
+      ON finance_receipt.advance_request_id = finance_request.id
+     AND finance_receipt.salon_id = a.salon_id
+
+    LEFT JOIN LATERAL (
+      SELECT COALESCE(SUM(asl.amount), 0)::numeric AS settled_amount,
+             MAX(asl.settled_at) AS latest_settlement_at,
+             STRING_AGG(asl.receipt_number, ', ' ORDER BY asl.settled_at DESC) AS settlement_receipt_numbers
+      FROM employee_advance_settlements asl
+      WHERE asl.advance_request_id = finance_request.id
+        AND asl.salon_id = a.salon_id
+    ) settlements ON TRUE
 
     WHERE a.salon_id = $1
       AND a.advance_date = $2
@@ -176,6 +206,19 @@ export const fetchAdvanceById = async (id, salon_id) => {
       a.entry_type,
       a.backdate_reason,
       a.created_at,
+      finance_request.id AS finance_request_id,
+      finance_request.workflow_status AS finance_workflow_status,
+      finance_request.requested_amount AS finance_requested_amount,
+      finance_request.disbursed_at AS finance_disbursed_at,
+      finance_request.acknowledged_at AS finance_acknowledged_at,
+      finance_request.receipt_number AS finance_receipt_number,
+      finance_receipt.id AS finance_receipt_id,
+      COALESCE(settlements.settled_amount, 0)::numeric AS finance_settled_amount,
+      CASE WHEN finance_request.id IS NULL THEN NULL
+           ELSE GREATEST(finance_request.requested_amount - COALESCE(settlements.settled_amount, 0), 0)::numeric
+      END AS finance_outstanding_amount,
+      settlements.latest_settlement_at,
+      settlements.settlement_receipt_numbers,
 
       u.first_name,
       u.last_name
@@ -184,6 +227,23 @@ export const fetchAdvanceById = async (id, salon_id) => {
 
     LEFT JOIN users u
       ON u.id = a.employee_id
+
+    LEFT JOIN employee_advance_requests finance_request
+      ON finance_request.advance_id = a.id
+     AND finance_request.salon_id = a.salon_id
+
+    LEFT JOIN employee_finance_receipts finance_receipt
+      ON finance_receipt.advance_request_id = finance_request.id
+     AND finance_receipt.salon_id = a.salon_id
+
+    LEFT JOIN LATERAL (
+      SELECT COALESCE(SUM(asl.amount), 0)::numeric AS settled_amount,
+             MAX(asl.settled_at) AS latest_settlement_at,
+             STRING_AGG(asl.receipt_number, ', ' ORDER BY asl.settled_at DESC) AS settlement_receipt_numbers
+      FROM employee_advance_settlements asl
+      WHERE asl.advance_request_id = finance_request.id
+        AND asl.salon_id = a.salon_id
+    ) settlements ON TRUE
 
     WHERE a.id = $1
       AND a.salon_id = $2

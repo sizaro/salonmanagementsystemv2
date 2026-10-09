@@ -1,4 +1,5 @@
 import { getEmployeeDocument, getEmployeeProfile } from "../models/employeeProfileModel.js";
+import { sendPrivateArtifact } from "../utils/privateArtifactStorage.js";
 
 const employeeIdFromRequest = (req) => {
   const employeeId = Number(req.params.id);
@@ -54,7 +55,7 @@ export const openEmployeeDocument = async (req, res) => {
       kind: req.params.kind,
     });
     if (!documentUrl) return res.status(404).json({ error: "Document was not found" });
-    return res.redirect(documentUrl);
+    return sendPrivateArtifact(res, documentUrl);
   } catch (error) {
     return respond(res, error);
   }

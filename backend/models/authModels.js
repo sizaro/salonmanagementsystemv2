@@ -1,4 +1,7 @@
 import db from './database.js';
+import crypto from "crypto";
+
+const tokenHash = (token) => crypto.createHash("sha256").update(String(token)).digest("hex");
 
 /**
  * Save password reset token
@@ -9,7 +12,7 @@ export const createPasswordReset = async (userId, token, expiresAt, salon_id) =>
     VALUES ($1, $2, $3, $4)
     RETURNING *;
   `;
-  const values = [userId, token, salon_id, expiresAt];
+  const values = [userId, tokenHash(token), salon_id, expiresAt];
   const result = await db.query(query, values);
   return result.rows[0];
 };
@@ -24,7 +27,7 @@ export const getPasswordResetByToken = async (token) => {
       AND expires_at > NOW()
     LIMIT 1;
   `;
-  const result = await db.query(query, [token]);
+  const result = await db.query(query, [tokenHash(token)]);
   return result.rows[0];
 };
 

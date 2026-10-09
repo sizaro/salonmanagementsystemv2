@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { v2 as cloudinary } from "cloudinary";
 import sharp from "sharp";
+import { localPrivateReference } from "./privateArtifactStorage.js";
 
 const imageFields = new Set(["image_url", "id_document_front", "id_document_back"]);
 const configured = () => Boolean(
@@ -38,9 +39,15 @@ const uploadBuffer = (buffer, options) => new Promise((resolve, reject) => {
 const localUrl = (field, file) => {
   const isPdf = field === "id_document_pdf";
   const extension = isPdf ? ".pdf" : ".jpg";
-  const directory = path.join(process.cwd(), isPdf ? "uploads/documents" : "uploads/images");
+  if (field === "image_url") {
+    const directory = path.join(process.cwd(), "uploads", "images");
+    const fileName = `${fieldPrefix(field)}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${extension}`;
+    return { directory, fileName, url: `/uploads/images/${fileName}` };
+  }
+  const bucket = "employee-evidence";
+  const directory = path.join(process.cwd(), "private-uploads", bucket);
   const fileName = `${fieldPrefix(field)}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${extension}`;
-  return { directory, fileName, url: `/uploads/${isPdf ? "documents" : "images"}/${fileName}` };
+  return { directory, fileName, url: localPrivateReference({ bucket, fileName }) };
 };
 
 async function normaliseImage(buffer) {
@@ -60,10 +67,15 @@ async function saveOne(field, file) {
     const result = await uploadBuffer(processed, {
       folder: "salon-management/employee-evidence",
       resource_type: isImage ? "image" : "raw",
+      // A profile photograph is display media, not identity evidence. The
+      // national-ID fields below remain authenticated/private.
+      type: field === "image_url" ? "upload" : "authenticated",
       public_id: `${fieldPrefix(field)}-${Date.now()}`,
       overwrite: false,
     });
-    return result.secure_url;
+    return field === "image_url"
+      ? result.secure_url
+      : `private://cloudinary/${isImage ? "image" : "raw"}/${result.public_id}`;
   }
 
   if (process.env.NODE_ENV === "production") {
@@ -77,8 +89,8 @@ async function saveOne(field, file) {
 }
 
 /**
- * Optimises employee images and persists all evidence. With Cloudinary keys it
- * returns secure Cloudinary URLs; development without keys uses local files.
+ * Optimises employee images and persists all evidence. Profile photos are
+ * display media; national-ID images and PDFs are private authenticated assets.
  */
 export async function storeEmployeeEvidence(files) {
   const [image_url, id_document_front_url, id_document_back_url, id_document_pdf_url] = await Promise.all([

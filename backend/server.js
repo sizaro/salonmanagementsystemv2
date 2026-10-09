@@ -3,17 +3,32 @@ import http from "http";
 import { Server as IOServer } from "socket.io";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import path from "path";
 import { fileURLToPath } from "url";
-import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import session from "express-session";
 import passport from "passport";
 import pgSession from "connect-pg-simple";
 import "./config/passport.js";
+import db from "./models/database.js";
+import {
+  allowedOrigins,
+  isProduction,
+  loadEnvironment,
+} from "./config/environment.js";
+import {
+  apiRateLimiter,
+  attachRequestId,
+  authRateLimiter,
+  errorHandler,
+  notFound,
+  requireTrustedOrigin,
+  uploadRateLimiter,
+} from "./middleware/security.js";
 // import { checkSetupStatus } from "../controllers/setupController.js";
 
-dotenv.config();
+loadEnvironment();
 
 import servicesRoutes from "./routes/servicesRoutes.js";
 import serviceRoutet from "./routes/serviceRoutet.js";
@@ -32,6 +47,9 @@ import mobileAuthRoutes from "./routes/mobileAuth.js";
 import employeeFinanceRoutes from "./routes/employeeFinanceRoutes.js";
 import employeeFinanceOperationsRoutes from "./routes/employeeFinanceOperationsRoutes.js";
 import employeeProfileRoutes from "./routes/employeeProfileRoutes.js";
+import ownerIntelligenceRoutes from "./routes/ownerIntelligenceRoutes.js";
+import publicCampaignRoutes from "./routes/publicCampaignRoutes.js";
+import statisticsRoutes from "./routes/statisticsRoutes.js";
 import {
   requireAuth,
   requireRole,
@@ -46,29 +64,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ✅ CORS setup
-const allowedOrigins = [
-  "https://salonmanagementsystemv2.vercel.app",
-  "http://localhost:5173",
-  "http://192.168.1.104:8081",
-  "http://localhost:5174",
-];
-
-app.use((req, res, next) => {
-  if (req.method === "OPTIONS") {
-    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
-    res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    res.header("Access-Control-Allow-Credentials", "true");
-    return res.sendStatus(200);
-  }
-  next();
-});
-
 app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+      if (allowedOrigins().includes(origin)) return callback(null, true);
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
@@ -77,13 +77,21 @@ app.use(
   }),
 );
 
-app.use(express.json());
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+app.use(attachRequestId);
+app.use("/api", apiRateLimiter, requireTrustedOrigin);
+app.use(express.json({ limit: "3mb" }));
 app.use(cookieParser());
 
 // --- Sessions ---
 const PgSessionStore = pgSession(session);
 
-const isProd = process.env.NODE_ENV === "production";
+const isProd = isProduction();
 
 /*
  * TEMPORARY REMOTE DATABASE CHECK
@@ -113,7 +121,7 @@ const sessionStore = new PgSessionStore({
 
 const sessionConfig = {
   store: sessionStore,
-  secret: process.env.SESSION_SECRET || "fallback-secret",
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   proxy: true,
@@ -136,16 +144,41 @@ app.use(passport.session());
 // --- Static files ---
 app.use(
   "/uploads/images",
+  (req, res, next) => {
+    // Legacy identity evidence and finance signatures are never public files.
+    if (/^(national-id-|receipt-signature-)/i.test(path.basename(req.path))) {
+      return res
+        .status(404)
+        .json({ error: "File not found", requestId: req.requestId });
+    }
+    next();
+  },
   express.static(path.join(__dirname, "/uploads/images")),
 );
 
-app.use(
-  "/uploads/documents",
-  express.static(path.join(__dirname, "/uploads/documents")),
-);
+app.get("/health", async (req, res) => {
+  try {
+    await db.query("SELECT 1");
+    res.json({ status: "ok", database: "ok", requestId: req.requestId });
+  } catch {
+    res.status(503).json({
+      status: "degraded",
+      database: "unavailable",
+      requestId: req.requestId,
+    });
+  }
+});
 
 // --- Routes ---
-app.use("/api/salon-profile", salonProfileRoutes);
+app.use(
+  "/api/salon-profile",
+  requireAuth,
+  requireSalonContext,
+  requireRole("owner"),
+  salonProfileRoutes,
+);
+app.use("/api/marketplace", publicCampaignRoutes);
+app.use("/api/statistics", requireAuth, requireSalonContext, statisticsRoutes);
 app.use("/api/services", servicesRoutes);
 
 app.use(
@@ -207,7 +240,7 @@ app.use(
   employeeFinanceOperationsRoutes,
 );
 
-app.use("/api/users", usersRoutes);
+app.use("/api/users", uploadRateLimiter, usersRoutes);
 
 app.use(
   "/api/reports",
@@ -218,6 +251,14 @@ app.use(
 );
 
 app.use(
+  "/api/owner-intelligence",
+  requireAuth,
+  requireSalonContext,
+  requireOpenSalon,
+  ownerIntelligenceRoutes,
+);
+
+app.use(
   "/api/fees",
   requireAuth,
   requireSalonContext,
@@ -225,13 +266,13 @@ app.use(
   feesRoutes,
 );
 
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authRateLimiter, authRoutes);
 app.use("/api/sections", sectionsRoutes);
 app.use("/api/salon", salonRoutes);
 app.use("/api/mobile", mobileAuthRoutes);
 
 // ----------- SOCKET.IO SETUP -----------
-const PORT = process.env.PORT || 5500 || "0,0,0,0";
+const PORT = Number(process.env.PORT || 5500);
 
 // create http server from express app
 const server = http.createServer(app);
@@ -241,7 +282,7 @@ const io = new IOServer(server, {
   cors: {
     origin: process.env.CLIENT_ORIGIN
       ? [process.env.CLIENT_ORIGIN, "http://localhost:5173"]
-      : allowedOrigins,
+      : allowedOrigins(),
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -269,15 +310,14 @@ io.use((socket, next) => {
 });
 
 io.on("connection", (socket) => {
-  console.log("🟢 Socket connected:", socket.id);
-
   socket.join(`salon:${socket.request.user.salon_id}`);
   socket.join(`user:${socket.request.user.id}`);
 
-  socket.on("disconnect", (reason) => {
-    console.log("🔴 Socket disconnected:", socket.id, "reason:", reason);
-  });
+  socket.on("disconnect", () => {});
 });
+
+app.use(notFound);
+app.use(errorHandler);
 
 // start server
 (async () => {

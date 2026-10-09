@@ -511,3 +511,36 @@ html {
 .animate-fadeInRight {
   animation: fadeInRight 0.8s ease-out both;
 }
+
+/* Shared owner-workspace fields. Kept here so modal forms have the same
+   accessible focus treatment on desktop and mobile. */
+.field-input {
+  display: block;
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  padding: 0.625rem 0.75rem;
+  color: #0f172a;
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.field-input:focus {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
+}
+
+.stat-input {
+  display: block;
+  width: 100%;
+  margin-top: 0.4rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: #fff;
+  padding: 0.65rem 0.75rem;
+  color: #0f172a;
+  font-size: 0.875rem;
+}
+
+.stat-input:focus { outline: 3px solid rgba(14, 116, 144, .16); border-color: #0e7490; }

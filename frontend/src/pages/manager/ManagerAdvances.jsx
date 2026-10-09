@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useData } from "../../context/DataContext.jsx";
-import AdvanceForm from "../../components/AdvanceForm.jsx";
-import ConfirmModal from "../../components/ConfirmModal.jsx";
-import Modal from "../../components/Modal.jsx";
 
 const ManagerAdvances = () => {
+  const navigate = useNavigate();
   const {
     users = [],
     fetchUsers,
@@ -13,24 +12,13 @@ const ManagerAdvances = () => {
     fetchWeeklyData,
     fetchMonthlyData,
     fetchYearlyData,
-    fetchAdvanceById,
-    createAdvance,
   } = useData();
-
-    console.log("Users:", users);
-    console.log("advances:", advances);
 
   const toYMD = (date) => date.toISOString().split("T")[0];
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState(toYMD(today));
-  const [reportLabel, setReportLabel] = useState("");
-  const [week, setWeek] = useState({ start: null, end: null });
   const [monthYear, setMonthYear] = useState("");
   const [year, setYear] = useState("");
-  const [showModal, setShowModal] = useState(false);
-  const [editingAdvance, setEditingAdvance] = useState(null);
-  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [advanceToDelete, setAdvanceToDelete] = useState(null);
 
   const employees = (users || []).filter(
     (user) =>
@@ -39,17 +27,12 @@ const ManagerAdvances = () => {
       user.role !== "customer"
   );
 
-  console.log("users in the daily page", users)
-
-
   const employeeAdvances = useMemo(() => {
     if (!employees.length) return [];
     return advances.filter((a) =>
       employees.some((emp) => emp.id === a.employee_id)
     );
   }, [advances, employees]);
-
-  console.log("employeeAdvances:", employeeAdvances);
 
   // ========================
   // HANDLERS
@@ -78,11 +61,6 @@ const ManagerAdvances = () => {
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
 
-    setWeek({ start: monday, end: sunday });
-    setReportLabel(
-      `${monday.toLocaleDateString()} → ${sunday.toLocaleDateString()}`
-    );
-
     fetchWeeklyData(monday, sunday);
     fetchUsers();
   };
@@ -93,12 +71,6 @@ const ManagerAdvances = () => {
 
     const [year, month] = value.split("-").map(Number);
     setMonthYear(value);
-    setReportLabel(
-      new Date(year, month - 1, 1).toLocaleDateString("en-US", {
-        month: "long",
-        year: "numeric",
-      })
-    );
     fetchMonthlyData(year, month);
     fetchUsers();
   };
@@ -107,7 +79,6 @@ const ManagerAdvances = () => {
     const selectedYear = e.target.value;
     setYear(selectedYear);
     if (selectedYear) {
-      setReportLabel(`Year ${selectedYear}`);
       fetchYearlyData(parseInt(selectedYear, 10));
     }
   };
@@ -122,19 +93,7 @@ const ManagerAdvances = () => {
   };
 
   const handleAdd = () => {
-    setEditingAdvance(null);
-    setShowModal(true);
-  };
-
-  const handleModalSubmit = async (advanceData) => {
-    if (editingAdvance) {
-      await updateAdvance(editingAdvance.id, advanceData);
-    } else {
-      await createAdvance(advanceData);
-    }
-    setShowModal(false);
-    setEditingAdvance(null);
-    await fetchDailyData(selectedDate);
+    navigate("/manager/finance?action=advance&tab=advances");
   };
 
   // Initial load
@@ -245,20 +204,6 @@ const ManagerAdvances = () => {
         </table>
       </div>
 
-      {/* MODALS */}
-      <Modal
-        isOpen={showModal}
-        onClose={() => {
-          setShowModal(false);
-          setEditingAdvance(null);
-        }}
-      >
-        <AdvanceForm
-          advanceData={editingAdvance}
-          onSubmit={handleModalSubmit}
-          onClose={() => setShowModal(false)}
-        />
-      </Modal>
     </div>
   );
 };

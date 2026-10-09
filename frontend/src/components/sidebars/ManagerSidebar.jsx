@@ -43,6 +43,7 @@ export default function ManagerSidebar() {
             <li><Link to="/manager/employees-management" className={linkClass('/manager/employees-management')}>Employee Management</Link></li>
             <li><Link to="/manager/staff-performance" className={linkClass('/manager/staff-performance')}>Staff Performance</Link></li>
             <li><Link to="/manager/finance" className={linkClass('/manager/finance')}>Employee Finance</Link></li>
+            <li><Link to="/manager/statistics" className={linkClass('/manager/statistics')}>Statistics & Analytics</Link></li>
 
             <li className='mt-10'><SidebarFooter /></li>
 
@@ -70,6 +71,7 @@ export default function ManagerSidebar() {
             <li><Link to="/manager/employees-management" onClick={() => setMenuOpen(false)} className={linkClass('/manager/employees-management')}>Employee Management</Link></li>
             <li><Link to="/manager/staff-performance" onClick={() => setMenuOpen(false)} className={linkClass('/manager/staff-performance')}>Staff Performance</Link></li>
             <li><Link to="/manager/finance" onClick={() => setMenuOpen(false)} className={linkClass('/manager/finance')}>Employee Finance</Link></li>
+            <li><Link to="/manager/statistics" onClick={() => setMenuOpen(false)} className={linkClass('/manager/statistics')}>Statistics & Analytics</Link></li>
 
             <li className='mt-10'><SidebarFooter /></li>
 

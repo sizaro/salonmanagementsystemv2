@@ -15,6 +15,7 @@ import LateFeesReport from "../../pages/manager/ManagerLateFeesReport.jsx";
 import TagFeesReport from "../../pages/manager/ManagerTagFeesReport.jsx";
 import EmployeeFinanceWorkspace from "../../pages/finance/EmployeeFinanceWorkspace.jsx";
 import EmployeeProfilePage from "../../pages/employees/EmployeeProfilePage.jsx";
+import StatisticsAnalytics from "../../pages/statistics/StatisticsAnalytics.jsx";
 
 const ManagerLayout = () => {
   return (
@@ -35,6 +36,7 @@ const ManagerLayout = () => {
           {/* Staff Performance */}
           <Route path="staff-performance" element={<StaffPerformance />} />
           <Route path="finance" element={<EmployeeFinanceWorkspace />} />
+          <Route path="statistics" element={<StatisticsAnalytics />} />
 
         </Routes>
       </main>

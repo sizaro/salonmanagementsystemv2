@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useData } from "../../context/DataContext.jsx";
+import FinanceReceiptDialog from "../../components/finance/FinanceReceiptDialog.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 const money = (value) => `UGX ${Number(value || 0).toLocaleString()}`;
@@ -66,6 +67,7 @@ export default function EmployeeProfilePage({ self = false }) {
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedReceiptId, setSelectedReceiptId] = useState(null);
 
   useEffect(() => {
     if (!Number.isInteger(employeeId) || employeeId <= 0) {
@@ -172,7 +174,7 @@ export default function EmployeeProfilePage({ self = false }) {
           <h2 className="text-lg font-semibold text-slate-900">Employee payments</h2>
           {profile.finance.payments.length === 0 ? <Empty>No employee payments have been prepared.</Empty> : <div className="overflow-x-auto"><table className="min-w-full text-sm"><thead className="border-b text-left text-slate-500"><tr><th className="p-2">Received</th><th className="p-2">Method</th><th className="p-2">Reference</th><th className="p-2">Status</th><th className="p-2 text-right">Amount</th></tr></thead><tbody>{profile.finance.payments.map((payment) => <tr key={payment.id} className="border-b border-slate-100"><td className="p-2">{formatDate(payment.created_at, true)}</td><td className="p-2">{show(payment.payment_method)}</td><td className="p-2">{show(payment.payment_reference)}</td><td className="p-2"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${statusClass(payment.workflow_status)}`}>{show(payment.workflow_status)}</span></td><td className="p-2 text-right font-semibold">{money(payment.requested_amount)}</td></tr>)}</tbody></table></div>}
           <h2 className="text-lg font-semibold text-slate-900">Receipts and acknowledgements</h2>
-          {profile.finance.receipts.length === 0 ? <Empty>No finance receipts have been issued.</Empty> : <div className="overflow-x-auto"><table className="min-w-full text-sm"><thead className="border-b text-left text-slate-500"><tr><th className="p-2">Receipt</th><th className="p-2">Type</th><th className="p-2">Issued</th><th className="p-2">Acknowledged</th><th className="p-2 text-right">Amount</th></tr></thead><tbody>{profile.finance.receipts.map((receipt) => <tr key={`${receipt.receipt_type}-${receipt.id}`} className="border-b border-slate-100"><td className="p-2">{show(receipt.receipt_number)}</td><td className="p-2">{show(receipt.receipt_type)}</td><td className="p-2">{formatDate(receipt.issued_at, true)}</td><td className="p-2">{formatDate(receipt.acknowledged_at, true)}</td><td className="p-2 text-right font-semibold">{money(receipt.amount)}</td></tr>)}</tbody></table></div>}
+          {profile.finance.receipts.length === 0 ? <Empty>No finance receipts have been issued.</Empty> : <div className="overflow-x-auto"><table className="min-w-full text-sm"><thead className="border-b text-left text-slate-500"><tr><th className="p-2">Receipt</th><th className="p-2">Type</th><th className="p-2">Issued</th><th className="p-2">Acknowledged</th><th className="p-2 text-right">Amount</th><th className="p-2">Action</th></tr></thead><tbody>{profile.finance.receipts.map((receipt) => <tr key={`${receipt.receipt_type}-${receipt.id}`} className="border-b border-slate-100"><td className="p-2">{show(receipt.receipt_number)}</td><td className="p-2">{show(receipt.receipt_type)}</td><td className="p-2">{formatDate(receipt.issued_at, true)}</td><td className="p-2">{formatDate(receipt.acknowledged_at, true)}</td><td className="p-2 text-right font-semibold">{money(receipt.amount)}</td><td className="p-2">{["ADVANCE", "PAYMENT"].includes(String(receipt.receipt_type || "").toUpperCase()) ? <button type="button" onClick={() => setSelectedReceiptId(receipt.id)} className="font-semibold text-blue-700 hover:underline">View</button> : "—"}</td></tr>)}</tbody></table></div>}
         </div>}
 
         {activeTab === "advances" && <div className="space-y-5">
@@ -190,6 +192,7 @@ export default function EmployeeProfilePage({ self = false }) {
           {profile.activity.length === 0 ? <Empty>No activity has been recorded for this employee yet.</Empty> : <ol className="space-y-3">{profile.activity.map((event) => <li key={`${event.category}-${event.id}-${event.occurred_at}`} className="rounded-xl border border-slate-200 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm text-slate-900">{String(event.action || "Activity").replaceAll("_", " ")}</strong><span className="text-xs text-slate-500">{formatDate(event.occurred_at, true)}</span></div><p className="mt-1 text-sm text-slate-600">{event.actor_name ? `By ${event.actor_name}` : event.category} {event.metadata?.amount ? `· ${money(event.metadata.amount)}` : ""}</p></li>)}</ol>}
         </div>}
       </section>
+      <FinanceReceiptDialog receiptId={selectedReceiptId} onClose={() => setSelectedReceiptId(null)} />
     </div>
   );
 }

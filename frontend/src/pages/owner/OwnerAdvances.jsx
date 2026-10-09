@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useData } from "../../context/DataContext.jsx";
 import useOwnerReport from "../../hooks/useOwnerReport.js";
 import AdvanceForm from "../../components/AdvanceForm.jsx";
@@ -228,12 +229,6 @@ const OwnerAdvances = () => {
   // CRUD HANDLERS
   // ========================
 
-  const handleAdd = () => {
-    setEditingAdvance(null);
-    setNewAdvanceEntryType("current");
-    setShowModal(true);
-  };
-
   const handleAddPast = () => {
     setEditingAdvance(null);
     setNewAdvanceEntryType("past");
@@ -396,6 +391,9 @@ const OwnerAdvances = () => {
   const isPastAdvance = (advance) =>
     String(advance?.entry_type || "").toLowerCase() === "past";
 
+  const isFinanceWorkflowAdvance = (advance) => Boolean(advance?.finance_request_id);
+  const formatFinanceStatus = (advance) => String(advance?.finance_workflow_status || "").replaceAll("_", " ");
+
   // ========================
   // INITIAL LOAD
   // ========================
@@ -477,18 +475,17 @@ const OwnerAdvances = () => {
           <h1 className="text-3xl font-bold text-gray-800">Advances</h1>
 
           <p className="text-sm text-gray-500 mt-1">
-            Employee advances recorded by business date.
+            Employee advances recorded by business date. New current advances use the finance workflow so approval, settlement, and receipts stay connected.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={handleAdd}
+          <Link
+            to="/owner/finance?action=advance&tab=advances"
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md shadow"
           >
-            Add Advance
-          </button>
+            Create Finance Advance Request
+          </Link>
 
           <button
             type="button"
@@ -498,6 +495,10 @@ const OwnerAdvances = () => {
             Add Past Advance
           </button>
         </div>
+      </div>
+
+      <div className="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-950">
+        <span className="font-semibold">Settlement rule:</span> current employee advances are requested, approved, disbursed, acknowledged, and then settled from Employee Finance. Direct historical entries remain available for audit, but are not silently deducted from pay.
       </div>
 
       {/* SUMMARY */}
@@ -556,6 +557,10 @@ const OwnerAdvances = () => {
               </th>
 
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                Settlement
+              </th>
+
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
                 Actions
               </th>
             </tr>
@@ -564,7 +569,7 @@ const OwnerAdvances = () => {
           <tbody className="divide-y divide-gray-200">
             {employeeAdvances.length === 0 ? (
               <tr>
-                <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
                   No advances found for this period.
                 </td>
               </tr>
@@ -601,6 +606,24 @@ const OwnerAdvances = () => {
                     <td className="px-4 py-3">{advance.description || "—"}</td>
 
                     <td className="px-4 py-3">
+                      {isFinanceWorkflowAdvance(advance) ? (
+                        <div className="space-y-1">
+                          <span className="inline-flex rounded-full bg-indigo-100 px-2 py-1 text-xs font-semibold text-indigo-800">
+                            {formatFinanceStatus(advance) || "Finance workflow"}
+                          </span>
+                          <p className="text-xs text-gray-600">
+                            Outstanding: {Number(advance.finance_outstanding_amount || 0).toLocaleString()}
+                          </p>
+                          {advance.settlement_receipt_numbers && (
+                            <p className="text-xs text-gray-500">Settlements: {advance.settlement_receipt_numbers}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-500">Direct record</span>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
@@ -610,21 +633,32 @@ const OwnerAdvances = () => {
                           View
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleEdit(advance.id)}
-                          className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded-md text-sm"
-                        >
-                          Edit
-                        </button>
+                        {isFinanceWorkflowAdvance(advance) ? (
+                          <Link
+                            to="/owner/finance?tab=advances"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-md text-sm"
+                          >
+                            Finance control
+                          </Link>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleEdit(advance.id)}
+                              className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded-md text-sm"
+                            >
+                              Edit
+                            </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(advance.id)}
-                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm"
-                        >
-                          Delete
-                        </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(advance.id)}
+                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -654,71 +688,44 @@ const OwnerAdvances = () => {
         }}
       >
         {viewingAdvance && (
-          <div className="p-4 max-w-md mx-auto">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              Advance Details
-            </h2>
+          <div className="max-w-2xl space-y-5 p-2">
+            <header className="rounded-2xl bg-slate-900 p-5 text-white">
+              <p className="text-xs font-semibold uppercase tracking-widest text-emerald-200">Employee advance record</p>
+              <h2 className="mt-1 text-2xl font-bold">UGX {Number(viewingAdvance.amount || 0).toLocaleString()}</h2>
+              <p className="mt-2 text-sm text-slate-300">{getEmployeeName(viewingAdvance.employee_id)} · {getBusinessDate(viewingAdvance)} at {getBusinessTime(viewingAdvance)}</p>
+            </header>
 
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm text-gray-500">Employee</p>
-
-                <p className="font-medium">
-                  {getEmployeeName(viewingAdvance.employee_id)}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-500">Amount</p>
-
-                <p className="font-medium">
-                  {Number(viewingAdvance.amount || 0).toLocaleString()}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-500">Business Date</p>
-
-                <p className="font-medium">{getBusinessDate(viewingAdvance)}</p>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-500">Business Time</p>
-
-                <p className="font-medium">{getBusinessTime(viewingAdvance)}</p>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-500">Entry Type</p>
-
-                <p className="font-medium">
-                  {isPastAdvance(viewingAdvance) ? "Past" : "Current"}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-500">Description</p>
-
-                <p className="font-medium">
-                  {viewingAdvance.description || "—"}
-                </p>
-              </div>
-
-              {isPastAdvance(viewingAdvance) && (
-                <div>
-                  <p className="text-sm text-gray-500">Backdate Reason</p>
-                  <p className="font-medium">{viewingAdvance.backdate_reason || "—"}</p>
-                </div>
-              )}
-
-              <div>
-                <p className="text-sm text-gray-500">Created At</p>
-
-                <p className="font-medium">
-                  {formatCreatedAt(viewingAdvance.created_at)}
-                </p>
-              </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <AdvanceDetail label="Employee" value={getEmployeeName(viewingAdvance.employee_id)} />
+              <AdvanceDetail label="Business record" value={isPastAdvance(viewingAdvance) ? "Historical entry" : "Current entry"} />
+              <AdvanceDetail label="Description" value={viewingAdvance.description || "—"} />
+              <AdvanceDetail label="Recorded in system" value={formatCreatedAt(viewingAdvance.created_at)} />
+              {isPastAdvance(viewingAdvance) && <AdvanceDetail label="Backdate reason" value={viewingAdvance.backdate_reason || "—"} />}
             </div>
+
+            {isFinanceWorkflowAdvance(viewingAdvance) ? (
+              <section className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-indigo-700">Finance workflow</p>
+                    <p className="mt-1 font-semibold text-indigo-950">{formatFinanceStatus(viewingAdvance) || "Recorded"}</p>
+                  </div>
+                  <p className="text-lg font-bold text-indigo-950">Outstanding: UGX {Number(viewingAdvance.finance_outstanding_amount || 0).toLocaleString()}</p>
+                </div>
+                <div className="mt-3 grid gap-2 text-sm text-indigo-900 sm:grid-cols-2">
+                  <p>Issued receipt: {viewingAdvance.finance_receipt_number || "Not issued"}</p>
+                  <p>Settled: UGX {Number(viewingAdvance.finance_settled_amount || 0).toLocaleString()}</p>
+                  <p>Disbursed: {formatCreatedAt(viewingAdvance.finance_disbursed_at)}</p>
+                  <p>Acknowledged: {formatCreatedAt(viewingAdvance.finance_acknowledged_at)}</p>
+                </div>
+                {viewingAdvance.settlement_receipt_numbers && <p className="mt-3 text-xs text-indigo-800">Settlement receipts: {viewingAdvance.settlement_receipt_numbers}</p>}
+                <Link to="/owner/finance?tab=advances" className="mt-4 inline-flex rounded-lg bg-indigo-700 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-800">Open settlement control</Link>
+              </section>
+            ) : (
+              <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                This is a direct historical advance record. It was not issued through the approval and settlement workflow.
+              </section>
+            )}
 
             <button
               type="button"
@@ -726,7 +733,7 @@ const OwnerAdvances = () => {
                 setViewModalOpen(false);
                 setViewingAdvance(null);
               }}
-              className="mt-6 w-full bg-gray-700 hover:bg-gray-800 text-white py-2 px-4 rounded"
+              className="w-full rounded-xl bg-gray-700 px-4 py-2 font-semibold text-white hover:bg-gray-800"
             >
               Close
             </button>
@@ -750,3 +757,7 @@ const OwnerAdvances = () => {
 };
 
 export default OwnerAdvances;
+
+function AdvanceDetail({ label, value }) {
+  return <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 text-sm font-medium text-slate-900">{value || "—"}</p></div>;
+}

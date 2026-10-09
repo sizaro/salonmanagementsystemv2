@@ -15,6 +15,7 @@ import AppointmentCta from "../../components/home/AppointmentCta.jsx";
 import VisitPreview from "../../components/home/VisitPreview.jsx";
 import QuoteInterlude from "../../components/home/QuoteInterlude.jsx";
 import UpcomingEvents from "../../components/home/UpcomingEvents.jsx";
+import ClientCampaigns from "../../components/home/ClientCampaigns.jsx";
 import SalonLifePreview from "../../components/home/SalonLifePreview.jsx";
 
 export default function HomePage() {
@@ -29,6 +30,7 @@ export default function HomePage() {
       <TransformationGallery />
       <TeamPreview />
       <SalonLifePreview />
+      <ClientCampaigns />
       <UpcomingEvents />
       <HygienePromise />
       <FamilyCare />

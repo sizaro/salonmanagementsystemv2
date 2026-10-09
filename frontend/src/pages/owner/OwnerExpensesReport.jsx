@@ -106,7 +106,6 @@ const OwnerExpensesReport = () => {
     console.log("handleDayChange called with value:", e.target.value);
     setSelectedDate(e.target.value);
     fetchDailyData(e.target.value);
-    fetchUsers();
   };
   
   const handleWeekChange = (e) => {
@@ -133,7 +132,6 @@ const OwnerExpensesReport = () => {
       `${monday.toLocaleDateString("en-US")} → ${sunday.toLocaleDateString("en-US")}`
     );
     fetchWeeklyData(monday, sunday);
-    fetchUsers();
   };
   
   const handleMonthChange = (e) => {
@@ -150,7 +148,6 @@ const OwnerExpensesReport = () => {
         })}`
       );
       fetchMonthlyData(year, month);
-      fetchUsers()
   };
   
   const handleYearChange = (e) => {

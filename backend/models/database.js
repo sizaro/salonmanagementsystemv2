@@ -1,25 +1,16 @@
 import { Pool } from "pg";
-import dotenv from "dotenv";
+import { isProduction, loadEnvironment } from "../config/environment.js";
 
-// load env file based on NODE_ENV
-const envFile =
-  process.env.NODE_ENV === "production"
-    ? ".env.production"
-    : ".env.development";
-
-dotenv.config({ path: envFile });
+loadEnvironment();
 
 let pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl:
-    process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: false }
-      : false,
+  ssl: isProduction() ? { rejectUnauthorized: false } : false,
 });
 
 pool.connect().catch((err) => console.error("❌ DB connection error:", err));
 
-console.log(`✅ Connected to PostgreSQL database (${process.env.NODE_ENV})`);
+console.log(`✅ PostgreSQL configuration loaded (${process.env.NODE_ENV})`);
 
 const db = {
   async query(text, params) {

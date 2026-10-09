@@ -31,7 +31,7 @@ router.get('/bookable-staff', requireRole('owner', 'manager', 'cashier', 'employ
 router.use(requireOpenSalon);
 
 // GET all users
-router.get('/', requireRole('owner', 'manager', 'cashier', 'employee'), getAllUsers);
+router.get('/', requireRole('owner', 'manager', 'cashier'), getAllUsers);
 
 // GET single user by ID
 router.get('/:id', requireRole('owner', 'manager', 'cashier', 'employee'), getUserById);
