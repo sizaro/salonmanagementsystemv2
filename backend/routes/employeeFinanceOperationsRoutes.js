@@ -11,6 +11,7 @@ import {
   postAdvanceDisbursement,
   postAdvanceRequest,
   postAdvanceSettlement,
+  postAdvanceSettlementAcknowledgement,
   postEmployeePayment,
   postPaymentAcknowledgement,
   postPaymentDecision,
@@ -26,6 +27,7 @@ router.post("/advance-requests/:id/decision", requireRole("owner", "manager"), p
 router.post("/advance-requests/:id/disburse", requireRole("owner", "manager", "cashier"), postAdvanceDisbursement);
 router.post("/advance-requests/:id/acknowledge", requireRole("employee", "manager", "cashier"), postAdvanceAcknowledgement);
 router.post("/advance-requests/:id/settlements", requireRole("owner", "manager"), postAdvanceSettlement);
+router.post("/advance-requests/:id/settlements/:settlementId/acknowledge", requireRole("employee", "manager", "cashier"), postAdvanceSettlementAcknowledgement);
 
 router.get("/payments", requireRole("owner", "manager", "cashier", "employee"), getEmployeePayments);
 router.post("/payments", requireRole("owner", "manager", "cashier"), postEmployeePayment);

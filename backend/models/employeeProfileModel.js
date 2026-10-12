@@ -109,11 +109,13 @@ const getAdvances = async ({ salonId, employeeId }) => {
          SELECT SUM(asl.amount)
          FROM employee_advance_settlements asl
          WHERE asl.salon_id = ar.salon_id AND asl.advance_request_id = ar.id
+           AND asl.workflow_status = 'EFFECTIVE'
        ), 0)::numeric AS settled_amount,
        GREATEST(ar.requested_amount - COALESCE((
          SELECT SUM(asl.amount)
          FROM employee_advance_settlements asl
          WHERE asl.salon_id = ar.salon_id AND asl.advance_request_id = ar.id
+           AND asl.workflow_status = 'EFFECTIVE'
        ), 0), 0)::numeric AS outstanding_amount
      FROM employee_advance_requests ar
      WHERE ar.salon_id = $1 AND ar.employee_id = $2
@@ -152,6 +154,7 @@ const getFinanceDetails = async ({ salonId, employeeId }) => {
                 asl.settled_at AS issued_at, NULL::timestamptz AS acknowledged_at
          FROM employee_advance_settlements asl
          WHERE asl.salon_id = $1 AND asl.employee_id = $2
+           AND asl.workflow_status = 'EFFECTIVE'
        ) receipts
        ORDER BY issued_at DESC, id DESC`,
       [salonId, employeeId],
@@ -194,6 +197,7 @@ const getActivity = async ({ salonId, employeeId }) => {
               'SETTLEMENT'::varchar, NULL::varchar
        FROM employee_advance_settlements asl
        WHERE asl.salon_id = $1 AND asl.employee_id = $2
+         AND asl.workflow_status = 'EFFECTIVE'
      ) activity
      ORDER BY occurred_at DESC, id DESC
      LIMIT 100`,

@@ -86,6 +86,7 @@ export const getEmployeeFinanceOverview = async ({
          WHERE asl.salon_id = $1
            AND asl.employee_id = $2
            AND asl.settlement_method = 'PAYROLL_DEDUCTION'
+           AND asl.workflow_status = 'EFFECTIVE'
            AND ($3::date IS NULL OR asl.settled_at::date >= $3::date)
            AND ($4::date IS NULL OR asl.settled_at::date <= $4::date)
        ), 0)::numeric AS payroll_deductions,
@@ -101,6 +102,7 @@ export const getEmployeeFinanceOverview = async ({
          FROM employee_advance_settlements asl
          WHERE asl.salon_id = $1
            AND asl.employee_id = $2
+           AND asl.workflow_status = 'EFFECTIVE'
        ), 0)::numeric AS advances_settled`,
     [salonId, employeeId, from, to],
   );
@@ -156,6 +158,7 @@ export const getSalonFinanceSummary = async ({ salonId }) => {
          FROM employee_advance_settlements asl
          WHERE asl.salon_id = $1
            AND asl.settlement_method = 'PAYROLL_DEDUCTION'
+           AND asl.workflow_status = 'EFFECTIVE'
        ), 0)::numeric AS payroll_deductions,
        COALESCE((
          SELECT COUNT(*)

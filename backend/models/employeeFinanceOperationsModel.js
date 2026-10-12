@@ -60,6 +60,7 @@ const transactionIdentity = async ({ salonId, sourceType, sourceId }) => {
   const amountColumn = "requested_amount";
   const { rows } = await db.query(
     `SELECT t.id, t.employee_id, t.${amountColumn} AS amount,
+            u.role AS employee_role,
             TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS employee_name
      FROM ${table} t
      JOIN users u ON u.id = t.employee_id AND u.salon_id = t.salon_id
@@ -118,6 +119,7 @@ const paymentAvailability = async (client, { salonId, employeeId, periodId }) =>
           WHERE asl.salon_id = $1
             AND asl.employee_id = $2
             AND asl.settlement_method = 'PAYROLL_DEDUCTION'
+            AND asl.workflow_status = 'EFFECTIVE'
         ), 0)::numeric AS payroll_deductions,
        COALESCE((
          SELECT SUM(GREATEST(
@@ -126,6 +128,7 @@ const paymentAvailability = async (client, { salonId, employeeId, periodId }) =>
              FROM employee_advance_settlements asl
              WHERE asl.salon_id = ar.salon_id
                AND asl.advance_request_id = ar.id
+               AND asl.workflow_status = 'EFFECTIVE'
            ), 0),
            0
          ))
@@ -160,6 +163,9 @@ const mapAdvanceRequest = (row) => ({
   requested_amount: Number(row.requested_amount || 0),
   settled_amount: Number(row.settled_amount || 0),
   outstanding_amount: Number(row.outstanding_amount || 0),
+  pending_payroll_deductions: Array.isArray(row.pending_payroll_deductions)
+    ? row.pending_payroll_deductions.map((item) => ({ ...item, amount: Number(item.amount || 0) }))
+    : [],
 });
 
 const mapPayment = (row) => ({
@@ -178,13 +184,29 @@ const listBase = `
       FROM employee_advance_settlements asl
       WHERE asl.advance_request_id = ar.id
         AND asl.salon_id = ar.salon_id
+        AND asl.workflow_status = 'EFFECTIVE'
     ), 0)::numeric AS settled_amount,
     GREATEST(ar.requested_amount - COALESCE((
       SELECT SUM(asl.amount)
       FROM employee_advance_settlements asl
       WHERE asl.advance_request_id = ar.id
         AND asl.salon_id = ar.salon_id
+        AND asl.workflow_status = 'EFFECTIVE'
     ), 0), 0)::numeric AS outstanding_amount
+    , COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', pending.id,
+        'amount', pending.amount,
+        'notes', pending.notes,
+        'receipt_number', pending.receipt_number,
+        'created_at', pending.created_at
+      ) ORDER BY pending.created_at ASC)
+      FROM employee_advance_settlements pending
+      WHERE pending.advance_request_id = ar.id
+        AND pending.salon_id = ar.salon_id
+        AND pending.settlement_method = 'PAYROLL_DEDUCTION'
+        AND pending.workflow_status = 'PENDING_EMPLOYEE_CONSENT'
+    ), '[]'::jsonb) AS pending_payroll_deductions
   FROM employee_advance_requests ar
   JOIN users employee ON employee.id = ar.employee_id AND employee.salon_id = ar.salon_id
   JOIN users requester ON requester.id = ar.requested_by AND requester.salon_id = ar.salon_id
@@ -248,6 +270,13 @@ export const decideAdvanceRequest = async ({
     throw financeError("A rejection reason is required");
   }
   const identity = await transactionIdentity({ salonId, sourceType: "ADVANCE", sourceId: requestId });
+  if (Number(identity.employee_id) === Number(actorId)) {
+    throw financeError("You cannot approve your own advance request", 403);
+  }
+  if (String(identity.employee_role || "").toLowerCase() === "manager"
+    && String(actorRole || "").toLowerCase() !== "owner") {
+    throw financeError("A manager's advance request must be approved by the owner", 403);
+  }
   const signature = approved ? await prepareSignature(signatureDataUrl) : null;
   const nextStatus = approved ? "APPROVED" : "REJECTED";
   return db.transaction(async (client) => {
@@ -415,7 +444,8 @@ export const settleAdvanceRequest = async ({
     const { rows: settledRows } = await client.query(
       `SELECT COALESCE(SUM(amount), 0)::numeric AS settled_amount
        FROM employee_advance_settlements
-       WHERE advance_request_id = $1 AND salon_id = $2`,
+       WHERE advance_request_id = $1 AND salon_id = $2
+         AND workflow_status = 'EFFECTIVE'`,
       [requestId, salonId],
     );
     const outstanding = Math.max(
@@ -426,23 +456,12 @@ export const settleAdvanceRequest = async ({
       throw financeError(`Settlement exceeds the outstanding advance of ${outstanding.toLocaleString()} UGX`);
     }
 
-    if (method === "PAYROLL_DEDUCTION") {
-      const availability = await paymentAvailability(client, {
-        salonId,
-        employeeId: advance.employee_id,
-        periodId: null,
-      });
-      if (requestedAmount > availability.available) {
-        throw financeError(`Deduction exceeds available earnings of ${availability.available.toLocaleString()} UGX`);
-      }
-    }
-
     const receipt = receiptNumber("ADVSET");
     const { rows } = await client.query(
       `INSERT INTO employee_advance_settlements (
          salon_id, advance_request_id, employee_id, amount,
-         settlement_method, notes, receipt_number, settled_by
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         settlement_method, notes, receipt_number, settled_by, workflow_status
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         salonId,
@@ -453,8 +472,96 @@ export const settleAdvanceRequest = async ({
         String(notes || "").trim() || null,
         receipt,
         actorId,
+        method === "PAYROLL_DEDUCTION" ? "PENDING_EMPLOYEE_CONSENT" : "EFFECTIVE",
       ],
     );
+    return {
+      ...rows[0],
+      amount: Number(rows[0].amount || 0),
+      requires_employee_consent: method === "PAYROLL_DEDUCTION",
+    };
+  });
+};
+
+export const acknowledgeAdvanceSettlement = async ({
+  salonId,
+  actorId,
+  requestId,
+  settlementId,
+  signatureDataUrl,
+}) => {
+  const signature = await prepareSignature(signatureDataUrl);
+  return db.transaction(async (client) => {
+    const { rows: settlementRows } = await client.query(
+      `SELECT asl.*, ar.workflow_status AS advance_workflow_status,
+              TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS employee_name
+       FROM employee_advance_settlements asl
+       JOIN employee_advance_requests ar
+         ON ar.id = asl.advance_request_id AND ar.salon_id = asl.salon_id
+       JOIN users u ON u.id = asl.employee_id AND u.salon_id = asl.salon_id
+       WHERE asl.id = $1
+         AND asl.advance_request_id = $2
+         AND asl.salon_id = $3
+       FOR UPDATE`,
+      [settlementId, requestId, salonId],
+    );
+    const settlement = settlementRows[0];
+    if (!settlement || Number(settlement.employee_id) !== Number(actorId)) {
+      throw financeError("Only the receiving employee may consent to this payroll deduction", 403);
+    }
+    if (settlement.settlement_method !== "PAYROLL_DEDUCTION"
+      || settlement.workflow_status !== "PENDING_EMPLOYEE_CONSENT") {
+      throw financeError("This payroll deduction is unavailable for employee consent", 409);
+    }
+    if (!["DISBURSED", "ACKNOWLEDGED"].includes(settlement.advance_workflow_status)) {
+      throw financeError("The linked advance is unavailable for settlement", 409);
+    }
+
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+      `employee-payroll-deduction:${salonId}:${settlement.employee_id}`,
+    ]);
+
+    const availability = await paymentAvailability(client, {
+      salonId,
+      employeeId: settlement.employee_id,
+      periodId: null,
+    });
+    if (Number(settlement.amount) > availability.available) {
+      throw financeError(`Deduction exceeds available earnings of ${availability.available.toLocaleString()} UGX`);
+    }
+
+    const { rows: outstandingRows } = await client.query(
+      `SELECT GREATEST(ar.requested_amount - COALESCE(SUM(effective.amount), 0), 0)::numeric AS outstanding_amount
+       FROM employee_advance_requests ar
+       LEFT JOIN employee_advance_settlements effective
+         ON effective.advance_request_id = ar.id
+        AND effective.salon_id = ar.salon_id
+        AND effective.workflow_status = 'EFFECTIVE'
+       WHERE ar.id = $1 AND ar.salon_id = $2
+       GROUP BY ar.requested_amount`,
+      [requestId, salonId],
+    );
+    const outstanding = Number(outstandingRows[0]?.outstanding_amount || 0);
+    if (Number(settlement.amount) > outstanding) {
+      throw financeError(`Deduction exceeds the outstanding advance of ${outstanding.toLocaleString()} UGX`);
+    }
+
+    const declaration = `I agree that UGX ${Number(settlement.amount).toLocaleString("en-UG")} will be deducted from my earned salary to settle advance ${settlement.receipt_number}.`;
+    const { rows } = await client.query(
+      `UPDATE employee_advance_settlements
+       SET workflow_status = 'EFFECTIVE',
+           employee_consented_by = $1,
+           employee_consented_at = NOW(),
+           employee_consent_signature_url = $2,
+           employee_consent_signature_hash = $3,
+           employee_consent_declaration = $4
+       WHERE id = $5
+         AND salon_id = $6
+         AND workflow_status = 'PENDING_EMPLOYEE_CONSENT'
+       RETURNING *`,
+      [actorId, signature.signatureUrl, signature.signatureHash, declaration, settlementId, salonId],
+    );
+    if (!rows[0]) throw financeError("This payroll deduction was already processed", 409);
     return { ...rows[0], amount: Number(rows[0].amount || 0) };
   });
 };
@@ -556,6 +663,9 @@ export const decideEmployeePayment = async ({
     throw financeError("A rejection reason is required");
   }
   const identity = await transactionIdentity({ salonId, sourceType: "PAYMENT", sourceId: paymentId });
+  if (Number(identity.employee_id) === Number(actorId)) {
+    throw financeError("You cannot approve your own payment request", 403);
+  }
   const signature = approved ? await prepareSignature(signatureDataUrl) : null;
   return db.transaction(async (client) => {
     const { rows } = await client.query(
@@ -817,6 +927,7 @@ export const getEmployeeFinanceReceipts = async ({ salonId, actorId, actorRole }
        FROM employee_advance_settlements asl
        JOIN users u ON u.id = asl.employee_id AND u.salon_id = asl.salon_id
        WHERE asl.salon_id = $1
+         AND asl.workflow_status = 'EFFECTIVE'
          AND ($2::boolean = TRUE OR asl.employee_id = $3)
      ) receipts
      ORDER BY issued_at DESC, id DESC`,

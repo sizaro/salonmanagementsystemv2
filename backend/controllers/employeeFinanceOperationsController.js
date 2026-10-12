@@ -7,6 +7,7 @@ import {
   decideEmployeePayment,
   disburseAdvanceRequest,
   disburseEmployeePayment,
+  acknowledgeAdvanceSettlement,
   getEmployeeFinanceReceipts,
   getEmployeeFinanceReceiptDetail,
   getEmployeeFinanceReceiptSignature,
@@ -78,6 +79,19 @@ export const postAdvanceSettlement = async (req, res) => {
       notes: req.body?.notes,
     });
     res.status(201).json({ settlement });
+  } catch (error) { respond(res, error); }
+};
+
+export const postAdvanceSettlementAcknowledgement = async (req, res) => {
+  try {
+    const settlement = await acknowledgeAdvanceSettlement({
+      salonId: req.salon_id,
+      actorId: req.user.id,
+      requestId: Number(req.params.id),
+      settlementId: Number(req.params.settlementId),
+      signatureDataUrl: req.body?.signature_data_url,
+    });
+    res.json({ settlement });
   } catch (error) { respond(res, error); }
 };
 

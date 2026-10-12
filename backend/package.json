@@ -14,6 +14,7 @@
     "db:employee-advance-settlements": "node scripts/applyEmployeeAdvanceSettlements.js",
     "db:employee-profile-audit": "node scripts/applyEmployeeProfileAudit.js",
     "db:employee-finance-signed-receipts": "node scripts/applyEmployeeFinanceSignedReceipts.js",
+    "db:employee-payroll-deduction-consent": "node scripts/applyEmployeePayrollDeductionConsent.js",
     "db:owner-intelligence": "node scripts/applyOwnerIntelligence.js"
   },
   "author": "",
