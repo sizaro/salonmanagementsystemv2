@@ -7,6 +7,7 @@ import ExpenseForm from "../../components/ExpenseForm";
 import AdvanceForm from "../../components/AdvanceForm";
 import ClockForm from "../../components/ClockForm";
 import CancelReasonForm from "../../components/CancelReasonForm.jsx";
+import ServiceDefinitionsTable from "../../components/workspace/ServiceDefinitionsTable.jsx";
 import useSalonSessionTimer from "../../hooks/useSalonSessionTimer";
 
 import { useData } from "../../context/DataContext.jsx";
@@ -776,41 +777,6 @@ export default function CashierDashboard() {
   };
 
   // ======================================================
-  // SERVICE DEFINITION HELPERS
-  // ======================================================
-
-  const getRolesFromDef = (definition) =>
-    definition.roles || definition.service_roles || definition.role_list || [];
-
-  const getMaterialsFromDef = (definition) =>
-    definition.materials ||
-    definition.service_materials ||
-    definition.material_list ||
-    [];
-
-  const sumRolesAmount = (roles) =>
-    Array.isArray(roles)
-      ? roles.reduce(
-          (sum, role) =>
-            sum +
-            (parseFloat(
-              role.amount || role.role_amount || role.earned_amount || 0,
-            ) || 0),
-          0,
-        )
-      : 0;
-
-  const sumMaterialsCost = (materials) =>
-    Array.isArray(materials)
-      ? materials.reduce(
-          (sum, material) =>
-            sum +
-            (parseFloat(material.cost || material.material_cost || 0) || 0),
-          0,
-        )
-      : 0;
-
-  // ======================================================
   // CURRENT TAB
   // ======================================================
 
@@ -1432,193 +1398,12 @@ export default function CashierDashboard() {
           SERVICE DEFINITIONS — READ ONLY
       ================================================== */}
 
-      <section className="dashboard-panel">
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold text-stone-900">
-            Service Definitions
-          </h3>
-
-          <p className="mt-1 text-sm text-stone-600">
-            Reference prices, employee roles and service requirements. Setup
-            changes are managed by the owner or manager.
-          </p>
-        </div>
-
-        <div className="dashboard-table-wrap">
-          <table className="dashboard-table">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border px-4 py-2 text-left">Name</th>
-
-                <th className="border px-4 py-2 text-left">Image</th>
-
-                <th className="border px-4 py-2 text-left">Section</th>
-
-                <th className="border px-4 py-2 text-left">Roles</th>
-
-                <th className="border px-4 py-2 text-left">Other Services</th>
-
-                <th className="border px-4 py-2 text-left">
-                  Employees Total Amount
-                </th>
-
-                <th className="border px-4 py-2 text-left">
-                  Other Services Total Costs
-                </th>
-
-                <th className="border px-4 py-2 text-left">Salon Amount</th>
-
-                <th className="border px-4 py-2 text-left">Full Amount</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {serviceDefinitions.length > 0 ? (
-                serviceDefinitions.map((service) => {
-                  const roles = getRolesFromDef(service);
-
-                  const materials = getMaterialsFromDef(service);
-
-                  const totalRoles = sumRolesAmount(roles);
-
-                  const totalMaterials = sumMaterialsCost(materials);
-
-                  const displayName =
-                    service.name ||
-                    service.service_name ||
-                    service.serviceName ||
-                    "N/A";
-
-                  const displayImage = service.image_url
-                    ? `${staticBaseUrl}${service.image_url}`
-                    : null;
-
-                  const displaySalon =
-                    service.salon_amount ??
-                    service.salonAmount ??
-                    service.salon ??
-                    "0";
-
-                  const displayFull =
-                    service.full_amount ??
-                    service.service_amount ??
-                    service.price ??
-                    "0";
-
-                  const section = sections.find(
-                    (entry) => Number(entry.id) === Number(service.section_id),
-                  );
-
-                  const sectionName =
-                    section?.section_name ||
-                    section?.name ||
-                    service.section_name ||
-                    "N/A";
-
-                  return (
-                    <tr key={service.id}>
-                      <td className="border px-4 py-2 align-top">
-                        {displayName}
-                      </td>
-
-                      <td className="border px-4 py-2 align-top">
-                        {displayImage ? (
-                          <img
-                            src={displayImage}
-                            alt={displayName}
-                            className="h-14 w-14 rounded-lg object-cover"
-                          />
-                        ) : (
-                          <span className="text-sm text-stone-400">
-                            No image
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="border px-4 py-2 align-top">
-                        {sectionName}
-                      </td>
-
-                      <td className="border px-4 py-2 align-top">
-                        {roles.length > 0 ? (
-                          <ul className="ml-4 list-disc">
-                            {roles.map((role, index) => (
-                              <li key={index}>
-                                {role.role_name ||
-                                  role.role ||
-                                  role.name ||
-                                  "role"}
-                                :{" "}
-                                <span className="font-semibold">
-                                  {(
-                                    role.role_amount ||
-                                    role.amount ||
-                                    role.earned_amount ||
-                                    0
-                                  ).toString()}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <span className="text-gray-500">None</span>
-                        )}
-                      </td>
-
-                      <td className="border px-4 py-2 align-top">
-                        {materials.length > 0 ? (
-                          <ul className="ml-4 list-disc">
-                            {materials.map((material, index) => (
-                              <li key={index}>
-                                {material.material_name ||
-                                  material.name ||
-                                  "material"}
-                                :{" "}
-                                <span className="font-semibold">
-                                  {(
-                                    material.material_cost ||
-                                    material.cost ||
-                                    0
-                                  ).toString()}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <span className="text-gray-500">None</span>
-                        )}
-                      </td>
-
-                      <td className="border px-4 py-2 align-top font-semibold">
-                        {totalRoles}
-                      </td>
-
-                      <td className="border px-4 py-2 align-top font-semibold">
-                        {totalMaterials}
-                      </td>
-
-                      <td className="border px-4 py-2 align-top font-semibold">
-                        {displaySalon}
-                      </td>
-
-                      <td className="border px-4 py-2 align-top font-semibold">
-                        {displayFull}
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td className="border px-4 py-4" colSpan={9}>
-                    No service definitions available
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
+      <ServiceDefinitionsTable
+        services={serviceDefinitions}
+        sections={sections}
+        staticBaseUrl={staticBaseUrl}
+        readOnly
+      />
       {/* ==================================================
           MAIN MODAL
       ================================================== */}

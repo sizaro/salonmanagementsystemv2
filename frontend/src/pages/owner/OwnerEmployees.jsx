@@ -4,11 +4,7 @@ import UserForm from "../../components/UserForm.jsx";
 import ConfirmModal from "../../components/ConfirmModal.jsx";
 import Modal from "../../components/Modal.jsx";
 import { useNavigate } from "react-router-dom";
-
-const displayValue = (value) => {
-  const normalized = String(value ?? "").trim();
-  return !normalized || normalized.toLowerCase() === "null" ? "—" : value;
-};
+import EmployeeDirectoryTable from "../../components/workspace/EmployeeDirectoryTable.jsx";
 
 const OwnerEmployees = () => {
   const {
@@ -34,6 +30,9 @@ const OwnerEmployees = () => {
 
   useEffect(() => {
     fetchUsers();
+    // DataContext recreates this function when shared data changes.
+    // Load the directory when this page mounts rather than on every refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAdd = () => {
@@ -79,88 +78,21 @@ const OwnerEmployees = () => {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="md:text-3xl text-3xsm font-bold text-gray-800">
-          Employees
-        </h1>
+    <div className="workspace-page">
+      <header className="workspace-page-header">
+        <div>
+          <p className="workspace-section-kicker">Team management</p>
+          <h1>Employees</h1>
+          <p>View employee details, update permitted records, and keep the salon team organised.</p>
+        </div>
         <button
           onClick={handleAdd}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded-md shadow md:text-sm md:px-4 md:py-2"
+          className="workspace-primary-action"
         >
           Add Employee
         </button>
-      </div>
-
-      <div className="overflow-x-auto bg-white shadow rounded-lg">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                First Name
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Middle Name
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Last Name
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Email
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Role
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Phone
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Next of Kin
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Next of Kin Phone
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {employees.map((emp) => (
-              <tr key={emp.id} className="hover:bg-gray-50">
-                <td className="px-4 py-2">{displayValue(emp.first_name)}</td>
-                <td className="px-4 py-2">{displayValue(emp.middle_name)}</td>
-                <td className="px-4 py-2">{displayValue(emp.last_name)}</td>
-                <td className="px-4 py-2">{displayValue(emp.email)}</td>
-                <td className="px-4 py-2">{displayValue(emp.role)}</td>
-                <td className="px-4 py-2">{displayValue(emp.contact)}</td>
-                <td className="px-4 py-2">{displayValue(emp.next_of_kin)}</td>
-                <td className="px-4 py-2">{displayValue(emp.next_of_kin_contact)}</td>
-                <td className="px-4 py-2 flex gap-2">
-                  <button
-                    onClick={() => navigate(`/owner/employees/${emp.id}`)}
-                    className="bg-slate-700 hover:bg-slate-800 text-white px-3 py-1 rounded-md text-sm"
-                  >
-                    View
-                  </button>
-                  <button
-                    onClick={() => handleEdit(emp.id)}
-                    className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded-md text-sm"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(emp.id)}
-                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      </header>
+      <EmployeeDirectoryTable employees={employees} onView={(id) => navigate(`/owner/employees/${id}`)} onEdit={handleEdit} onDelete={handleDelete} allowManage />
 
       {/* Add / Edit Modal */}
 

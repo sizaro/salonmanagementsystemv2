@@ -1,23 +1,12 @@
-import React, { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useData } from "../../context/DataContext.jsx";
-import UserForm from "../../components/UserForm.jsx";
-import ConfirmModal from "../../components/ConfirmModal.jsx";
-import Modal from "../../components/Modal.jsx";
 import { useNavigate } from "react-router-dom";
-
-const displayValue = (value) => {
-  const normalized = String(value ?? "").trim();
-  return !normalized || normalized.toLowerCase() === "null" ? "—" : value;
-};
+import EmployeeDirectoryTable from "../../components/workspace/EmployeeDirectoryTable.jsx";
 
 const ManagerEmployees = () => {
   const {
     users = [],
     fetchUsers,
-    fetchUserById,
-    createUser,
-    updateUser,
-    deleteUser,
   } = useData();
   const navigate = useNavigate();
 
@@ -25,161 +14,20 @@ const ManagerEmployees = () => {
     (user) =>user.role !== "customer"
   );
 
-  const [showModal, setShowModal] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
-  const [addingUser, setAddingUser] = useState(null);
-  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState(null);
-
   useEffect(() => {
     fetchUsers();
+    // DataContext recreates this function when shared data changes.
+    // Load the directory when this page mounts rather than on every refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleAdd = () => {
-     setAddingUser("employee")
-     setShowModal(true);
-    
-  };
-
-  const handleEdit = async (userId) => {
-    const user = await fetchUserById(userId);
-    setEditingUser(user);
-    setShowModal(true);
-  };
-
-  const handleDelete = (userId) => {
-    console.log("Trying to delete user:", userId);
-    setUserToDelete(userId);
-    setConfirmModalOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (userToDelete) {
-      await deleteUser(userToDelete);
-      await fetchUsers();
-      setConfirmModalOpen(false);
-      setUserToDelete(null);
-    }
-  };
-
-  const handleModalSubmit = async (userData) => {
-    await createUser(userData);
-    setShowModal(false);
-    setAddingUser(null);
-    await fetchUsers();
-  };
-
-
-  const handleModalEdit = async ( id, userData) => {
-    await updateUser(id, userData);
-    setShowModal(false);
-    setEditingUser(null);
-    await fetchUsers();
-  };
-
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="md:text-3xl text-3xsm font-bold text-gray-800">
-          Employees
-        </h1>
-      </div>
+    <div className="workspace-page">
+      <header className="workspace-page-header">
+        <div><p className="workspace-section-kicker">Team management</p><h1>Employees</h1><p>Browse the team and open the profile for the permitted work history and finance details.</p></div>
+      </header>
+      <EmployeeDirectoryTable employees={employees} onView={(id) => navigate(`/manager/employees/${id}`)} />
 
-      <div className="overflow-x-auto bg-white shadow rounded-lg">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                First Name
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Middle Name
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Last Name
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Email
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Role
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Phone
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Next of Kin
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Next of Kin Phone
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {employees.map((emp) => (
-              <tr key={emp.id} className="hover:bg-gray-50">
-                <td className="px-4 py-2">{displayValue(emp.first_name)}</td>
-                <td className="px-4 py-2">{displayValue(emp.middle_name)}</td>
-                <td className="px-4 py-2">{displayValue(emp.last_name)}</td>
-                <td className="px-4 py-2">{displayValue(emp.email)}</td>
-                <td className="px-4 py-2">{displayValue(emp.role)}</td>
-                <td className="px-4 py-2">{displayValue(emp.contact)}</td>
-                <td className="px-4 py-2">{displayValue(emp.next_of_kin)}</td>
-                <td className="px-4 py-2">{displayValue(emp.next_of_kin_contact)}</td>
-                <td className="px-4 py-2">
-                  <button onClick={() => navigate(`/manager/employees/${emp.id}`)} className="rounded-md bg-slate-700 px-3 py-1 text-sm text-white hover:bg-slate-800">View</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Add / Edit Modal */}
-
-      <Modal
-        isOpen={showModal}
-        onClose={() => {
-          setShowModal(false);
-          setEditingUser(null);
-        }}
-      >
-        {(editingUser) && (
-          <UserForm
-            role="employee"
-            user={editingUser}
-            onSubmit={handleModalEdit}
-            onClose={() => {
-              setShowModal(false);
-              setEditingUser(null);
-            }}
-          />
-        )}
-
-        {(addingUser) && (
-          <UserForm
-            role="employee"
-            user={null}
-            onSubmit={handleModalSubmit}
-            onClose={() => {
-              setShowModal(false);
-              setAddingUser(null);
-            }}
-          />
-        )}
-
-
-      </Modal>
-
-      {/* Confirm Delete Modal */}
-      <ConfirmModal
-        isOpen={confirmModalOpen}
-        confirmMessage="yes"
-        message="Are you sure you want to delete this employee?"
-        onConfirm={confirmDelete}
-        onClose={() => setConfirmModalOpen(false)}
-      />
     </div>
   );
 };

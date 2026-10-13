@@ -689,7 +689,7 @@ const OwnerAdvances = () => {
       >
         {viewingAdvance && (
           <div className="max-w-2xl space-y-5 p-2">
-            <header className="rounded-2xl bg-slate-900 p-5 text-white">
+            <header className="rounded-2xl bg-gradient-to-br from-[var(--salehish-plum)] to-[var(--salehish-magenta)] p-5 text-white">
               <p className="text-xs font-semibold uppercase tracking-widest text-emerald-200">Employee advance record</p>
               <h2 className="mt-1 text-2xl font-bold">UGX {Number(viewingAdvance.amount || 0).toLocaleString()}</h2>
               <p className="mt-2 text-sm text-slate-300">{getEmployeeName(viewingAdvance.employee_id)} · {getBusinessDate(viewingAdvance)} at {getBusinessTime(viewingAdvance)}</p>
