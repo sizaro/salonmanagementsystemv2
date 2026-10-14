@@ -20,6 +20,22 @@ const normalizePeriodType = (value) => {
   return periodType;
 };
 
+// This is intentionally a small, finance-specific directory. Cashiers need
+// enough information to prepare an advance or payment, but never the private
+// employee fields returned by the general user-management directory.
+export const listFinanceEmployees = async ({ salonId }) => {
+  const { rows } = await db.query(
+    `SELECT id, first_name, last_name, role
+     FROM users
+     WHERE salon_id = $1
+       AND LOWER(COALESCE(role, '')) IN ('employee', 'manager', 'cashier')
+       AND LOWER(COALESCE(status, 'active')) = 'active'
+     ORDER BY first_name ASC, last_name ASC, id ASC`,
+    [salonId],
+  );
+  return rows;
+};
+
 export const getEmployeeFinanceOverview = async ({
   salonId,
   employeeId,

@@ -32,6 +32,7 @@ export default function EmployeeFinanceWorkspace() {
     return `/owner/employees/${employeeId}`;
   };
   const [overview, setOverview] = useState(null);
+  const [financeEmployees, setFinanceEmployees] = useState([]);
   const [requests, setRequests] = useState([]);
   const [payments, setPayments] = useState([]);
   const [receipts, setReceipts] = useState([]);
@@ -53,8 +54,10 @@ export default function EmployeeFinanceWorkspace() {
   const [selectedReceiptId, setSelectedReceiptId] = useState(null);
 
   const employees = useMemo(
-    () => (users || []).filter((person) => ["employee", "manager", "cashier"].includes(String(person.role || "").toLowerCase())),
-    [users],
+    () => isStaff
+      ? financeEmployees
+      : (users || []).filter((person) => ["employee", "manager", "cashier"].includes(String(person.role || "").toLowerCase())),
+    [financeEmployees, isStaff, users],
   );
 
   const load = useCallback(async () => {
@@ -63,7 +66,7 @@ export default function EmployeeFinanceWorkspace() {
     else setRefreshing(true);
     setError("");
     try {
-      const [overviewResponse, requestsResponse, paymentsResponse, receiptsResponse] = await Promise.all([
+      const [overviewResponse, requestsResponse, paymentsResponse, receiptsResponse, employeesResponse] = await Promise.all([
         axios.get(
           isStaff
             ? `${API_URL}/employee-finance/summary`
@@ -73,11 +76,15 @@ export default function EmployeeFinanceWorkspace() {
         axios.get(`${API_URL}/employee-finance/advance-requests`, { withCredentials: true }),
         axios.get(`${API_URL}/employee-finance/payments`, { withCredentials: true }),
         axios.get(`${API_URL}/employee-finance/receipts`, { withCredentials: true }),
+        isStaff
+          ? axios.get(`${API_URL}/employee-finance/employees`, { withCredentials: true })
+          : Promise.resolve({ data: { employees: [] } }),
       ]);
       setOverview(overviewResponse.data.summary || overviewResponse.data.overview || null);
       setRequests(requestsResponse.data.requests || []);
       setPayments(paymentsResponse.data.payments || []);
       setReceipts(receiptsResponse.data.receipts || []);
+      setFinanceEmployees(employeesResponse.data.employees || []);
     } catch (requestError) {
       setError(requestError.response?.data?.error || "Unable to load employee finance information.");
     } finally {

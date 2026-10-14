@@ -2,6 +2,7 @@ import express from "express";
 import { requireRole } from "../middleware/auth.js";
 import {
   getEmployeeFinanceOverviewById,
+  getEmployeeFinanceEmployees,
   getEmployeeFinancePeriods,
   getMyEmployeeFinanceOverview,
   getSalonFinanceSummaryController,
@@ -19,6 +20,11 @@ router.get(
   "/me/overview",
   requireRole("owner", "manager", "cashier", "employee"),
   getMyEmployeeFinanceOverview,
+);
+router.get(
+  "/employees",
+  requireRole("owner", "manager", "cashier"),
+  getEmployeeFinanceEmployees,
 );
 router.get(
   "/employees/:employeeId/overview",

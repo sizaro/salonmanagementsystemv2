@@ -5,6 +5,7 @@ import { createEmployeeFinanceReceiptPdf, receiptDocumentHash } from "../utils/e
 
 const STAFF_ROLES = new Set(["owner", "manager", "cashier"]);
 const REVIEWER_ROLES = new Set(["owner", "manager"]);
+const FINANCE_EMPLOYEE_ROLES = new Set(["employee", "manager", "cashier"]);
 const PAYMENT_METHODS = new Set([
   "CASH",
   "MOBILE_MONEY",
@@ -236,11 +237,14 @@ export const createAdvanceRequest = async ({
      )
      SELECT $1, u.id, $3, $4, $5
      FROM users u
-     WHERE u.id = $2 AND u.salon_id = $1
+     WHERE u.id = $2
+       AND u.salon_id = $1
+       AND LOWER(COALESCE(u.role, '')) = ANY($6::text[])
+       AND LOWER(COALESCE(u.status, 'active')) = 'active'
      RETURNING *`,
-    [salonId, targetEmployeeId, requestedAmount, String(reason || "").trim() || null, actorId],
+    [salonId, targetEmployeeId, requestedAmount, String(reason || "").trim() || null, actorId, [...FINANCE_EMPLOYEE_ROLES]],
   );
-  if (!rows[0]) throw financeError("Employee was not found in this salon", 404);
+  if (!rows[0]) throw financeError("Choose an active employee, manager, or cashier in this salon", 404);
   return mapAdvanceRequest(rows[0]);
 };
 
@@ -602,10 +606,16 @@ export const createEmployeePayment = async ({
 
   return db.transaction(async (client) => {
     const { rows: employeeRows } = await client.query(
-      `SELECT id FROM users WHERE id = $1 AND salon_id = $2 FOR KEY SHARE`,
-      [targetEmployeeId, salonId],
+      `SELECT id
+       FROM users
+       WHERE id = $1
+         AND salon_id = $2
+         AND LOWER(COALESCE(role, '')) = ANY($3::text[])
+         AND LOWER(COALESCE(status, 'active')) = 'active'
+       FOR KEY SHARE`,
+      [targetEmployeeId, salonId, [...FINANCE_EMPLOYEE_ROLES]],
     );
-    if (!employeeRows[0]) throw financeError("Employee was not found in this salon", 404);
+    if (!employeeRows[0]) throw financeError("Choose an active employee, manager, or cashier in this salon", 404);
     const availability = await paymentAvailability(client, {
       salonId,
       employeeId: targetEmployeeId,

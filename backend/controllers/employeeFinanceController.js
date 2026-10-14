@@ -2,6 +2,7 @@ import {
   createEmployeeFinancePeriod,
   getEmployeeFinanceOverview,
   getSalonFinanceSummary,
+  listFinanceEmployees,
   listEmployeeFinancePeriods,
 } from "../models/employeeFinanceModel.js";
 
@@ -49,6 +50,15 @@ export const getEmployeeFinanceOverviewById = async (req, res) => {
       endDate: req.query.end_date,
     });
     res.json({ overview });
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const getEmployeeFinanceEmployees = async (req, res) => {
+  try {
+    const employees = await listFinanceEmployees({ salonId: req.salon_id });
+    res.json({ employees });
   } catch (error) {
     sendError(res, error);
   }
