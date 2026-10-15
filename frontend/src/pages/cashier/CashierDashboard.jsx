@@ -198,12 +198,7 @@ export default function CashierDashboard() {
         .trim()
         .toLowerCase();
 
-      return (
-        ["employee", "manager"].includes(role) &&
-        status !== "inactive" &&
-        String(user.specialty || "").trim() !== "" &&
-        String(user.specialty || "").trim() !== "-"
-      );
+      return ["employee", "manager", "cashier"].includes(role) && status !== "inactive";
     });
 
     const currentUserRole = String(user?.role || "")

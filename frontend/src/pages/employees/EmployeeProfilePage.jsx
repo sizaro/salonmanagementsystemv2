@@ -106,7 +106,7 @@ export default function EmployeeProfilePage({ self = false }) {
   const documentLink = (kind) => `${API_URL}/employee-profiles/${employee.id}/documents/${kind}`;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+    <div className="employee-profile-workspace mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
       <Link to={backTo} className="inline-flex text-sm font-semibold text-slate-600 hover:text-slate-950">← Back to employees</Link>
 
       <section className="overflow-hidden rounded-3xl bg-slate-900 text-white shadow-xl">

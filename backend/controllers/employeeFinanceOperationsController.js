@@ -31,6 +31,20 @@ const actor = (req) => ({
   actorRole: req.user.role,
 });
 
+const emitFinanceChange = (req, action, record) => {
+  const io = req.app.get("io") || global.io;
+  if (!io || !req.salon_id) return;
+
+  // Do not broadcast financial amounts or employee details. Clients refresh
+  // the records through their existing role-protected endpoints.
+  io.to(`salon:${req.salon_id}`).emit("employee-finance:changed", {
+    action,
+    recordId: record?.id || null,
+    workflowStatus: record?.workflow_status || null,
+    occurredAt: new Date().toISOString(),
+  });
+};
+
 export const postAdvanceRequest = async (req, res) => {
   try {
     const request = await createAdvanceRequest({
@@ -39,6 +53,7 @@ export const postAdvanceRequest = async (req, res) => {
       amount: req.body?.amount,
       reason: req.body?.reason,
     });
+    emitFinanceChange(req, "advance-requested", request);
     res.status(201).json({ request });
   } catch (error) { respond(res, error); }
 };
@@ -55,17 +70,26 @@ export const postAdvanceDecision = async (req, res) => {
       rejectionReason: req.body?.rejection_reason,
       signatureDataUrl: req.body?.signature_data_url,
     });
+    emitFinanceChange(req, "advance-reviewed", request);
     res.json({ request });
   } catch (error) { respond(res, error); }
 };
 
 export const postAdvanceDisbursement = async (req, res) => {
-  try { res.json({ request: await disburseAdvanceRequest({ ...actor(req), requestId: Number(req.params.id) }) }); }
+  try {
+    const request = await disburseAdvanceRequest({ ...actor(req), requestId: Number(req.params.id) });
+    emitFinanceChange(req, "advance-disbursed", request);
+    res.json({ request });
+  }
   catch (error) { respond(res, error); }
 };
 
 export const postAdvanceAcknowledgement = async (req, res) => {
-  try { res.json({ request: await acknowledgeAdvanceRequest({ salonId: req.salon_id, actorId: req.user.id, requestId: Number(req.params.id), signatureDataUrl: req.body?.signature_data_url }) }); }
+  try {
+    const request = await acknowledgeAdvanceRequest({ salonId: req.salon_id, actorId: req.user.id, requestId: Number(req.params.id), signatureDataUrl: req.body?.signature_data_url });
+    emitFinanceChange(req, "advance-acknowledged", request);
+    res.json({ request });
+  }
   catch (error) { respond(res, error); }
 };
 
@@ -78,6 +102,7 @@ export const postAdvanceSettlement = async (req, res) => {
       settlementMethod: req.body?.settlement_method,
       notes: req.body?.notes,
     });
+    emitFinanceChange(req, "advance-settlement-recorded", settlement);
     res.status(201).json({ settlement });
   } catch (error) { respond(res, error); }
 };
@@ -91,6 +116,7 @@ export const postAdvanceSettlementAcknowledgement = async (req, res) => {
       settlementId: Number(req.params.settlementId),
       signatureDataUrl: req.body?.signature_data_url,
     });
+    emitFinanceChange(req, "advance-settlement-consented", settlement);
     res.json({ settlement });
   } catch (error) { respond(res, error); }
 };
@@ -102,6 +128,7 @@ export const postEmployeePayment = async (req, res) => {
       amount: req.body?.amount, paymentMethod: req.body?.payment_method,
       paymentReference: req.body?.payment_reference, notes: req.body?.notes,
     });
+    emitFinanceChange(req, "payment-requested", payment);
     res.status(201).json({ payment });
   } catch (error) { respond(res, error); }
 };
@@ -118,17 +145,26 @@ export const postPaymentDecision = async (req, res) => {
       rejectionReason: req.body?.rejection_reason,
       signatureDataUrl: req.body?.signature_data_url,
     });
+    emitFinanceChange(req, "payment-reviewed", payment);
     res.json({ payment });
   } catch (error) { respond(res, error); }
 };
 
 export const postPaymentDisbursement = async (req, res) => {
-  try { res.json({ payment: await disburseEmployeePayment({ ...actor(req), paymentId: Number(req.params.id) }) }); }
+  try {
+    const payment = await disburseEmployeePayment({ ...actor(req), paymentId: Number(req.params.id) });
+    emitFinanceChange(req, "payment-disbursed", payment);
+    res.json({ payment });
+  }
   catch (error) { respond(res, error); }
 };
 
 export const postPaymentAcknowledgement = async (req, res) => {
-  try { res.json({ payment: await acknowledgeEmployeePayment({ salonId: req.salon_id, actorId: req.user.id, paymentId: Number(req.params.id), signatureDataUrl: req.body?.signature_data_url }) }); }
+  try {
+    const payment = await acknowledgeEmployeePayment({ salonId: req.salon_id, actorId: req.user.id, paymentId: Number(req.params.id), signatureDataUrl: req.body?.signature_data_url });
+    emitFinanceChange(req, "payment-acknowledged", payment);
+    res.json({ payment });
+  }
   catch (error) { respond(res, error); }
 };
 

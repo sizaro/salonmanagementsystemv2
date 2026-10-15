@@ -177,6 +177,7 @@ const mapPayment = (row) => ({
 const listBase = `
   SELECT
     ar.*,
+    employee.role AS employee_role,
     TRIM(CONCAT(COALESCE(employee.first_name, ''), ' ', COALESCE(employee.last_name, ''))) AS employee_name,
     TRIM(CONCAT(COALESCE(requester.first_name, ''), ' ', COALESCE(requester.last_name, ''))) AS requested_by_name,
     TRIM(CONCAT(COALESCE(reviewer.first_name, ''), ' ', COALESCE(reviewer.last_name, ''))) AS reviewed_by_name,
@@ -573,6 +574,7 @@ export const acknowledgeAdvanceSettlement = async ({
 const paymentBase = `
   SELECT
     ep.*,
+    employee.role AS employee_role,
     efp.name AS period_name,
     efp.start_date::text AS period_start_date,
     efp.end_date::text AS period_end_date,

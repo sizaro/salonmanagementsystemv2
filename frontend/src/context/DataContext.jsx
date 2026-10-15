@@ -27,6 +27,7 @@ export const DataProvider = ({ children }) => {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [financeUpdateVersion, setFinanceUpdateVersion] = useState(0);
   const [isDataLoaded] = useState(false);
   const [sections, setSections] = useState([]);
   const [serviceDefinitions, setServiceDefinitions] = useState([]);
@@ -35,6 +36,7 @@ export const DataProvider = ({ children }) => {
   const [transactions, setTransactions] = useState([]);
   const activeReportRef = useRef(null);
   const reportRequestIdRef = useRef(0);
+  const authCheckPromiseRef = useRef(null);
 
   const pendingAppointments = useMemo(() => {
     return (transactions || []).filter((s) => s.status === "pending");
@@ -984,16 +986,27 @@ export const DataProvider = ({ children }) => {
   };
 
   const checkAuth = async () => {
+    if (authCheckPromiseRef.current) return authCheckPromiseRef.current;
+
+    const request = (async () => {
+      try {
+        const res = await axios.get(`${API_URL}/auth/check`, {
+          withCredentials: true,
+        });
+        console.log("🔹 auth check response:", res.data);
+        setUser(res.data.user);
+      } catch {
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    authCheckPromiseRef.current = request;
     try {
-      const res = await axios.get(`${API_URL}/auth/check`, {
-        withCredentials: true,
-      });
-      console.log("🔹 auth check response:", res.data);
-      setUser(res.data.user);
-    } catch {
-      setUser(null);
+      return await request;
     } finally {
-      setLoading(false);
+      authCheckPromiseRef.current = null;
     }
   };
 
@@ -1136,6 +1149,12 @@ export const DataProvider = ({ children }) => {
       });
     });
 
+    socket.on("employee-finance:changed", () => {
+      // The event intentionally contains no finance figures. Each workspace
+      // refreshes through its existing role-protected API requests.
+      setFinanceUpdateVersion((version) => version + 1);
+    });
+
     const loadRoleData = async () => {
       try {
         if (["owner", "manager", "cashier"].includes(user.role)) {
@@ -1217,6 +1236,7 @@ export const DataProvider = ({ children }) => {
     <DataContext.Provider
       value={{
         user,
+        financeUpdateVersion,
         services,
         users,
         expenses,

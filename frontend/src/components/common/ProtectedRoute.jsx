@@ -1,16 +1,9 @@
 // src/components/common/ProtectedRoute.jsx
-import { useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { useData } from "../../context/DataContext";
 
 const ProtectedRoute = ({ children, role }) => {
-  const { user, loading, checkAuth } = useData();
-
-  useEffect(() => {
-    if (!user) {
-      checkAuth();
-    }
-  }, []);
+  const { user, loading } = useData();
 
   if (loading) {
     return (
@@ -24,7 +17,7 @@ const ProtectedRoute = ({ children, role }) => {
     return <Navigate to="/" replace />;
   }
 
-  if (role && user.role !== role) {
+  if (role && String(user.role || "").toLowerCase() !== String(role).toLowerCase()) {
     return <Navigate to="/" replace />;
   }
 

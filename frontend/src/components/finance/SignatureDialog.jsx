@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import Modal from "../Modal.jsx";
 
-export default function SignatureDialog({ open, title, declaration, signerName, busy, onClose, onConfirm }) {
+const money = (value) => `UGX ${Number(value || 0).toLocaleString()}`;
+
+export default function SignatureDialog({ open, title, declaration, signerName, reviewSummary, reviewSummaryLoading, reviewSummaryRequired, busy, onClose, onConfirm }) {
   const canvasRef = useRef(null);
   const drawingRef = useRef(false);
   const hasInkRef = useRef(false);
@@ -75,9 +77,10 @@ export default function SignatureDialog({ open, title, declaration, signerName, 
     <div className="space-y-5 p-2">
       <div><p className="text-sm font-semibold text-emerald-700">Secure acknowledgement</p><h2 className="mt-1 text-xl font-semibold text-slate-950">{title}</h2><p className="mt-2 text-sm leading-6 text-slate-600">{declaration}</p></div>
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">You are signing as <strong>{signerName || "the authenticated user"}</strong>. Your handwritten signature, account identity, timestamp, and the transaction details will be retained as receipt evidence.</div>
+      {(reviewSummaryRequired || reviewSummaryLoading || reviewSummary) && <section className={`rounded-2xl border p-4 ${reviewSummary ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`} aria-live="polite"><p className="text-sm font-semibold text-slate-950">Employee finance snapshot</p><p className="mt-1 text-xs text-slate-700">Current balances are shown for review before this approval is signed.</p>{reviewSummaryLoading ? <p className="mt-3 text-sm text-slate-700">Loading current balances…</p> : reviewSummary ? <div className="mt-3 grid gap-3 sm:grid-cols-2"><div><p className="text-xs text-emerald-800">Available for payment</p><p className="text-lg font-bold text-emerald-950">{money(reviewSummary.unpaid_amount)}</p></div><div><p className="text-xs text-emerald-800">Outstanding advances</p><p className="text-lg font-bold text-emerald-950">{money(reviewSummary.advances_outstanding)}</p></div><div><p className="text-xs text-emerald-800">Recorded earnings</p><p className="font-semibold text-emerald-950">{money(reviewSummary.earned_amount)}</p></div><div><p className="text-xs text-emerald-800">Already paid</p><p className="font-semibold text-emerald-950">{money(reviewSummary.paid_amount)}</p></div></div> : <p className="mt-3 text-sm text-amber-900">The current finance snapshot could not be loaded. Reload the request before signing.</p>}</section>}
       <div className="overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-white shadow-inner"><canvas ref={canvasRef} aria-label="Handwritten signature pad" onPointerDown={begin} onPointerMove={draw} onPointerUp={end} onPointerCancel={end} onPointerLeave={end} className="block h-52 w-full touch-none cursor-crosshair" /></div>
       <p className="text-xs text-slate-500">Use a finger, stylus, or mouse. Draw your usual signature inside the box.</p>
-      <div className="flex flex-wrap justify-end gap-3"><button type="button" onClick={clear} disabled={busy} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">Clear</button><button type="button" onClick={onClose} disabled={busy} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">Cancel</button><button type="button" onClick={confirm} disabled={busy || !hasInk} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Saving signature…" : "Confirm signature"}</button></div>
+      <div className="flex flex-wrap justify-end gap-3"><button type="button" onClick={clear} disabled={busy} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">Clear</button><button type="button" onClick={onClose} disabled={busy} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">Cancel</button><button type="button" onClick={confirm} disabled={busy || !hasInk || (reviewSummaryRequired && (!reviewSummary || reviewSummaryLoading))} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Saving signature…" : "Confirm signature"}</button></div>
     </div>
   </Modal>;
 }

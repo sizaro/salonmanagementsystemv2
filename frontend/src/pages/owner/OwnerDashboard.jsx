@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { CalendarDays, CircleDollarSign, Clock3, Scissors } from "lucide-react";
 
 import Modal from "../../components/Modal.jsx";
 import ServiceForm from "../../components/ServiceForm";
@@ -108,13 +109,20 @@ export default function OwnerDashboard() {
 
   const appointmentsByStatus = useMemo(() => {
     const appointments = (transactions || []).filter((service) => {
-      const source = String(service.service_source || "").trim().toLowerCase();
+      const source = String(service.service_source || "")
+        .trim()
+        .toLowerCase();
       return source === "online_booking" || Boolean(service.appointment_date);
     });
-    return ["pending", "confirmed", "completed", "cancelled"].reduce((groups, status) => {
-      groups[status] = appointments.filter((service) => String(service.status || "").toLowerCase() === status);
-      return groups;
-    }, {});
+    return ["pending", "confirmed", "completed", "cancelled"].reduce(
+      (groups, status) => {
+        groups[status] = appointments.filter(
+          (service) => String(service.status || "").toLowerCase() === status,
+        );
+        return groups;
+      },
+      {},
+    );
   }, [transactions]);
   // ======================================================
   // SALON SESSION
@@ -261,35 +269,52 @@ export default function OwnerDashboard() {
   }, [session?.status]);
 
   const dashboardMetrics = useMemo(() => {
-    const dateKey = (date) => [
-      date.getFullYear(),
-      String(date.getMonth() + 1).padStart(2, "0"),
-      String(date.getDate()).padStart(2, "0"),
-    ].join("-");
+    const dateKey = (date) =>
+      [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0"),
+      ].join("-");
     const today = dateKey(new Date());
     const startOfWeek = new Date();
     startOfWeek.setHours(0, 0, 0, 0);
-    startOfWeek.setDate(startOfWeek.getDate() - ((startOfWeek.getDay() + 6) % 7));
+    startOfWeek.setDate(
+      startOfWeek.getDate() - ((startOfWeek.getDay() + 6) % 7),
+    );
     const weekStart = dateKey(startOfWeek);
     const completed = (transactions || []).filter(
       (service) => String(service.status || "").toLowerCase() === "completed",
     );
-    const dateFor = (service) => String(
-      service.completed_date || service.service_date || service.transaction_date || service.created_at || "",
-    ).slice(0, 10);
-    const amountFor = (service) => Number(
-      service.full_amount ?? service.service_amount ?? service.price ?? 0,
-    ) || 0;
-    const todayServices = completed.filter((service) => dateFor(service) === today);
+    const dateFor = (service) =>
+      String(
+        service.completed_date ||
+          service.service_date ||
+          service.transaction_date ||
+          service.created_at ||
+          "",
+      ).slice(0, 10);
+    const amountFor = (service) =>
+      Number(
+        service.full_amount ?? service.service_amount ?? service.price ?? 0,
+      ) || 0;
+    const todayServices = completed.filter(
+      (service) => dateFor(service) === today,
+    );
     const weekServices = completed.filter((service) => {
       const date = dateFor(service);
       return date >= weekStart && date <= today;
     });
     return {
       todayServices: todayServices.length,
-      todayRevenue: todayServices.reduce((sum, service) => sum + amountFor(service), 0),
+      todayRevenue: todayServices.reduce(
+        (sum, service) => sum + amountFor(service),
+        0,
+      ),
       weekServices: weekServices.length,
-      weekRevenue: weekServices.reduce((sum, service) => sum + amountFor(service), 0),
+      weekRevenue: weekServices.reduce(
+        (sum, service) => sum + amountFor(service),
+        0,
+      ),
     };
   }, [transactions]);
 
@@ -298,38 +323,105 @@ export default function OwnerDashboard() {
   // ======================================================
 
   return (
-    <div className="dashboard-page space-y-6">
+    <div className="dashboard-page owner-dashboard-page space-y-6">
       <section className="workspace-session-control">
-        <div className={`workspace-session-status ${salonStatus === "open" ? "workspace-session-open" : ""}`}>
+        <div
+          className={`workspace-session-status ${salonStatus === "open" ? "workspace-session-open" : ""}`}
+        >
           <span aria-hidden="true" />
-          <div><p>Salon session</p><strong>{salonStatus === "open" ? "Salon is open" : "Salon is closed"}</strong></div>
+          <div>
+            <p>Salon session</p>
+            <strong>
+              {salonStatus === "open" ? "Salon is open" : "Salon is closed"}
+            </strong>
+          </div>
         </div>
-        <p>{salonStatus === "open" ? `Open for ${sessionDuration.hours} hrs ${sessionDuration.minutes} mins` : "Open the salon when daily operations begin."}</p>
-        <button type="button" className={salonStatus === "open" ? "workspace-session-close" : "workspace-primary-action"} onClick={() => handleSalonSession(salonStatus === "open" ? "closed" : "open")}>{salonStatus === "open" ? "Close salon" : "Open salon"}</button>
+        <p>
+          {salonStatus === "open"
+            ? `Open for ${sessionDuration.hours} hrs ${sessionDuration.minutes} mins`
+            : "Open the salon when daily operations begin."}
+        </p>
+        <button
+          type="button"
+          className={
+            salonStatus === "open"
+              ? "workspace-session-close"
+              : "workspace-primary-action"
+          }
+          onClick={() =>
+            handleSalonSession(salonStatus === "open" ? "closed" : "open")
+          }
+        >
+          {salonStatus === "open" ? "Close salon" : "Open salon"}
+        </button>
       </section>
       {/* ==================================================
           QUICK ACTIONS
       ================================================== */}
 
-      <section className="workspace-dashboard-overview" aria-label="Owner dashboard summary">
+      <section
+        className="workspace-dashboard-overview"
+        aria-label="Owner dashboard summary"
+      >
         <div className="workspace-dashboard-overview-heading">
           <div>
             <p className="workspace-section-kicker">Owner workspace</p>
             <h1>Today at Salehish</h1>
-            <p>Completed-service figures are kept here for a quick daily and weekly view. Detailed analysis remains in Statistics.</p>
+            <p>
+              Completed-service figures are kept here for a quick daily and
+              weekly view. Detailed analysis remains in Statistics.
+            </p>
           </div>
-          <button type="button" className="workspace-overview-link" onClick={() => navigate("/owner/statistics")}>Open Statistics</button>
+          <button
+            type="button"
+            className="workspace-overview-link"
+            onClick={() => navigate("/owner/statistics")}
+          >
+            Open Statistics
+          </button>
         </div>
         <div className="workspace-overview-periods">
-          <article className="workspace-overview-period">
-            <div className="workspace-overview-period-label"><span>Today</span><small>Completed services</small></div>
-            <div className="workspace-overview-metric"><span>Revenue</span><strong>UGX {dashboardMetrics.todayRevenue.toLocaleString()}</strong></div>
-            <div className="workspace-overview-metric"><span>Services</span><strong>{dashboardMetrics.todayServices}</strong></div>
+          <article className="workspace-overview-period workspace-overview-period-primary">
+            <span className="workspace-overview-icon" aria-hidden="true">
+              <CircleDollarSign size={18} strokeWidth={1.8} />
+            </span>
+            <div className="workspace-overview-period-label">
+              <span>Today’s revenue</span>
+              <small>Completed services</small>
+            </div>
+            <strong>
+              UGX {dashboardMetrics.todayRevenue.toLocaleString()}
+            </strong>
           </article>
           <article className="workspace-overview-period">
-            <div className="workspace-overview-period-label"><span>This week</span><small>Monday to today</small></div>
-            <div className="workspace-overview-metric"><span>Revenue</span><strong>UGX {dashboardMetrics.weekRevenue.toLocaleString()}</strong></div>
-            <div className="workspace-overview-metric"><span>Services</span><strong>{dashboardMetrics.weekServices}</strong></div>
+            <span className="workspace-overview-icon" aria-hidden="true">
+              <CalendarDays size={18} strokeWidth={1.8} />
+            </span>
+            <div className="workspace-overview-period-label">
+              <span>This week’s revenue</span>
+              <small>Monday to today</small>
+            </div>
+            <strong>UGX {dashboardMetrics.weekRevenue.toLocaleString()}</strong>
+          </article>
+          <article className="workspace-overview-period">
+            <span className="workspace-overview-icon" aria-hidden="true">
+              <Scissors size={18} strokeWidth={1.8} />
+            </span>
+            <div className="workspace-overview-period-label">
+              <span>Completed today</span>
+              <small>Services recorded today</small>
+            </div>
+            <strong>{dashboardMetrics.todayServices}</strong>
+          </article>
+          <article className="workspace-overview-period">
+            <span className="workspace-overview-icon" aria-hidden="true">
+              <Clock3 size={18} strokeWidth={1.8} />
+            </span>
+            <div className="workspace-overview-period-label">
+              <span>Completed this week</span>
+              <small>Monday to today</small>
+            </div>
+            <strong>{dashboardMetrics.weekServices}</strong>
           </article>
         </div>
       </section>
@@ -349,7 +441,6 @@ export default function OwnerDashboard() {
               Manage today's salon operations from one place.
             </p>
           </div>
-
         </div>
 
         {/* ACTION GROUPS */}
@@ -357,14 +448,22 @@ export default function OwnerDashboard() {
         <div className="grid gap-3 lg:grid-cols-3">
           {/* OPERATIONS */}
 
-          <details className="workspace-action-menu" open={openActionMenu === "operations"} onToggle={(event) => setOpenActionMenu(event.currentTarget.open ? "operations" : null)}>
+          <details
+            className="workspace-action-menu"
+            open={openActionMenu === "operations"}
+            onToggle={(event) =>
+              setOpenActionMenu(event.currentTarget.open ? "operations" : null)
+            }
+          >
             <summary className="workspace-action-menu-trigger">
               <span>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
-                Operations
-              </p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+                  Operations
+                </p>
 
-              <h3 className="mt-1 font-semibold text-stone-900">Daily Work</h3>
+                <h3 className="mt-1 font-semibold text-stone-900">
+                  Daily Work
+                </h3>
               </span>
               <span aria-hidden="true">⌄</span>
             </summary>
@@ -434,16 +533,22 @@ export default function OwnerDashboard() {
 
           {/* FINANCE */}
 
-          <details className="workspace-action-menu" open={openActionMenu === "finance"} onToggle={(event) => setOpenActionMenu(event.currentTarget.open ? "finance" : null)}>
+          <details
+            className="workspace-action-menu"
+            open={openActionMenu === "finance"}
+            onToggle={(event) =>
+              setOpenActionMenu(event.currentTarget.open ? "finance" : null)
+            }
+          >
             <summary className="workspace-action-menu-trigger">
               <span>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
-                Finance
-              </p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+                  Finance
+                </p>
 
-              <h3 className="mt-1 font-semibold text-stone-900">
-                Money Records
-              </h3>
+                <h3 className="mt-1 font-semibold text-stone-900">
+                  Money Records
+                </h3>
               </span>
               <span aria-hidden="true">⌄</span>
             </summary>
@@ -474,7 +579,14 @@ export default function OwnerDashboard() {
                 onClick={() => setModalType("past_expense")}
                 className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50"
               >
-                <span><span className="block text-sm font-semibold text-stone-800">Add Past Expense</span><span className="mt-0.5 block text-xs text-stone-500">Record an expense using its original business date.</span></span>
+                <span>
+                  <span className="block text-sm font-semibold text-stone-800">
+                    Add Past Expense
+                  </span>
+                  <span className="mt-0.5 block text-xs text-stone-500">
+                    Record an expense using its original business date.
+                  </span>
+                </span>
               </button>
 
               <button
@@ -539,8 +651,19 @@ export default function OwnerDashboard() {
                 </span>
               </button>
 
-              <button type="button" onClick={() => setModalType("past_tagfee")} className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50">
-                <span><span className="block text-sm font-semibold text-stone-800">Add Past Tag Fee</span><span className="mt-0.5 block text-xs text-stone-500">Record a historical equipment fee with its original time.</span></span>
+              <button
+                type="button"
+                onClick={() => setModalType("past_tagfee")}
+                className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50"
+              >
+                <span>
+                  <span className="block text-sm font-semibold text-stone-800">
+                    Add Past Tag Fee
+                  </span>
+                  <span className="mt-0.5 block text-xs text-stone-500">
+                    Record a historical equipment fee with its original time.
+                  </span>
+                </span>
               </button>
 
               <button
@@ -563,24 +686,41 @@ export default function OwnerDashboard() {
                 </span>
               </button>
 
-              <button type="button" onClick={() => setModalType("past_latefee")} className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50">
-                <span><span className="block text-sm font-semibold text-stone-800">Add Past Late Fee</span><span className="mt-0.5 block text-xs text-stone-500">Record a historical late-arrival fee with its original time.</span></span>
+              <button
+                type="button"
+                onClick={() => setModalType("past_latefee")}
+                className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50"
+              >
+                <span>
+                  <span className="block text-sm font-semibold text-stone-800">
+                    Add Past Late Fee
+                  </span>
+                  <span className="mt-0.5 block text-xs text-stone-500">
+                    Record a historical late-arrival fee with its original time.
+                  </span>
+                </span>
               </button>
             </div>
           </details>
 
           {/* SETUP */}
 
-          <details className="workspace-action-menu" open={openActionMenu === "setup"} onToggle={(event) => setOpenActionMenu(event.currentTarget.open ? "setup" : null)}>
+          <details
+            className="workspace-action-menu"
+            open={openActionMenu === "setup"}
+            onToggle={(event) =>
+              setOpenActionMenu(event.currentTarget.open ? "setup" : null)
+            }
+          >
             <summary className="workspace-action-menu-trigger">
               <span>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
-                Setup
-              </p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+                  Setup
+                </p>
 
-              <h3 className="mt-1 font-semibold text-stone-900">
-                Salon Configuration
-              </h3>
+                <h3 className="mt-1 font-semibold text-stone-900">
+                  Salon Configuration
+                </h3>
               </span>
               <span aria-hidden="true">⌄</span>
             </summary>
@@ -634,24 +774,108 @@ export default function OwnerDashboard() {
           WORKSPACE OVERVIEW CARDS
       ================================================== */}
 
-      <section className="workspace-dashboard-cards" aria-label="Salon workspace overview">
+      <section
+        className="workspace-dashboard-cards"
+        aria-label="Salon workspace overview"
+      >
         <article className="workspace-overview-card">
-          <div className="workspace-overview-card-heading"><div><p className="workspace-section-kicker">Client bookings</p><h2>Appointments</h2></div><span className="workspace-overview-card-count">{(appointmentsByStatus.pending?.length || 0) + (appointmentsByStatus.confirmed?.length || 0)}</span></div>
-          <p>Review booking work without opening the full appointment workspace.</p>
-          <div className="workspace-overview-card-metrics"><span><strong>{appointmentsByStatus.pending?.length || 0}</strong>Pending</span><span><strong>{appointmentsByStatus.confirmed?.length || 0}</strong>Confirmed</span><span><strong>{appointmentsByStatus.completed?.length || 0}</strong>Completed</span></div>
-          <button type="button" className="workspace-card-action" onClick={() => navigate("/owner/appointments")}>{appointmentsByStatus.pending?.length ? `Review ${appointmentsByStatus.pending.length} pending booking${appointmentsByStatus.pending.length === 1 ? "" : "s"}` : "Open appointments"}</button>
+          <div className="workspace-overview-card-heading">
+            <div>
+              <p className="workspace-section-kicker">Client bookings</p>
+              <h2>Appointments</h2>
+            </div>
+            <span className="workspace-overview-card-count">
+              {(appointmentsByStatus.pending?.length || 0) +
+                (appointmentsByStatus.confirmed?.length || 0)}
+            </span>
+          </div>
+          <p>
+            Review booking work without opening the full appointment workspace.
+          </p>
+          <div className="workspace-overview-card-metrics">
+            <span>
+              <strong>{appointmentsByStatus.pending?.length || 0}</strong>
+              Pending
+            </span>
+            <span>
+              <strong>{appointmentsByStatus.confirmed?.length || 0}</strong>
+              Confirmed
+            </span>
+            <span>
+              <strong>{appointmentsByStatus.completed?.length || 0}</strong>
+              Completed
+            </span>
+          </div>
+          <button
+            type="button"
+            className="workspace-card-action"
+            onClick={() => navigate("/owner/appointments")}
+          >
+            {appointmentsByStatus.pending?.length
+              ? `Review ${appointmentsByStatus.pending.length} pending booking${appointmentsByStatus.pending.length === 1 ? "" : "s"}`
+              : "Open appointments"}
+          </button>
         </article>
         <article className="workspace-overview-card">
-          <div className="workspace-overview-card-heading"><div><p className="workspace-section-kicker">Salon setup</p><h2>Sections</h2></div><span className="workspace-overview-card-count">{sections.length}</span></div>
+          <div className="workspace-overview-card-heading">
+            <div>
+              <p className="workspace-section-kicker">Salon setup</p>
+              <h2>Sections</h2>
+            </div>
+            <span className="workspace-overview-card-count">
+              {sections.length}
+            </span>
+          </div>
           <p>Current categories used to organize services.</p>
-          <ul className="workspace-overview-card-list">{sections.slice(0, 4).map((section) => <li key={section.id}>{section.section_name}</li>)}{sections.length > 4 && <li>+ {sections.length - 4} more</li>}{sections.length === 0 && <li>No sections created yet.</li>}</ul>
-          <button type="button" className="workspace-card-action" onClick={() => navigate("/owner/setup")}>Manage sections</button>
+          <ul className="workspace-overview-card-list">
+            {sections.slice(0, 4).map((section) => (
+              <li key={section.id}>{section.section_name}</li>
+            ))}
+            {sections.length > 4 && <li>+ {sections.length - 4} more</li>}
+            {sections.length === 0 && <li>No sections created yet.</li>}
+          </ul>
+          <button
+            type="button"
+            className="workspace-card-action"
+            onClick={() => navigate("/owner/setup")}
+          >
+            Manage sections
+          </button>
         </article>
         <article className="workspace-overview-card">
-          <div className="workspace-overview-card-heading"><div><p className="workspace-section-kicker">Salon setup</p><h2>Service Definitions</h2></div><span className="workspace-overview-card-count">{serviceDefinitions.length}</span></div>
+          <div className="workspace-overview-card-heading">
+            <div>
+              <p className="workspace-section-kicker">Salon setup</p>
+              <h2>Service Definitions</h2>
+            </div>
+            <span className="workspace-overview-card-count">
+              {serviceDefinitions.length}
+            </span>
+          </div>
           <p>Configured services, pricing, roles, and supply requirements.</p>
-          <ul className="workspace-overview-card-list">{serviceDefinitions.slice(0, 4).map((service) => <li key={service.id}>{service.name || service.service_name || service.serviceName || "Unnamed service"}</li>)}{serviceDefinitions.length > 4 && <li>+ {serviceDefinitions.length - 4} more services</li>}{serviceDefinitions.length === 0 && <li>No services created yet.</li>}</ul>
-          <button type="button" className="workspace-card-action" onClick={() => navigate("/owner/setup")}>Manage service definitions</button>
+          <ul className="workspace-overview-card-list">
+            {serviceDefinitions.slice(0, 4).map((service) => (
+              <li key={service.id}>
+                {service.name ||
+                  service.service_name ||
+                  service.serviceName ||
+                  "Unnamed service"}
+              </li>
+            ))}
+            {serviceDefinitions.length > 4 && (
+              <li>+ {serviceDefinitions.length - 4} more services</li>
+            )}
+            {serviceDefinitions.length === 0 && (
+              <li>No services created yet.</li>
+            )}
+          </ul>
+          <button
+            type="button"
+            className="workspace-card-action"
+            onClick={() => navigate("/owner/setup")}
+          >
+            Manage service definitions
+          </button>
         </article>
       </section>
       {/* ==================================================
@@ -704,7 +928,11 @@ export default function OwnerDashboard() {
         )}
 
         {modalType === "past_expense" && (
-          <ExpenseForm onSubmit={createExpense} onClose={closeModal} entryType="past" />
+          <ExpenseForm
+            onSubmit={createExpense}
+            onClose={closeModal}
+            entryType="past"
+          />
         )}
 
         {/* CURRENT ADVANCE */}
@@ -750,7 +978,13 @@ export default function OwnerDashboard() {
         )}
 
         {modalType === "past_tagfee" && (
-          <TagFeeForm onSubmit={CreateTagFee} onClose={closeModal} feeData={selectedFee} employees={Employees || []} entryType="past" />
+          <TagFeeForm
+            onSubmit={CreateTagFee}
+            onClose={closeModal}
+            feeData={selectedFee}
+            employees={Employees || []}
+            entryType="past"
+          />
         )}
 
         {/* LATE FEE */}
@@ -765,11 +999,15 @@ export default function OwnerDashboard() {
         )}
 
         {modalType === "past_latefee" && (
-          <LateFeeForm onSubmit={CreateLateFee} onClose={closeModal} feeData={selectedFee} employees={Employees || []} entryType="past" />
+          <LateFeeForm
+            onSubmit={CreateLateFee}
+            onClose={closeModal}
+            feeData={selectedFee}
+            employees={Employees || []}
+            entryType="past"
+          />
         )}
-
       </Modal>
-
     </div>
   );
 }

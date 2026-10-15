@@ -18,9 +18,10 @@ const statusClass = (value) => {
 };
 
 export default function EmployeeFinanceWorkspace() {
-  const { user, users } = useData();
+  const { user, users, financeUpdateVersion } = useData();
   const [searchParams, setSearchParams] = useSearchParams();
   const isStaff = STAFF_ROLES.has(String(user?.role || "").toLowerCase());
+  const canReviewRequests = ["owner", "manager"].includes(String(user?.role || "").toLowerCase());
   const canSettleAdvances = ["owner", "manager"].includes(String(user?.role || "").toLowerCase());
   const isOwner = String(user?.role || "").toLowerCase() === "owner";
   const employeeProfilePath = (employeeId) => {
@@ -51,6 +52,8 @@ export default function EmployeeFinanceWorkspace() {
   const [settlementTarget, setSettlementTarget] = useState(null);
   const [settlementForm, setSettlementForm] = useState({ amount: "", settlement_method: "PAYROLL_DEDUCTION", notes: "" });
   const [signatureTarget, setSignatureTarget] = useState(null);
+  const [signatureEmployeeOverview, setSignatureEmployeeOverview] = useState(null);
+  const [signatureEmployeeLoading, setSignatureEmployeeLoading] = useState(false);
   const [selectedReceiptId, setSelectedReceiptId] = useState(null);
 
   const employees = useMemo(
@@ -97,6 +100,11 @@ export default function EmployeeFinanceWorkspace() {
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
+    if (!financeUpdateVersion) return;
+    void load();
+  }, [financeUpdateVersion, load]);
+
+  useEffect(() => {
     const action = searchParams.get("action");
     const tab = searchParams.get("tab");
     if (["advances", "payments", "receipts"].includes(tab)) {
@@ -123,6 +131,31 @@ export default function EmployeeFinanceWorkspace() {
       .finally(() => { if (active) setSelectedEmployeeLoading(false); });
     return () => { active = false; };
   }, [isStaff, paymentForm.employee_id]);
+
+  useEffect(() => {
+    const employeeId = Number(signatureTarget?.row?.employee_id);
+    if (signatureTarget?.action !== "APPROVAL" || !canReviewRequests || !employeeId) {
+      setSignatureEmployeeOverview(null);
+      return undefined;
+    }
+
+    let active = true;
+    setSignatureEmployeeLoading(true);
+    axios.get(`${API_URL}/employee-finance/employees/${employeeId}/overview`, {
+      withCredentials: true,
+    })
+      .then(({ data }) => {
+        if (active) setSignatureEmployeeOverview(data.overview || null);
+      })
+      .catch((requestError) => {
+        if (active) setError(requestError.response?.data?.error || "Unable to load the employee finance snapshot for review.");
+      })
+      .finally(() => {
+        if (active) setSignatureEmployeeLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [canReviewRequests, signatureTarget?.action, signatureTarget?.row?.employee_id]);
 
   const closeForm = () => {
     setActiveForm(null);
@@ -244,7 +277,7 @@ export default function EmployeeFinanceWorkspace() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+    <div className="finance-workspace mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
       <header className="rounded-3xl bg-gradient-to-br from-[var(--salehish-plum)] to-[var(--salehish-magenta)] p-6 text-white shadow-lg">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -379,11 +412,11 @@ export default function EmployeeFinanceWorkspace() {
         </div>
 
         {activeTab === "advances" && <WorkflowTable title="Advance requests" empty="No advance requests yet." rows={requests} employees={employees} loading={loading} columns={["Employee", "Amount", "Reason", "Status", "Requested", "Actions"]} render={(request) => <tr key={request.id} className="border-t border-slate-100">
-          <td className="px-4 py-3 font-medium text-slate-800">{employeeProfilePath(request.employee_id) ? <Link className="hover:text-blue-700 hover:underline" to={employeeProfilePath(request.employee_id)}>{request.employee_name || "You"}</Link> : (request.employee_name || "You")}</td><td className="px-4 py-3"><p>{money(request.requested_amount)}</p>{["DISBURSED", "ACKNOWLEDGED"].includes(String(request.workflow_status || "").toUpperCase()) && <p className="mt-1 text-xs text-slate-500">Outstanding: {money(request.outstanding_amount)}</p>}</td><td className="px-4 py-3 text-slate-600">{request.reason || "—"}</td><td className="px-4 py-3"><Status value={request.workflow_status} /></td><td className="px-4 py-3 text-xs text-slate-600">{formatRecordDate(request.created_at)}</td><td className="px-4 py-3"><Actions row={request} kind="advance-requests" isStaff={isStaff} canSettleAdvances={canSettleAdvances} canEmployeeAcknowledge={Number(request.employee_id) === Number(user?.id)} canEmployeeConsent={Number(request.employee_id) === Number(user?.id)} busy={busy} decide={decide} disburse={disburse} acknowledge={acknowledge} requestApprovalSignature={requestApprovalSignature} requestAcknowledgementSignature={requestAcknowledgementSignature} requestPayrollDeductionConsent={requestPayrollDeductionConsent} openSettlement={openSettlement} /></td>
+          <td className="px-4 py-3 font-medium text-slate-800">{employeeProfilePath(request.employee_id) ? <Link className="hover:text-blue-700 hover:underline" to={employeeProfilePath(request.employee_id)}>{request.employee_name || "You"}</Link> : (request.employee_name || "You")}</td><td className="px-4 py-3"><p>{money(request.requested_amount)}</p>{["DISBURSED", "ACKNOWLEDGED"].includes(String(request.workflow_status || "").toUpperCase()) && <p className="mt-1 text-xs text-slate-500">Outstanding: {money(request.outstanding_amount)}</p>}</td><td className="px-4 py-3 text-slate-600">{request.reason || "—"}</td><td className="px-4 py-3"><Status value={request.workflow_status} /></td><td className="px-4 py-3 text-xs text-slate-600">{formatRecordDate(request.created_at)}</td><td className="px-4 py-3"><Actions row={request} kind="advance-requests" isStaff={isStaff} canReview={canReviewRequests && Number(request.employee_id) !== Number(user?.id) && !(String(request.employee_role || "").toLowerCase() === "manager" && !isOwner)} canSettleAdvances={canSettleAdvances} canEmployeeAcknowledge={Number(request.employee_id) === Number(user?.id)} canEmployeeConsent={Number(request.employee_id) === Number(user?.id)} busy={busy} decide={decide} disburse={disburse} acknowledge={acknowledge} requestApprovalSignature={requestApprovalSignature} requestAcknowledgementSignature={requestAcknowledgementSignature} requestPayrollDeductionConsent={requestPayrollDeductionConsent} openSettlement={openSettlement} /></td>
         </tr>} />}
 
         {activeTab === "payments" && <WorkflowTable title="Employee payments" empty="No payments prepared yet." rows={payments} employees={employees} loading={loading} columns={["Employee", "Amount", "Method", "Status", "Prepared", "Actions"]} render={(payment) => <tr key={payment.id} className="border-t border-slate-100">
-          <td className="px-4 py-3 font-medium text-slate-800">{employeeProfilePath(payment.employee_id) ? <Link className="hover:text-blue-700 hover:underline" to={employeeProfilePath(payment.employee_id)}>{payment.employee_name || "You"}</Link> : (payment.employee_name || "You")}</td><td className="px-4 py-3">{money(payment.requested_amount)}</td><td className="px-4 py-3">{displayStatus(payment.payment_method)}</td><td className="px-4 py-3"><Status value={payment.workflow_status} /></td><td className="px-4 py-3 text-xs text-slate-600">{formatRecordDate(payment.created_at)}</td><td className="px-4 py-3"><Actions row={payment} kind="payments" isStaff={isStaff} canEmployeeAcknowledge={Number(payment.employee_id) === Number(user?.id)} busy={busy} decide={decide} disburse={disburse} acknowledge={acknowledge} requestApprovalSignature={requestApprovalSignature} requestAcknowledgementSignature={requestAcknowledgementSignature} /></td>
+          <td className="px-4 py-3 font-medium text-slate-800">{employeeProfilePath(payment.employee_id) ? <Link className="hover:text-blue-700 hover:underline" to={employeeProfilePath(payment.employee_id)}>{payment.employee_name || "You"}</Link> : (payment.employee_name || "You")}</td><td className="px-4 py-3">{money(payment.requested_amount)}</td><td className="px-4 py-3">{displayStatus(payment.payment_method)}</td><td className="px-4 py-3"><Status value={payment.workflow_status} /></td><td className="px-4 py-3 text-xs text-slate-600">{formatRecordDate(payment.created_at)}</td><td className="px-4 py-3"><Actions row={payment} kind="payments" isStaff={isStaff} canReview={canReviewRequests && Number(payment.employee_id) !== Number(user?.id)} canEmployeeAcknowledge={Number(payment.employee_id) === Number(user?.id)} busy={busy} decide={decide} disburse={disburse} acknowledge={acknowledge} requestApprovalSignature={requestApprovalSignature} requestAcknowledgementSignature={requestAcknowledgementSignature} /></td>
         </tr>} />}
 
         {activeTab === "receipts" && <ReceiptList receipts={receipts} employees={employees} loading={loading} onView={setSelectedReceiptId} />}
@@ -394,6 +427,9 @@ export default function EmployeeFinanceWorkspace() {
         signerName={`${user?.first_name || ""} ${user?.last_name || ""}`.trim()}
         title={signatureTarget?.action === "APPROVAL" ? "Sign management approval" : signatureTarget?.action === "PAYROLL_DEDUCTION_CONSENT" ? "Approve payroll deduction" : "Sign receipt acknowledgement"}
         declaration={signatureTarget?.action === "APPROVAL" ? `By signing, you approve this ${signatureTarget?.kind === "payments" ? "employee payment" : "employee advance"} for ${money(signatureTarget?.row?.requested_amount)}.` : signatureTarget?.action === "PAYROLL_DEDUCTION_CONSENT" ? `By signing, you agree that ${money(signatureTarget?.settlement?.amount)} will be deducted from your earned salary to settle advance ${signatureTarget?.settlement?.receipt_number}.` : `By signing, you confirm that you received ${money(signatureTarget?.row?.requested_amount)} under this ${signatureTarget?.kind === "payments" ? "employee payment" : "employee advance"}.`}
+        reviewSummary={signatureTarget?.action === "APPROVAL" ? signatureEmployeeOverview : null}
+        reviewSummaryLoading={signatureTarget?.action === "APPROVAL" && signatureEmployeeLoading}
+        reviewSummaryRequired={signatureTarget?.action === "APPROVAL"}
         onClose={() => setSignatureTarget(null)}
         onConfirm={signReceipt}
       />
@@ -404,10 +440,10 @@ export default function EmployeeFinanceWorkspace() {
 
 function Status({ value }) { return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(value)}`}>{displayStatus(value)}</span>; }
 
-function Actions({ row, kind, isStaff, canSettleAdvances, canEmployeeAcknowledge, canEmployeeConsent, busy, decide, disburse, requestApprovalSignature, requestAcknowledgementSignature, requestPayrollDeductionConsent, openSettlement }) {
+function Actions({ row, kind, isStaff, canReview, canSettleAdvances, canEmployeeAcknowledge, canEmployeeConsent, busy, decide, disburse, requestApprovalSignature, requestAcknowledgementSignature, requestPayrollDeductionConsent, openSettlement }) {
   const status = String(row.workflow_status || "").toUpperCase();
   return <div className="flex flex-wrap gap-2">
-    {isStaff && status === "REQUESTED" && <><button disabled={busy} onClick={() => requestApprovalSignature(kind, row)} className="rounded-lg bg-emerald-700 px-2.5 py-1.5 text-xs font-semibold text-white">Approve & sign</button><button disabled={busy} onClick={() => decide(kind, row.id, false)} className="rounded-lg bg-rose-700 px-2.5 py-1.5 text-xs font-semibold text-white">Reject</button></>}
+    {canReview && status === "REQUESTED" && <><button disabled={busy} onClick={() => requestApprovalSignature(kind, row)} className="rounded-lg bg-emerald-700 px-2.5 py-1.5 text-xs font-semibold text-white">Approve & sign</button><button disabled={busy} onClick={() => decide(kind, row.id, false)} className="rounded-lg bg-rose-700 px-2.5 py-1.5 text-xs font-semibold text-white">Reject</button></>}
     {isStaff && status === "APPROVED" && <button disabled={busy} onClick={() => disburse(kind, row.id)} className="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white">Disburse</button>}
     {kind === "advance-requests" && canSettleAdvances && ["DISBURSED", "ACKNOWLEDGED"].includes(status) && Number(row.outstanding_amount || 0) > 0 && <button disabled={busy} onClick={() => openSettlement(row)} className="rounded-lg bg-[var(--salehish-burgundy)] px-2.5 py-1.5 text-xs font-semibold text-white">Settle</button>}
     {canEmployeeAcknowledge && status === "DISBURSED" && <button disabled={busy} onClick={() => requestAcknowledgementSignature(kind, row)} className="rounded-lg bg-[var(--salehish-burgundy)] px-2.5 py-1.5 text-xs font-semibold text-white">Acknowledge & sign</button>}

@@ -21,17 +21,16 @@ export default function Modal({
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex h-[100dvh] w-screen items-center justify-center overflow-hidden bg-black/20 backdrop-blur-sm p-2">
+    <div className="app-modal-backdrop fixed inset-0 z-[99999] flex h-[100dvh] w-screen items-center justify-center overflow-hidden p-2">
       <div
         className={`
+          app-modal-surface
           flex
           h-[calc(100dvh-1rem)]
           w-full
           flex-col
           overflow-hidden
           rounded-xl
-          bg-white
-          shadow-2xl
           ${sizeClass}
         `}
       >
@@ -41,11 +40,12 @@ export default function Modal({
         </div>
 
         {/* ALWAYS STAYS AT BOTTOM */}
-        <div className="shrink-0 border-t border-gray-200 bg-white p-3">
+        <div className="app-modal-footer shrink-0 p-3">
           <button
             type="button"
-            className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-600"
+            className="app-modal-close"
             onClick={onClose}
+            disabled={!onClose}
           >
             Close
           </button>
