@@ -20,7 +20,6 @@ const [selectedDate, setSelectedDate] = useState(today);
     fetchDailyData(newDate);
   };
 
-  console.log("results in the worker's page", services, employees, advances, clockings);
 
   const employeeTotals = useMemo(() => {
     if (!employees.length) return [];

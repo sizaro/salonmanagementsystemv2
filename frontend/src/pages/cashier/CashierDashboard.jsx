@@ -9,6 +9,7 @@ import ClockForm from "../../components/ClockForm";
 import CancelReasonForm from "../../components/CancelReasonForm.jsx";
 import ServiceDefinitionsTable from "../../components/workspace/ServiceDefinitionsTable.jsx";
 import useSalonSessionTimer from "../../hooks/useSalonSessionTimer";
+import FinanceRequestNotice from "../../components/finance/FinanceRequestNotice.jsx";
 
 import { useData } from "../../context/DataContext.jsx";
 
@@ -118,15 +119,11 @@ export default function CashierDashboard() {
   const handleSalonSession = async (status) => {
     try {
       if (status === "open") {
-        const result = await openSalonSession();
-
-        console.log("SALON OPENED:", result);
+        await openSalonSession();
 
         setSalonStatus("open");
       } else {
-        const result = await closeSalonSession();
-
-        console.log("SALON CLOSED:", result);
+        await closeSalonSession();
 
         setSalonStatus("closed");
       }
@@ -477,8 +474,6 @@ export default function CashierDashboard() {
         appointment_time: null,
       };
 
-      console.log("CASHIER WALK-IN SERVICE:", payload);
-
       const result = await createServiceTransaction(payload);
 
       await fetchServiceTransactions();
@@ -683,7 +678,6 @@ export default function CashierDashboard() {
         throw new Error("Appointment could not be loaded");
       }
 
-      console.log("CASHIER COMPLETION APPOINTMENT:", appointment);
 
       setCompletingAppointment(appointment);
 
@@ -734,10 +728,6 @@ export default function CashierDashboard() {
         performers: formData.performers || [],
       };
 
-      console.log("CASHIER COMPLETING APPOINTMENT:", {
-        transactionId,
-        payload,
-      });
 
       const result = await updateServiceTransactionAppointment(
         transactionId,
@@ -810,6 +800,8 @@ export default function CashierDashboard() {
           </p>
         </div>
       </header>
+
+      <FinanceRequestNotice />
 
       {/* ==================================================
           CASHIER QUICK ACTIONS

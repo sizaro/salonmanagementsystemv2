@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { DateTime } from "luxon";
 import { useData } from "../../context/DataContext.jsx";
+import FinanceRequestNotice from "../../components/finance/FinanceRequestNotice.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 const ZONE = "Africa/Kampala";
@@ -507,6 +508,8 @@ export default function EmployeeDashboard() {
           </div>
         </div>
       </header>
+
+      <FinanceRequestNotice />
 
       {/* ==================================================
           WORK OVERVIEW

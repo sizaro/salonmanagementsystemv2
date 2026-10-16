@@ -6,6 +6,7 @@ import {
   getEmployeeFinancePeriods,
   getMyEmployeeFinanceOverview,
   getSalonFinanceSummaryController,
+  getStaffFinanceSnapshotController,
   postEmployeeFinancePeriod,
 } from "../controllers/employeeFinanceController.js";
 
@@ -15,6 +16,11 @@ router.get(
   "/summary",
   requireRole("owner", "manager", "cashier"),
   getSalonFinanceSummaryController,
+);
+router.get(
+  "/staff-snapshot",
+  requireRole("manager", "cashier"),
+  getStaffFinanceSnapshotController,
 );
 router.get(
   "/me/overview",

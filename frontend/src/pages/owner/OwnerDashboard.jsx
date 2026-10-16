@@ -10,6 +10,7 @@ import ClockForm from "../../components/ClockForm";
 import TagFeeForm from "../../components/TagFeeForm.jsx";
 import LateFeeForm from "../../components/LateFeeForm.jsx";
 import AddPastService from "../../components/AddPastService";
+import FinanceRequestNotice from "../../components/finance/FinanceRequestNotice.jsx";
 
 import useSalonSessionTimer from "../../hooks/useSalonSessionTimer";
 
@@ -131,15 +132,11 @@ export default function OwnerDashboard() {
   const handleSalonSession = async (status) => {
     try {
       if (status === "open") {
-        const result = await openSalonSession();
-
-        console.log("SALON OPENED:", result);
+        await openSalonSession();
 
         setSalonStatus("open");
       } else {
-        const result = await closeSalonSession();
-
-        console.log("SALON CLOSED:", result);
+        await closeSalonSession();
 
         setSalonStatus("closed");
       }
@@ -425,6 +422,8 @@ export default function OwnerDashboard() {
           </article>
         </div>
       </section>
+
+      <FinanceRequestNotice />
 
       <section className="dashboard-panel">
         <div className="mb-4">

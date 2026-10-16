@@ -16,7 +16,6 @@ const ManagerExpensesReport = () => {
     deleteExpense
   } = useData();
 
-  console.log("expenses in expenses page", expenses)
 
     const toYMD = (date) => date.toISOString().split("T")[0];
   
@@ -95,7 +94,6 @@ const ManagerExpensesReport = () => {
 
   
     const handleDayChange = (e) => {
-    console.log("handleDayChange called with value:", e.target.value);
     setSelectedDate(e.target.value);
     fetchDailyData(e.target.value);
     fetchUsers();
@@ -103,7 +101,6 @@ const ManagerExpensesReport = () => {
   
   const handleWeekChange = (e) => {
     const weekString = e.target.value;
-    console.log("handleWeekChange called with weekString:", weekString);
   
     if (!weekString) return;
   
@@ -129,7 +126,6 @@ const ManagerExpensesReport = () => {
   };
   
   const handleMonthChange = (e) => {
-    console.log("handleMonthChange called with value:", e.target.value);
     const value = e.target.value;
       if (!value) return;
   
@@ -146,7 +142,6 @@ const ManagerExpensesReport = () => {
   };
   
   const handleYearChange = (e) => {
-    console.log("handleYearChange called with value:", e.target.value);
     const selectedYear = parseInt(e.target.value, 10);
       setYear(selectedYear);
       setReportLabel(`Year ${selectedYear}`);

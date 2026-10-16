@@ -138,7 +138,6 @@ export const DataProvider = ({ children }) => {
       const requestId = ++reportRequestIdRef.current;
       activeReportRef.current = { type: "daily", args: [formattedDate] };
 
-      console.log("Fetching daily report for:", formattedDate);
 
       const res = await axios.get(`${API_URL}/reports/daily`, {
         params: {
@@ -151,7 +150,6 @@ export const DataProvider = ({ children }) => {
 
       if (requestId === reportRequestIdRef.current) applyReportData(data);
 
-      console.log("Daily salon sessions:", data.sessions);
 
       return data;
     } catch (err) {
@@ -178,10 +176,6 @@ export const DataProvider = ({ children }) => {
       const requestId = ++reportRequestIdRef.current;
       activeReportRef.current = { type: "weekly", args: [startDate, endDate] };
 
-      console.log("Fetching weekly report:", {
-        startDate,
-        endDate,
-      });
 
       const res = await axios.get(`${API_URL}/reports/weekly`, {
         params: {
@@ -195,7 +189,6 @@ export const DataProvider = ({ children }) => {
 
       if (requestId === reportRequestIdRef.current) applyReportData(data);
 
-      console.log("Weekly salon sessions:", data.sessions);
 
       return data;
     } catch (err) {
@@ -234,10 +227,6 @@ export const DataProvider = ({ children }) => {
         args: [selectedYear, selectedMonth],
       };
 
-      console.log("Fetching monthly report:", {
-        year: selectedYear,
-        month: selectedMonth,
-      });
 
       const res = await axios.get(`${API_URL}/reports/monthly`, {
         params: {
@@ -251,7 +240,6 @@ export const DataProvider = ({ children }) => {
 
       if (requestId === reportRequestIdRef.current) applyReportData(data);
 
-      console.log("Monthly salon sessions:", data.sessions);
 
       return data;
     } catch (err) {
@@ -277,7 +265,6 @@ export const DataProvider = ({ children }) => {
       const requestId = ++reportRequestIdRef.current;
       activeReportRef.current = { type: "yearly", args: [selectedYear] };
 
-      console.log("Fetching yearly report for:", selectedYear);
 
       const res = await axios.get(`${API_URL}/reports/yearly`, {
         params: {
@@ -290,7 +277,6 @@ export const DataProvider = ({ children }) => {
 
       if (requestId === reportRequestIdRef.current) applyReportData(data);
 
-      console.log("Yearly salon sessions:", data.sessions);
 
       return data;
     } catch (err) {
@@ -688,7 +674,6 @@ export const DataProvider = ({ children }) => {
     try {
       const res = await axios.get(`${API_URL}/sections`);
       setSections(res.data);
-      console.log("sections:", res.data);
       return res.data;
     } catch (err) {
       console.error("Error fetching sections:", err);
@@ -700,7 +685,6 @@ export const DataProvider = ({ children }) => {
     try {
       if (!id) throw new Error("Section ID is required");
       const res = await axios.get(`${API_URL}/sections/${id}`);
-      console.log(`Section ${id}:`, res.data);
       return res.data; // returns the single section object
     } catch (err) {
       console.error(`Error fetching section with ID ${id}:`, err);
@@ -750,7 +734,6 @@ export const DataProvider = ({ children }) => {
     try {
       const res = await axios.get(`${API_URL}/services/service_definitions`);
       setServiceDefinitions(res.data.data);
-      console.log("service definitions in context:", res.data.data);
       return res.data.data;
     } catch (err) {
       console.error("Error fetching service definitions:", err);
@@ -764,7 +747,6 @@ export const DataProvider = ({ children }) => {
       const res = await axios.get(
         `${API_URL}/services/service_definitions/${id}`,
       );
-      console.log(`Service definition ${id}:`, res.data.data);
       return res.data.data; // returns the single service definition object
     } catch (err) {
       console.error(`Error fetching service definition with ID ${id}:`, err);
@@ -822,7 +804,6 @@ export const DataProvider = ({ children }) => {
     try {
       const res = await axios.get(`${API_URL}/services/service_roles`);
       setServiceRoles(res.data.data);
-      console.log("service roles:", res.data.data);
       return res.data.data;
     } catch (err) {
       console.error("Error fetching service roles:", err);
@@ -835,7 +816,6 @@ export const DataProvider = ({ children }) => {
     try {
       const res = await axios.get(`${API_URL}/services/service_materials`);
       setServiceMaterials(res.data.data);
-      console.log("service materials:", res.data.data);
       return res.data.data;
     } catch (err) {
       console.error("Error fetching service materials:", err);
@@ -848,10 +828,6 @@ export const DataProvider = ({ children }) => {
 
   const createServiceTransaction = async (payload) => {
     try {
-      console.log(
-        "🚀 PAYLOAD GOING TO BACKEND:",
-        JSON.stringify(payload, null, 2),
-      );
 
       const res = await axios.post(
         `${API_URL}/services/service_transactions`,
@@ -864,12 +840,6 @@ export const DataProvider = ({ children }) => {
       return res.data;
     } catch (err) {
       console.error("Error creating service transaction:", err);
-
-      if (err.response) {
-        console.log("STATUS:", err.response.status);
-        console.log("BACKEND RESPONSE:", err.response.data);
-      }
-
       throw err;
     }
   };
@@ -920,7 +890,6 @@ export const DataProvider = ({ children }) => {
     try {
       const res = await axios.get(`${API_URL}/services/service_transactions`);
       setTransactions(res.data.data);
-      console.log("service appointments in the data context", res.data.data);
       return res.data.data;
     } catch (err) {
       console.error("Error fetching service transactions appointments:", err);
@@ -965,13 +934,11 @@ export const DataProvider = ({ children }) => {
 
   // ---------- Auth ----------
   const loginUser = async (credentials) => {
-    console.log("🔹 Sending login request with:", { credentials });
     try {
       const res = await axios.post(`${API_URL}/auth/login`, credentials, {
         withCredentials: true,
       });
       const { user } = res.data;
-      console.log("user in logged in context", user);
       setUser(user);
 
       if (!user) {
@@ -993,7 +960,6 @@ export const DataProvider = ({ children }) => {
         const res = await axios.get(`${API_URL}/auth/check`, {
           withCredentials: true,
         });
-        console.log("🔹 auth check response:", res.data);
         setUser(res.data.user);
       } catch {
         setUser(null);

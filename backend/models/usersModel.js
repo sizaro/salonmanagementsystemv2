@@ -36,12 +36,11 @@ export const fetchAllUsers = async (salon_id) => {
 
 export const fetchBookableStaff = async (salon_id) => {
   const { rows } = await db.query(
-    `SELECT id, first_name, last_name, specialty, status, image_url
+    `SELECT id, first_name, last_name, role, specialty, status, image_url
      FROM users
      WHERE salon_id = $1
-       AND LOWER(COALESCE(role, '')) IN ('employee', 'manager')
+       AND LOWER(COALESCE(role, '')) IN ('employee', 'manager', 'cashier')
        AND LOWER(COALESCE(status, 'active')) = 'active'
-       AND COALESCE(NULLIF(TRIM(specialty), ''), '-') <> '-'
      ORDER BY first_name, last_name`,
     [salon_id],
   );

@@ -20,7 +20,6 @@ import {
 import {
   apiRateLimiter,
   attachRequestId,
-  authRateLimiter,
   errorHandler,
   notFound,
   requireTrustedOrigin,
@@ -266,7 +265,7 @@ app.use(
   feesRoutes,
 );
 
-app.use("/api/auth", authRateLimiter, authRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/sections", sectionsRoutes);
 app.use("/api/salon", salonRoutes);
 app.use("/api/mobile", mobileAuthRoutes);

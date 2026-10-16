@@ -18,8 +18,6 @@ const ManagerTagFeesReport = () => {
     fetchYearlyData,
   } = useData();
 
-   console.log("late fees in report", tagFees)
-console.log("users in late fee report", users)
   const [tagFeeToDelete, setTagFeeToDelete] = useState(null);
 
   const toYMD = (date) => date.toISOString().split("T")[0];

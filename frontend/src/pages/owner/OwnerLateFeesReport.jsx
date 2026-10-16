@@ -18,8 +18,6 @@ const OwnerLateFeesReport = () => {
     deleteLateFee
   } = useData();
 
-  console.log("late fees in report", lateFees)
-console.log("users in late fee report", users)
 
   const toYMD = (date) => date.toISOString().split("T")[0];
   const today = new Date();

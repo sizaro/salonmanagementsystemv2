@@ -30,13 +30,6 @@ const ManagerEmployeeReport = () => {
 
 
 const usersLoading = !users.length;
-console.log("📝 users in the report for employee page", users);
-console.log("📝 services in the report for employee page", services);
-console.log("📝 clockings in the report for employee page", clockings);
-console.log("📝 sections in the report for employee page", sections);
-console.log("📝 late fees in the report for employee page", lateFees);
-console.log("📝 tag fees in the report for employee page", tagFees);
-console.log("📝 advances in the report for employee page", advances);
 
 const toYMD = (date) => {
   const year = date.getFullYear();
@@ -56,14 +49,12 @@ const [year, setYear] = useState(new Date().getFullYear());
 // ------------------- HANDLERS -------------------
 const handleEmployeeChange = (e) => {
   const id = Number(e.target.value);
-  console.log("handleEmployeeChange called with id:", id);
 
   const emp = users.find((u) => u.id === id);
   setSelectedEmployee(emp || null);
 };
 
 const handleDayChange = (e) => {
-  console.log("handleDayChange called with value:", e.target.value);
   setSelectedDate(e.target.value);
   fetchDailyData(e.target.value);
   fetchUsers();
@@ -71,7 +62,6 @@ const handleDayChange = (e) => {
 
 const handleWeekChange = (e) => {
   const weekString = e.target.value;
-  console.log("handleWeekChange called with weekString:", weekString);
 
   if (!weekString) return;
 
@@ -97,7 +87,6 @@ const handleWeekChange = (e) => {
 };
 
 const handleMonthChange = (e) => {
-  console.log("handleMonthChange called with value:", e.target.value);
   const value = e.target.value;
     if (!value) return;
 
@@ -114,7 +103,6 @@ const handleMonthChange = (e) => {
 };
 
 const handleYearChange = (e) => {
-  console.log("handleYearChange called with value:", e.target.value);
   const selectedYear = parseInt(e.target.value, 10);
     setYear(selectedYear);
     setReportLabel(`Year ${selectedYear}`);
@@ -135,7 +123,6 @@ const handleYearChange = (e) => {
 
 // Map services with materials
 const servicesWithMaterials = useMemo(() => {
-  console.log("useMemo: mapping services with materials...");
   return (services || []).map((service) => {
     const matchedMaterials = (serviceMaterials || []).filter(
       (m) => m.service_definition_id === service.service_definition_id
@@ -144,11 +131,9 @@ const servicesWithMaterials = useMemo(() => {
   });
 }, [services, serviceMaterials]);
 
-console.log("servicesWithMaterials", servicesWithMaterials);
 
 // Filter services by selected employee using the period data already loaded by the report fetchers.
 const employeeServices = useMemo(() => {
-  console.log("useMemo: filtering employeeServices for", selectedEmployee);
   if (!selectedEmployee) return [];
 
   return servicesWithMaterials.filter((s) =>
@@ -156,11 +141,9 @@ const employeeServices = useMemo(() => {
   );
 }, [servicesWithMaterials, selectedEmployee]);
 
-console.log("employeeServices", employeeServices);
 
 // Section summaries
 const dynamicSectionSummaries = useMemo(() => {
-  console.log("useMemo: calculating dynamicSectionSummaries...");
   return sections.map((sec) => {
     const secServices = employeeServices.filter((s) => s.definition_section_id === sec.id);
     const gross = secServices.reduce((acc, s) => acc + parseInt(s.full_amount || 0), 0);
@@ -180,7 +163,6 @@ const dynamicSectionSummaries = useMemo(() => {
   });
 }, [sections, employeeServices]);
 
-console.log("dynamicSectionSummaries", dynamicSectionSummaries);
 
 // General summaries
 const grossIncome = employeeServices.reduce((acc, s) => acc + parseInt(s.full_amount || 0), 0);
@@ -192,7 +174,6 @@ const salonIncome = employeeServices.reduce((acc, s) => acc + parseInt(s.salon_a
 const netEmployeeSalary = grossIncome - salonIncome - materialsTotal;
 const totalServicesCount = employeeServices.length;
 
-console.log("grossIncome:", grossIncome, "materialsTotal:", materialsTotal, "salonIncome:", salonIncome, "netEmployeeSalary:", netEmployeeSalary, "totalServicesCount:", totalServicesCount);
 
 // Service counts by name
 const serviceNameCounts = Object.entries(
@@ -202,7 +183,6 @@ const serviceNameCounts = Object.entries(
   }, {})
 );
 
-console.log("serviceNameCounts:", serviceNameCounts);
 
 // Format performers and materials
 const formatPerformersAndMaterials = (s) => {
@@ -215,7 +195,6 @@ const formatPerformersAndMaterials = (s) => {
 
 // Employee totals including salary, advances, fees, clocking
 const employeeTotals = useMemo(() => {
-  console.log("🔍 Calculating employeeTotals for", selectedEmployee);
 
   if (!selectedEmployee?.id) return [];
 
@@ -225,7 +204,6 @@ const employeeTotals = useMemo(() => {
     service.performers?.some((p) => Number(p.employee_id) === employeeId)
   );
 
-  console.log("userServices for employee:", userServices);
 
   const totalSalary = userServices.reduce((acc, service) => {
     const employeeRoles = service.performers?.filter((p) => Number(p.employee_id) === employeeId) || [];
@@ -315,7 +293,6 @@ const chartOptions = {
 
 // Initial data fetch
 useEffect(() => {
-  console.log("useEffect: fetching report data for the current day...");
   fetchDailyData(selectedDate);
   fetchUsers();
 }, []);

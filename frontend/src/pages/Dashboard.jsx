@@ -24,8 +24,7 @@ export default function Dashboard() {
           status: "open",
         };
 
-        const res = await sendFormData("openSalon", formData);
-        console.log("Salon opened:", res.data);
+        await sendFormData("openSalon", formData);
         setSalonStatus(status);
       } else if (status === "closed") {
         formData = {
@@ -33,8 +32,7 @@ export default function Dashboard() {
           status: "closed",
         };
 
-        const res = await sendFormData("closeSalon", formData); // ✅ use context
-        console.log("Salon closed:", res.data);
+        await sendFormData("closeSalon", formData); // ✅ use context
         setSalonStatus(status);
       }
     } catch (err) {
@@ -74,11 +72,9 @@ export default function Dashboard() {
   const handleClocking = async (type, formData) => {
     try {
       if (type === "clockin") {
-        const res = await sendFormData("createClocking", formData);
-        console.log("Clock in success:", res.data);
+        await sendFormData("createClocking", formData);
       } else if (type === "clockout") {
-        const res = await sendFormData("updateClocking", formData);
-        console.log("Clock out success:", res.data);
+        await sendFormData("updateClocking", formData);
       } else {
         console.error("Invalid clocking type");
       }
@@ -92,7 +88,6 @@ export default function Dashboard() {
     const fetchStatus = async () => {
       if (sessions && sessions.length > 0) {
         const todaySession = sessions[0];
-        console.log("Fetched salon status:", todaySession.status);
         setSalonStatus(todaySession.status);
       } else {
         setSalonStatus("closed");

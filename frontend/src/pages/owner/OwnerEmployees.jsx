@@ -48,7 +48,6 @@ const OwnerEmployees = () => {
   };
 
   const handleDelete = (userId) => {
-    console.log("Trying to delete user:", userId);
     setUserToDelete(userId);
     setConfirmModalOpen(true);
   };

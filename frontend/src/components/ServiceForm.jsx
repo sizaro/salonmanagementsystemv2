@@ -981,8 +981,6 @@ export default function ServiceForm({
       performers,
     };
 
-    console.log("FINAL SERVICE PAYLOAD:", payload);
-
     const transactionId = serviceData?.transaction_id ?? serviceData?.id;
 
     try {

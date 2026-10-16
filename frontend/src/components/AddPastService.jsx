@@ -254,8 +254,6 @@ export default function AddPastService({
       })),
     };
 
-    console.log("PAST SERVICE PAYLOAD", JSON.stringify(payload, null, 2));
-
     try {
       setSubmitting(true);
 

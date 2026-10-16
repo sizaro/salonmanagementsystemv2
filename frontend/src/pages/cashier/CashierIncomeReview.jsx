@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { DateTime } from "luxon";
+import { useData } from "../../context/DataContext.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 const ZONE = "Africa/Kampala";
+const PAGE_SIZE = 10;
 
 export default function CashierIncomeReview() {
+  const { user } = useData();
   const today = DateTime.now().setZone(ZONE).toISODate();
 
   const [selectedDate, setSelectedDate] = useState(today);
@@ -19,6 +22,7 @@ export default function CashierIncomeReview() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
 
   // =====================================
   // FETCH DAILY SERVICES
@@ -39,17 +43,7 @@ export default function CashierIncomeReview() {
           withCredentials: true,
         });
 
-        console.log("Cashier daily service review:", data);
 
-        console.log(
-          "Cashier customer check:",
-          data.services?.map((service) => ({
-            id: service.id,
-            customerId: service.customerId,
-            customerName: service.customerName,
-            performers: service.performers,
-          })),
-        );
 
         if (!active) return;
 
@@ -81,6 +75,16 @@ export default function CashierIncomeReview() {
       active = false;
     };
   }, [selectedDate]);
+
+  useEffect(() => { setPage(1); }, [selectedDate]);
+
+  const totalPages = Math.max(1, Math.ceil((report.services?.length || 0) / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const visibleServices = useMemo(
+    () => (report.services || []).slice(pageStart, pageStart + PAGE_SIZE),
+    [pageStart, report.services],
+  );
 
   // =====================================
   // FORMAT TIME
@@ -156,7 +160,7 @@ export default function CashierIncomeReview() {
 
       <header className="dashboard-hero">
         <p className="salon-eyebrow text-[var(--salon-copper)]">
-          Cashier workspace
+          {user?.role || "Cashier"} workspace
         </p>
 
         <h1 className="relative z-10 mt-2 font-serif text-3xl font-semibold">
@@ -252,6 +256,7 @@ export default function CashierIncomeReview() {
             </div>
 
             {report.services?.length ? (
+              <>
               <div className="dashboard-table-wrap overflow-x-auto">
                 <table className="dashboard-table min-w-[1000px]">
                   <thead>
@@ -267,11 +272,11 @@ export default function CashierIncomeReview() {
                   </thead>
 
                   <tbody>
-                    {report.services.map((service, index) => (
+                    {visibleServices.map((service, index) => (
                       <tr key={service.id}>
                         {/* NUMBER */}
 
-                        <td>{index + 1}</td>
+                        <td>{pageStart + index + 1}</td>
 
                         {/* TIME */}
 
@@ -359,6 +364,17 @@ export default function CashierIncomeReview() {
                   </tbody>
                 </table>
               </div>
+              <footer className="mt-4 flex flex-col gap-3 border-t border-stone-100 pt-4 text-sm text-stone-500 sm:flex-row sm:items-center sm:justify-between">
+                <p>
+                  Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, report.services.length)} of {report.services.length}
+                </p>
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={safePage === 1} className="rounded-lg border border-stone-200 px-3 py-1.5 font-semibold text-stone-700 disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
+                  <span className="font-medium">Page {safePage} of {totalPages}</span>
+                  <button type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={safePage === totalPages} className="rounded-lg border border-stone-200 px-3 py-1.5 font-semibold text-stone-700 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+                </div>
+              </footer>
+              </>
             ) : (
               <div className="rounded-xl border border-dashed border-stone-200 py-12 text-center">
                 <p className="font-medium text-stone-700">

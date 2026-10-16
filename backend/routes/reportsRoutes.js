@@ -13,7 +13,7 @@ router.get('/weekly', requireRole('owner', 'manager'), getWeeklyReport);
 router.get('/monthly', requireRole('owner', 'manager'), getMonthlyReport);
 router.get("/yearly", requireRole('owner', 'manager'), getYearlyReport);
 router.get("/payroll", requireRole('owner', 'manager', 'cashier'), getCashierPayroll);
-router.get("/cashier-income", requireRole('cashier'), getCashierIncomeReview);
+router.get("/cashier-income", requireRole('cashier', 'manager'), getCashierIncomeReview);
 router.get("/my-payroll", requireRole('employee', 'manager', 'cashier'), getMyPayroll);
 router.get("/my-income", requireRole('employee'), getMyIncomeReport);
 router.get("/", requireRole('owner', 'manager'), getReport);

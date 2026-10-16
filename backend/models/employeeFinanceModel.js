@@ -198,6 +198,79 @@ export const getSalonFinanceSummary = async ({ salonId }) => {
   };
 };
 
+// Read-only overview for the operational staff workspace. These figures use
+// the same effective-payment and effective-settlement rules as the individual
+// employee finance overview, so a pending request never changes a balance.
+export const getStaffFinanceSnapshot = async ({ salonId, date }) => {
+  const snapshotDate = normalizeDate(date, "date") || new Date().toISOString().slice(0, 10);
+  const { rows } = await db.query(
+    `SELECT
+       u.id AS employee_id,
+       u.first_name,
+       u.last_name,
+       u.role,
+       COALESCE((
+         SELECT SUM(ee.amount)
+         FROM employee_earnings ee
+         WHERE ee.salon_id = u.salon_id
+           AND ee.employee_id = u.id
+           AND ee.earning_date = $2::date
+       ), 0)::numeric AS earned_today,
+       COALESCE((
+         SELECT SUM(ee.amount)
+         FROM employee_earnings ee
+         WHERE ee.salon_id = u.salon_id
+           AND ee.employee_id = u.id
+       ), 0)::numeric
+       - COALESCE((
+         SELECT SUM(ep.requested_amount)
+         FROM employee_payments ep
+         WHERE ep.salon_id = u.salon_id
+           AND ep.employee_id = u.id
+           AND ep.workflow_status IN ('DISBURSED', 'ACKNOWLEDGED')
+       ), 0)::numeric
+       - COALESCE((
+         SELECT SUM(asl.amount)
+         FROM employee_advance_settlements asl
+         WHERE asl.salon_id = u.salon_id
+           AND asl.employee_id = u.id
+           AND asl.settlement_method = 'PAYROLL_DEDUCTION'
+           AND asl.workflow_status = 'EFFECTIVE'
+       ), 0)::numeric AS unpaid_amount,
+       COALESCE((
+         SELECT SUM(ar.requested_amount)
+         FROM employee_advance_requests ar
+         WHERE ar.salon_id = u.salon_id
+           AND ar.employee_id = u.id
+           AND ar.workflow_status IN ('DISBURSED', 'ACKNOWLEDGED')
+       ), 0)::numeric
+       - COALESCE((
+         SELECT SUM(asl.amount)
+         FROM employee_advance_settlements asl
+         WHERE asl.salon_id = u.salon_id
+           AND asl.employee_id = u.id
+           AND asl.workflow_status = 'EFFECTIVE'
+       ), 0)::numeric AS advances_outstanding
+     FROM users u
+     WHERE u.salon_id = $1
+       AND LOWER(COALESCE(u.role, '')) IN ('employee', 'manager', 'cashier')
+       AND LOWER(COALESCE(u.status, 'active')) = 'active'
+     ORDER BY u.first_name ASC, u.last_name ASC, u.id ASC`,
+    [salonId, snapshotDate],
+  );
+
+  return {
+    date: snapshotDate,
+    employees: rows.map((row) => ({
+      ...row,
+      employee_id: Number(row.employee_id),
+      earned_today: Number(row.earned_today || 0),
+      unpaid_amount: Math.max(Number(row.unpaid_amount || 0), 0),
+      advances_outstanding: Math.max(Number(row.advances_outstanding || 0), 0),
+    })),
+  };
+};
+
 export const listEmployeeFinancePeriods = async ({ salonId }) => {
   const { rows } = await db.query(
     `SELECT

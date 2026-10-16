@@ -41,7 +41,6 @@ const ManagerIncomeReport = () => {
     });
   }, [services, serviceMaterials]);
 
-  console.log("services with materials", servicesWithMaterials)
 
   const Employees = (users || []).filter(
     (user) =>
@@ -50,7 +49,6 @@ const ManagerIncomeReport = () => {
       user.role !== "customer"
   );
 
-  console.log("users in the daily page", users)
 
   const toYMD = (date) => date.toISOString().split("T")[0];
 
@@ -94,14 +92,12 @@ const ManagerIncomeReport = () => {
     await fetchUsers();
   }
   const service = await fetchServiceTransactionById(id);
-  console.log("service transaction to be edited", service)
   setEditingService(service);
   setShowModal(true);
 };
 
 
   const handleEditServiceSubmit = async (id, updatedService) => {
-    console.log("received service to be edited in parent", updatedService)
     await updateServiceTransactionById(id, updatedService);
     await fetchDailyData(selectedDate);
     setShowModal(false);
@@ -246,7 +242,6 @@ const ManagerIncomeReport = () => {
   }, [session]);
 
   const handleDayChange = (e) => {
-  console.log("handleDayChange called with value:", e.target.value);
   setSelectedDate(e.target.value);
   void loadIncomeReport(() => fetchDailyData(e.target.value));
   fetchUsers();
@@ -254,7 +249,6 @@ const ManagerIncomeReport = () => {
 
 const handleWeekChange = (e) => {
   const weekString = e.target.value;
-  console.log("handleWeekChange called with weekString:", weekString);
 
   if (!weekString) return;
 
@@ -280,7 +274,6 @@ const handleWeekChange = (e) => {
 };
 
 const handleMonthChange = (e) => {
-  console.log("handleMonthChange called with value:", e.target.value);
   const value = e.target.value;
     if (!value) return;
 
@@ -297,7 +290,6 @@ const handleMonthChange = (e) => {
 };
 
 const handleYearChange = (e) => {
-  console.log("handleYearChange called with value:", e.target.value);
   const selectedYear = parseInt(e.target.value, 10);
     setYear(selectedYear);
     setReportLabel(`Year ${selectedYear}`);
@@ -381,7 +373,6 @@ const serviceNameCounts = useMemo(() => {
 }, [servicesWithMaterials]);
 
 
-console.log("Employees in te income daily report", Employees)
   // ---------- Render ----------
   if (reportLoading && !reportReady) {
     return <div className="income-page mx-auto max-w-6xl p-6"><ReportLoadingState message="Loading the income report and service details..." /></div>;

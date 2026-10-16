@@ -414,7 +414,6 @@ const OwnerIncomeReport = () => {
 
   const handleEditServiceSubmit = async (id, updatedService) => {
     try {
-      console.log("OWNER REPORT SERVICE UPDATE:", updatedService);
 
       await updateServiceTransactionById(id, updatedService);
 

@@ -28,7 +28,6 @@ const Employees = () => {
   };
 
   const handleDelete = (employeeId) => {
-    console.log("Trying to delete employee:", employeeId);
     setEmployeeToDelete(employeeId);
     setConfirmModalOpen(true);
   };

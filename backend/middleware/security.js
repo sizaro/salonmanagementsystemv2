@@ -1,4 +1,4 @@
-import { rateLimit } from "express-rate-limit";
+import { ipKeyGenerator, rateLimit } from "express-rate-limit";
 import { randomUUID } from "crypto";
 import { isTrustedOrigin } from "../config/environment.js";
 
@@ -21,9 +21,19 @@ export const apiRateLimiter = rateLimit({
   handler: response("Too many requests. Please try again shortly."),
 });
 
-export const authRateLimiter = rateLimit({
+// A shared local IP address is normal for the salon workstations. Keying every
+// authentication endpoint by IP meant one person's successful sign-ins could
+// eventually lock every account out until the server restarted. Login attempts
+// are instead limited per account and IP, and successful logins are not counted.
+export const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 12,
+  limit: 10,
+  skipSuccessfulRequests: true,
+  keyGenerator: (req) => {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const ip = ipKeyGenerator(req.ip);
+    return email ? `login:${ip}:${email}` : `login:${ip}`;
+  },
   standardHeaders: "draft-8",
   legacyHeaders: false,
   handler: response("Too many authentication attempts. Please wait before trying again."),

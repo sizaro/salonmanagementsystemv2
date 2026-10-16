@@ -9,11 +9,12 @@ import {
   changePasswordController,
 } from "../controllers/authController.js";
 import { requireAuth, requireSalonContext } from "../middleware/auth.js";
+import { loginRateLimiter } from "../middleware/security.js";
 
 
 const router = express.Router();
 
-router.post("/login", login);
+router.post("/login", loginRateLimiter, login);
 
 
 

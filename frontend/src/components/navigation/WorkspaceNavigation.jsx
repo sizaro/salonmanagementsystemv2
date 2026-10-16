@@ -32,6 +32,8 @@ const navigationByRole = {
     { path: "/manager/finance", label: "Employee Finance", icon: WalletCards, primary: true },
     { path: "/manager/statistics", label: "Statistics", icon: ChartNoAxesCombined, primary: true },
     { path: "/manager/staff-performance", label: "Staff Performance", icon: BriefcaseBusiness },
+    { path: "/manager/staff-finance", label: "Staff Finance", icon: HandCoins },
+    { path: "/manager/income-review", label: "Daily Services", icon: BarChart3 },
   ],
   employee: [
     { path: "/employee/dashboard", label: "Dashboard", icon: LayoutDashboard, primary: true },
@@ -43,6 +45,7 @@ const navigationByRole = {
     { path: "/cashier/dashboard", label: "Dashboard", icon: LayoutDashboard, primary: true },
     { path: "/cashier/staff-payments", label: "Staff Payments", icon: WalletCards, primary: true },
     { path: "/cashier/income-review", label: "Income Review", icon: BarChart3, primary: true },
+    { path: "/cashier/staff-finance", label: "Staff Finance", icon: HandCoins, primary: true },
   ],
   customer: [
     { path: "/customer/dashboard", label: "Dashboard", icon: LayoutDashboard, primary: true },

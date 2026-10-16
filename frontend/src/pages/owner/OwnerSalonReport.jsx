@@ -247,7 +247,6 @@ export default function OwnerSalonReport() {
     return normalizeSessions(sessions);
   }, [reportSessions, sessions]);
 
-  console.log("Salon sessions normalized:", salonSessions);
 
   // ===============================
   // ADDITIONAL FILTER STATES
@@ -683,7 +682,6 @@ export default function OwnerSalonReport() {
     return calculateSessionDuration(currentSession);
   }, [currentSession]);
 
-  console.log("Selected salon report sessions:", processedSessions);
 
   // ===============================
   // RENDER

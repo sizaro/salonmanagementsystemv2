@@ -103,14 +103,12 @@ const OwnerExpensesReport = () => {
 
   
     const handleDayChange = (e) => {
-    console.log("handleDayChange called with value:", e.target.value);
     setSelectedDate(e.target.value);
     fetchDailyData(e.target.value);
   };
   
   const handleWeekChange = (e) => {
     const weekString = e.target.value;
-    console.log("handleWeekChange called with weekString:", weekString);
   
     if (!weekString) return;
   
@@ -135,7 +133,6 @@ const OwnerExpensesReport = () => {
   };
   
   const handleMonthChange = (e) => {
-    console.log("handleMonthChange called with value:", e.target.value);
     const value = e.target.value;
       if (!value) return;
   
@@ -151,7 +148,6 @@ const OwnerExpensesReport = () => {
   };
   
   const handleYearChange = (e) => {
-    console.log("handleYearChange called with value:", e.target.value);
     const selectedYear = parseInt(e.target.value, 10);
       setYear(selectedYear);
       setReportLabel(`Year ${selectedYear}`);

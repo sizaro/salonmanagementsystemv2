@@ -35,7 +35,6 @@ const Advances = () => {
   };
 
   const handleDelete = (advanceId) => {
-    console.log("Trying to delete advance:", advanceId);
     setAdvanceToDelete(advanceId);
     setConfirmModalOpen(true);
   };
