@@ -54,7 +54,10 @@ export const fetchUserById = async (id, salon_id) => {
   const query = `SELECT id, salon_id, first_name, middle_name, last_name,
                         email, birthdate, contact, next_of_kin,
                         next_of_kin_contact, role, gender, specialty,
-                        status, bio, image_url, national_id_number, id_document_front_url, id_document_back_url, id_document_pdf_url, created_at
+                        status, bio, image_url, image_public_id, national_id_number,
+                        id_document_front_url, id_document_front_public_id,
+                        id_document_back_url, id_document_back_public_id,
+                        id_document_pdf_url, id_document_pdf_public_id, created_at
                  FROM users WHERE id = $1 AND salon_id = $2;`;
   const result = await db.query(query, [id, salon_id]);
   return result.rows[0];
@@ -80,23 +83,33 @@ export const saveUser = async ({
   status,
   bio,
   image_url,
+  image_public_id,
   national_id_number,
   id_document_front_url,
+  id_document_front_public_id,
   id_document_back_url,
+  id_document_back_public_id,
   id_document_pdf_url,
+  id_document_pdf_public_id,
 }) => {
   const query = `
     INSERT INTO users 
       (
         first_name, middle_name, last_name, email, password, 
         birthdate, contact, next_of_kin, next_of_kin_contact, 
-        role, gender, specialty, status, bio, image_url, national_id_number, id_document_front_url, id_document_back_url, id_document_pdf_url, salon_id, created_at
+        role, gender, specialty, status, bio, image_url, image_public_id, national_id_number,
+        id_document_front_url, id_document_front_public_id,
+        id_document_back_url, id_document_back_public_id,
+        id_document_pdf_url, id_document_pdf_public_id, salon_id, created_at
       ) 
     VALUES 
-      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,NOW())
+      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,NOW())
     RETURNING id, salon_id, first_name, middle_name, last_name, email,
               birthdate, contact, next_of_kin, next_of_kin_contact,
-              role, gender, specialty, status, bio, image_url, national_id_number, id_document_front_url, id_document_back_url, id_document_pdf_url, created_at;
+              role, gender, specialty, status, bio, image_url, image_public_id, national_id_number,
+              id_document_front_url, id_document_front_public_id,
+              id_document_back_url, id_document_back_public_id,
+              id_document_pdf_url, id_document_pdf_public_id, created_at;
   `;
 
   const values = [
@@ -115,10 +128,14 @@ export const saveUser = async ({
     status || 'active',
     nullIfBlank(bio),
     nullIfBlank(image_url),
+    nullIfBlank(image_public_id),
     nullIfBlank(national_id_number),
     nullIfBlank(id_document_front_url),
+    nullIfBlank(id_document_front_public_id),
     nullIfBlank(id_document_back_url),
+    nullIfBlank(id_document_back_public_id),
     nullIfBlank(id_document_pdf_url),
+    nullIfBlank(id_document_pdf_public_id),
     salon_id
   ];
 
@@ -148,10 +165,14 @@ export const UpdateUserById = async (data) => {
     status,
     bio,
     image_url,
+    image_public_id,
     national_id_number,
     id_document_front_url,
+    id_document_front_public_id,
     id_document_back_url,
+    id_document_back_public_id,
     id_document_pdf_url,
+    id_document_pdf_public_id,
   } = data;
 
   id = parseInt(id, 10);
@@ -195,10 +216,14 @@ export const UpdateUserById = async (data) => {
     fields.push(`image_url = $${fields.length + 1}`);
     values.push(nullIfBlank(image_url));
   }
+  if (image_public_id !== undefined) { fields.push(`image_public_id = $${fields.length + 1}`); values.push(nullIfBlank(image_public_id)); }
   if (national_id_number !== undefined) { fields.push(`national_id_number = $${fields.length + 1}`); values.push(nullIfBlank(national_id_number)); }
   if (nullIfBlank(id_document_front_url)) { fields.push(`id_document_front_url = $${fields.length + 1}`); values.push(nullIfBlank(id_document_front_url)); }
+  if (id_document_front_public_id !== undefined) { fields.push(`id_document_front_public_id = $${fields.length + 1}`); values.push(nullIfBlank(id_document_front_public_id)); }
   if (nullIfBlank(id_document_back_url)) { fields.push(`id_document_back_url = $${fields.length + 1}`); values.push(nullIfBlank(id_document_back_url)); }
+  if (id_document_back_public_id !== undefined) { fields.push(`id_document_back_public_id = $${fields.length + 1}`); values.push(nullIfBlank(id_document_back_public_id)); }
   if (nullIfBlank(id_document_pdf_url)) { fields.push(`id_document_pdf_url = $${fields.length + 1}`); values.push(nullIfBlank(id_document_pdf_url)); }
+  if (id_document_pdf_public_id !== undefined) { fields.push(`id_document_pdf_public_id = $${fields.length + 1}`); values.push(nullIfBlank(id_document_pdf_public_id)); }
 
   // Add id and salon_id for WHERE clause
   values.push(id, salon_id);
@@ -209,7 +234,10 @@ export const UpdateUserById = async (data) => {
     WHERE id = $${values.length - 1} AND salon_id = $${values.length}
     RETURNING id, salon_id, first_name, middle_name, last_name, email,
               birthdate, contact, next_of_kin, next_of_kin_contact,
-              role, gender, specialty, status, bio, image_url, national_id_number, id_document_front_url, id_document_back_url, id_document_pdf_url, created_at;
+              role, gender, specialty, status, bio, image_url, image_public_id, national_id_number,
+              id_document_front_url, id_document_front_public_id,
+              id_document_back_url, id_document_back_public_id,
+              id_document_pdf_url, id_document_pdf_public_id, created_at;
   `;
 
   const result = await db.query(query, values);

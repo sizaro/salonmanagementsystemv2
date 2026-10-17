@@ -12,7 +12,10 @@ import {
 } from "../models/usersModel.js";
 import { findUserByEmail } from "../models/usersModel.js";
 import dotenv from "dotenv";
-import { storeEmployeeEvidence } from "../utils/employeeEvidenceStorage.js";
+import {
+  removeEmployeeEvidenceAssets,
+  storeEmployeeEvidence,
+} from "../utils/employeeEvidenceStorage.js";
 import { employeeHasHistoricalRecords, logEmployeeActivity } from "../models/employeeProfileModel.js";
 dotenv.config();
 const ALLOWED_ROLES = new Set(["owner", "manager", "cashier", "employee", "customer"]);
@@ -22,6 +25,41 @@ const removeLocalUpload = async (url) => {
   if (!url || !String(url).startsWith("/uploads/")) return;
   const filePath = path.join(process.cwd(), url);
   if (fs.existsSync(filePath)) await fs.promises.unlink(filePath);
+};
+
+const uploadedEvidenceFields = [
+  { field: "image_url", referenceField: "image_url", publicIdField: "image_public_id" },
+  { field: "id_document_front", referenceField: "id_document_front_url", publicIdField: "id_document_front_public_id" },
+  { field: "id_document_back", referenceField: "id_document_back_url", publicIdField: "id_document_back_public_id" },
+  { field: "id_document_pdf", referenceField: "id_document_pdf_url", publicIdField: "id_document_pdf_public_id" },
+];
+
+const evidenceAssetsForReplacement = (existingUser, uploads) => uploadedEvidenceFields
+  .filter(({ referenceField }) => Boolean(uploads[referenceField]))
+  .map(({ field, referenceField, publicIdField }) => ({
+    field,
+    reference: existingUser[referenceField],
+    publicId: existingUser[publicIdField],
+  }));
+
+const evidenceAssetsForNewUploads = (uploads) => uploadedEvidenceFields
+  .filter(({ referenceField }) => Boolean(uploads[referenceField]))
+  .map(({ field, referenceField, publicIdField }) => ({
+    field,
+    reference: uploads[referenceField],
+    publicId: uploads[publicIdField],
+  }));
+
+const removeEvidenceQuietly = async (assets, context) => {
+  if (!assets.length) return;
+  try {
+    await removeEmployeeEvidenceAssets(assets);
+  } catch (error) {
+    // The employee record already points at the new asset (or was deleted).
+    // Keep that successful database action intact and retain the old asset for
+    // manual cleanup if the provider deletion is temporarily unavailable.
+    console.error(`Employee evidence cleanup failed after ${context}:`, error);
+  }
 };
 
 const createCustomerAccount = async ({ body, file, salon_id }) => {
@@ -244,6 +282,8 @@ export const updateMyProfile = async (req, res) => {
  * Create new user (with image upload)
  */
 export const createUser = async (req, res) => {
+  let uploads;
+  let employeeSaved = false;
   try {
     const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
 
@@ -280,15 +320,18 @@ export const createUser = async (req, res) => {
     const existingUser = await findUserByEmail(email, salon_id);
     if (existingUser) return res.status(409).json({ error: "An account with this email already exists" });
 
-    const hashedPassword = await bcrypt.hash(password, await bcrypt.genSalt(10));
-
-    const uploads = await storeEmployeeEvidence(req.files);
     if (role !== "customer" && !String(national_id_number || "").trim()) {
       return res.status(400).json({ error: "National ID number is required for an employee record." });
     }
-    if (role !== "customer" && !((uploads.id_document_front_url && uploads.id_document_back_url) || uploads.id_document_pdf_url)) {
+    const hasFrontAndBack = Boolean(req.files?.id_document_front?.[0] && req.files?.id_document_back?.[0]);
+    const hasPdf = Boolean(req.files?.id_document_pdf?.[0]);
+    if (role !== "customer" && !hasFrontAndBack && !hasPdf) {
       return res.status(400).json({ error: "Provide both front and back ID images, or one PDF ID document." });
     }
+
+    const hashedPassword = await bcrypt.hash(password, await bcrypt.genSalt(10));
+
+    uploads = await storeEmployeeEvidence(req.files);
 
     const newUser = await saveUser({
       salon_id,
@@ -309,6 +352,7 @@ export const createUser = async (req, res) => {
       national_id_number: String(national_id_number || "").trim() || null,
       ...uploads,
     });
+    employeeSaved = true;
 
     await logEmployeeActivity({
       salonId: salon_id,
@@ -323,6 +367,9 @@ export const createUser = async (req, res) => {
       data: newUser,
     });
   } catch (err) {
+    if (uploads && !employeeSaved) {
+      await removeEvidenceQuietly(evidenceAssetsForNewUploads(uploads), "a failed employee creation");
+    }
     console.error("Error creating user:", err);
     res.status(500).json({ error: "Failed to create user" });
   }
@@ -332,6 +379,8 @@ export const createUser = async (req, res) => {
  * Update user by ID
  */
 export const updateUserById = async (req, res) => {
+  let uploads;
+  let employeeUpdated = false;
   try {
     const { id } = req.params;
     const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
@@ -396,17 +445,31 @@ export const updateUserById = async (req, res) => {
         : await bcrypt.hash(password, await bcrypt.genSalt(10));
     }
 
-    // ✅ Handle image upload and delete old image
-    const uploads = await storeEmployeeEvidence(req.files);
+    uploads = await storeEmployeeEvidence(req.files);
     if (uploads.image_url) {
-      await removeLocalUpload(existingUser.image_url);
       updatedData.image_url = uploads.image_url;
+      updatedData.image_public_id = uploads.image_public_id;
     }
-    if (uploads.id_document_front_url) updatedData.id_document_front_url = uploads.id_document_front_url;
-    if (uploads.id_document_back_url) updatedData.id_document_back_url = uploads.id_document_back_url;
-    if (uploads.id_document_pdf_url) updatedData.id_document_pdf_url = uploads.id_document_pdf_url;
+    if (uploads.id_document_front_url) {
+      updatedData.id_document_front_url = uploads.id_document_front_url;
+      updatedData.id_document_front_public_id = uploads.id_document_front_public_id;
+    }
+    if (uploads.id_document_back_url) {
+      updatedData.id_document_back_url = uploads.id_document_back_url;
+      updatedData.id_document_back_public_id = uploads.id_document_back_public_id;
+    }
+    if (uploads.id_document_pdf_url) {
+      updatedData.id_document_pdf_url = uploads.id_document_pdf_url;
+      updatedData.id_document_pdf_public_id = uploads.id_document_pdf_public_id;
+    }
 
     const updatedUser = await UpdateUserById(updatedData);
+    employeeUpdated = true;
+
+    await removeEvidenceQuietly(
+      evidenceAssetsForReplacement(existingUser, uploads),
+      `an employee ${updatedUser.id} update`,
+    );
 
     await logEmployeeActivity({
       salonId: salon_id,
@@ -425,6 +488,9 @@ export const updateUserById = async (req, res) => {
       data: updatedUser,
     });
   } catch (err) {
+    if (uploads && !employeeUpdated) {
+      await removeEvidenceQuietly(evidenceAssetsForNewUploads(uploads), "a failed employee update");
+    }
     console.error("Error updating user:", err);
     res.status(500).json({ error: "Failed to update user" });
   }
@@ -452,10 +518,16 @@ export const deleteUserById = async (req, res) => {
       });
     }
 
-    // Delete image from disk if exists
-    await removeLocalUpload(existingUser.image_url);
+    const deletedUser = await DeleteUserById(id, salon_id);
 
-    await DeleteUserById(id, salon_id);
+    await removeEvidenceQuietly(
+      uploadedEvidenceFields.map(({ field, referenceField, publicIdField }) => ({
+        field,
+        reference: existingUser[referenceField],
+        publicId: existingUser[publicIdField],
+      })),
+      `an employee ${deletedUser?.id || existingUser.id} deletion`,
+    );
 
     res.status(200).json({ message: "User deleted successfully" });
   } catch (err) {
