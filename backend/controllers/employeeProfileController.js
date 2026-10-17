@@ -1,5 +1,5 @@
 import { getEmployeeDocument, getEmployeeProfile } from "../models/employeeProfileModel.js";
-import { sendPrivateArtifact } from "../utils/privateArtifactStorage.js";
+import { readPrivateArtifact, sendPrivateArtifact } from "../utils/privateArtifactStorage.js";
 
 const employeeIdFromRequest = (req) => {
   const employeeId = Number(req.params.id);
@@ -55,6 +55,22 @@ export const openEmployeeDocument = async (req, res) => {
       kind: req.params.kind,
     });
     if (!documentUrl) return res.status(404).json({ error: "Document was not found" });
+
+    // Cloudinary serves authenticated raw assets as generic downloads in some
+    // browsers. Relay National ID PDFs through this authorised endpoint with
+    // an explicit inline PDF response so they open in a browser tab instead.
+    if (req.params.kind === "id-pdf") {
+      const document = await readPrivateArtifact(documentUrl);
+      res.set({
+        "Cache-Control": "private, no-store",
+        "Content-Disposition": `inline; filename="employee-${employeeId}-national-id.pdf"`,
+        "Content-Length": String(document.length),
+        "Content-Type": "application/pdf",
+        "X-Content-Type-Options": "nosniff",
+      });
+      return res.send(document);
+    }
+
     return sendPrivateArtifact(res, documentUrl);
   } catch (error) {
     return respond(res, error);

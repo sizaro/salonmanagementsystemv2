@@ -117,6 +117,15 @@ export default function UserForm({ user, onSubmit, onClose, role = "employee" })
 
   const submit = async (event) => {
     event.preventDefault();
+
+    // A four-step form must never save merely because an input submits the
+    // enclosing form. Only the explicit Save employee button on Review may
+    // persist the record.
+    if (step !== steps.length - 1) {
+      nextStep();
+      return;
+    }
+
     const validation = validateStep(0) || validateStep(1);
     if (validation) {
       setError(validation);
