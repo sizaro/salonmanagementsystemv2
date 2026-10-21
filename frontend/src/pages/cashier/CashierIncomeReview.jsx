@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { DateTime } from "luxon";
 import { useData } from "../../context/DataContext.jsx";
+import { DashboardSkeleton } from "../../components/loading/DashboardSkeleton.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 const ZONE = "Africa/Kampala";
@@ -152,6 +153,14 @@ export default function CashierIncomeReview() {
     return service.customerId ? "Registered customer" : "Walk-in";
   };
 
+  const getCollectionLabel = (method) => ({
+    CASH: "Cash",
+    MTN_MOMO: "MTN MoMo",
+    AIRTEL_MONEY: "Airtel Money",
+    BANK_TRANSFER: "Bank transfer",
+    OTHER: "Other",
+  }[String(method || "CASH").toUpperCase()] || "Other");
+
   return (
     <div className="dashboard-page space-y-6">
       {/* =====================================
@@ -215,10 +224,7 @@ export default function CashierIncomeReview() {
       ===================================== */}
 
       {loading ? (
-        <div className="dashboard-panel text-center">
-          <div className="mx-auto mb-3 h-9 w-9 animate-spin rounded-full border-4 border-stone-200 border-t-[var(--salon-copper)]" />
-          Loading daily services...
-        </div>
+        <DashboardSkeleton />
       ) : (
         <>
           {/* =====================================
@@ -266,8 +272,9 @@ export default function CashierIncomeReview() {
                       <th>Service</th>
                       <th>Section</th>
                       <th>Customer</th>
+                      <th>Collection</th>
                       <th>Professional</th>
-                      <th>Amount</th>
+                      <th>Employee earnings</th>
                     </tr>
                   </thead>
 
@@ -308,6 +315,17 @@ export default function CashierIncomeReview() {
                           <div className="mt-1 text-xs text-stone-400">
                             {getCustomerType(service)}
                           </div>
+                        </td>
+
+                        <td>
+                          <div className="font-medium text-stone-800">
+                            {getCollectionLabel(service.collectionMethod)}
+                          </div>
+                          {service.collectionReference && (
+                            <div className="mt-1 max-w-40 truncate text-xs text-stone-400" title={service.collectionReference}>
+                              {service.collectionReference}
+                            </div>
+                          )}
                         </td>
 
                         {/* PROFESSIONALS */}

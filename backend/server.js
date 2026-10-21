@@ -84,7 +84,10 @@ app.use(
 );
 app.use(attachRequestId);
 app.use("/api", apiRateLimiter, requireTrustedOrigin);
-app.use(express.json({ limit: "3mb" }));
+// Historical finance entries may include an authenticated paper receipt. The
+// upload itself is capped at 8 MB by the finance workflow; base64 transport
+// needs a little additional JSON headroom.
+app.use(express.json({ limit: process.env.API_JSON_BODY_LIMIT || "12mb" }));
 app.use(cookieParser());
 
 // --- Sessions ---

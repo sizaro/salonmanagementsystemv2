@@ -15,7 +15,10 @@
     "db:employee-profile-audit": "node scripts/applyEmployeeProfileAudit.js",
     "db:employee-finance-signed-receipts": "node scripts/applyEmployeeFinanceSignedReceipts.js",
     "db:employee-payroll-deduction-consent": "node scripts/applyEmployeePayrollDeductionConsent.js",
-    "db:owner-intelligence": "node scripts/applyOwnerIntelligence.js"
+    "db:historical-employee-finance": "node scripts/applyHistoricalEmployeeFinanceEntries.js",
+    "db:owner-intelligence": "node scripts/applyOwnerIntelligence.js",
+    "db:service-collection-methods": "node scripts/applyServiceCollectionMethods.js",
+    "db:employee-finance-cutover": "node scripts/applyEmployeeFinanceCutover.js"
   },
   "author": "",
   "license": "ISC",

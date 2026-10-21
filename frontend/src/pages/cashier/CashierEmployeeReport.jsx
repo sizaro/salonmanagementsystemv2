@@ -14,6 +14,7 @@ const CashierEmployeeReport = () => {
     tagFees = [],
     lateFees = [],
     clockings = [],
+    financialSummary = null,
     fetchUsers,
     fetchDailyData,
     fetchWeeklyData,
@@ -134,7 +135,13 @@ const servicesWithMaterials = useMemo(() => {
     const matchedMaterials = (serviceMaterials || []).filter(
       (m) => m.service_definition_id === service.service_definition_id
     );
-    return { ...service, materials: matchedMaterials.length > 0 ? matchedMaterials : [] };
+    return {
+      ...service,
+      materials:
+        Array.isArray(service.materials) && service.materials.length > 0
+          ? service.materials
+          : matchedMaterials,
+    };
   });
 }, [services, serviceMaterials]);
 
@@ -157,10 +164,12 @@ const dynamicSectionSummaries = useMemo(() => {
     const salonIncome = secServices.reduce((acc, s) => acc + parseInt(s.salon_amount || 0), 0);
     const materialsTotal = secServices.reduce(
       (acc, s) =>
-        acc + (s.materials?.reduce((mAcc, mat) => mAcc + (parseInt(mat.amount) || 0), 0) || 0),
+        acc + (s.materials?.reduce((mAcc, mat) => mAcc + Number(mat.material_cost ?? mat.amount ?? 0), 0) || 0),
       0
     );
-    const employeeSalary = gross - salonIncome - materialsTotal;
+    const employeeSalary = secServices.reduce((sum, service) => sum + (service.performers || [])
+      .filter((performer) => Number(performer.employee_id) === Number(selectedEmployee?.id))
+      .reduce((performerSum, performer) => performerSum + Number(performer.role_amount || 0), 0), 0);
     return {
       id: sec.id,
       name: sec.section_name,
@@ -168,17 +177,16 @@ const dynamicSectionSummaries = useMemo(() => {
       services: secServices,
     };
   });
-}, [sections, employeeServices]);
+}, [sections, employeeServices, selectedEmployee]);
 
 
 // General summaries
 const grossIncome = employeeServices.reduce((acc, s) => acc + parseInt(s.full_amount || 0), 0);
 const materialsTotal = employeeServices.reduce(
-  (acc, s) => acc + (s.materials?.reduce((mAcc, mat) => mAcc + (parseInt(mat.amount) || 0), 0) || 0),
+  (acc, s) => acc + (s.materials?.reduce((mAcc, mat) => mAcc + Number(mat.material_cost ?? mat.amount ?? 0), 0) || 0),
   0
 );
 const salonIncome = employeeServices.reduce((acc, s) => acc + parseInt(s.salon_amount || 0), 0);
-const netEmployeeSalary = grossIncome - salonIncome - materialsTotal;
 const totalServicesCount = employeeServices.length;
 
 
@@ -200,7 +208,13 @@ const formatPerformersAndMaterials = (s) => {
   return [`Performers: ${performers} - ${performerAmount}`, `Materials: ${mats}`];
 };
 
-// Employee totals including salary, advances, fees, clocking
+const selectedEmployeeFinance = useMemo(
+  () => (financialSummary?.employees || []).find((employee) => Number(employee.employee_id) === Number(selectedEmployee?.id)) || null,
+  [financialSummary, selectedEmployee],
+);
+
+// Employee totals use the finance ledger. Advances, tag fees and late fees do
+// not automatically reduce salary; only an effective payroll deduction does.
 const employeeTotals = useMemo(() => {
 
   if (!selectedEmployee?.id) return [];
@@ -218,15 +232,6 @@ const employeeTotals = useMemo(() => {
     return acc + roleSum;
   }, 0);
 
-  const totalAdvances = advances.filter((a) => Number(a.employee_id) === employeeId)
-                                .reduce((sum, a) => sum + Number(a.amount || 0), 0);
-
-  const totalTagFees = tagFees.filter((t) => Number(t.employee_id) === employeeId)
-                              .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-  const totalLateFees = lateFees.filter((l) => Number(l.employee_id) === employeeId)
-                                .reduce((sum, l) => sum + Number(l.amount || 0), 0);
-
   const todayClock = clockings.find((c) => Number(c.employee_id) === employeeId);
   const clockIn = todayClock ? new Date(todayClock.clock_in) : null;
   const clockOut = todayClock?.clock_out ? new Date(todayClock.clock_out) : null;
@@ -239,24 +244,25 @@ const employeeTotals = useMemo(() => {
     totalHours = `${diffHrs} hrs ${diffMins} mins`;
   }
 
-  const netSalary = totalSalary - (totalAdvances + totalTagFees + totalLateFees);
-
   const user = users.find((u) => u.id === employeeId);
 
   return [
     {
       name: `${user?.first_name || "-"} ${user?.last_name || "-"}`,
-      totalSalary,
-      totalAdvances,
-      totalTagFees,
-      totalLateFees,
-      netSalary,
+      totalSalary: selectedEmployeeFinance?.earned_in_period ?? totalSalary,
+      paymentsDisbursed: selectedEmployeeFinance?.payments_in_period ?? 0,
+      totalAdvances: selectedEmployeeFinance?.advances_in_period ?? 0,
+      effectivePayrollDeductions: selectedEmployeeFinance?.payroll_deductions_in_period ?? 0,
+      totalTagFees: selectedEmployeeFinance?.tag_fees_in_period ?? 0,
+      totalLateFees: selectedEmployeeFinance?.late_fees_in_period ?? 0,
+      netSalary: selectedEmployeeFinance?.earnings_payable_at_period_end ?? totalSalary,
+      advancesOutstanding: selectedEmployeeFinance?.advances_outstanding_at_period_end ?? 0,
       clockIn,
       clockOut,
       totalHours,
     },
   ];
-}, [servicesWithMaterials, advances, tagFees, lateFees, clockings, selectedEmployee, users]);
+}, [servicesWithMaterials, clockings, selectedEmployee, selectedEmployeeFinance, users]);
 
 // Chart data
 const serviceChartData = useMemo(() => {
@@ -387,19 +393,19 @@ useEffect(() => {
                   <h3 className="text-md font-semibold text-blue-700 mb-2">{sec.name} Section Summary</h3>
                   <div className="grid grid-cols-1 gap-2">
                     <div className="p-3 rounded border bg-blue-50">
-                      <div className="text-sm text-gray-700">Gross Income</div>
+                      <div className="text-sm text-gray-700">Service value associated</div>
                       <div className="text-xl font-bold">{sec.totals.gross.toLocaleString()} UGX</div>
                     </div>
                     <div className="p-3 rounded border bg-blue-50">
-                      <div className="text-sm text-gray-700">Employee Salary</div>
+                      <div className="text-sm text-gray-700">This employee's earnings</div>
                       <div className="text-xl font-bold">{sec.totals.employeeSalary.toLocaleString()} UGX</div>
                     </div>
                     <div className="p-3 rounded border bg-blue-50">
-                      <div className="text-sm text-gray-700">Materials Cost</div>
+                      <div className="text-sm text-gray-700">Configured material estimate</div>
                       <div className="text-xl font-bold">{sec.totals.materialsTotal.toLocaleString()} UGX</div>
                     </div>
                     <div className="p-3 rounded border bg-blue-100">
-                      <div className="text-sm text-gray-700">Salon Amount</div>
+                      <div className="text-sm text-gray-700">Service salon share</div>
                       <div className="text-xl font-bold text-green-700">{sec.totals.salonIncome.toLocaleString()} UGX</div>
                     </div>
                     <div className="mb-2 text-sm font-medium text-purple-700">
@@ -413,18 +419,18 @@ useEffect(() => {
 
           {/* General Summary Boxes */}
           <section className="bg-white shadow rounded-lg p-4 mb-6">
-            <h2 className="text-xl font-semibold text-blue-700 mb-4">Summary</h2>
+            <h2 className="text-xl font-semibold text-blue-700 mb-1">Employee finance summary</h2>
+            <p className="mb-4 text-sm text-gray-500">Advances remain separate from earned pay unless an employee has consented to an effective payroll deduction.</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {[
-                { label: "Gross Income", value: grossIncome },
-                { label: "Materials Cost", value: materialsTotal },
-                { label: "Salon Amount", value: salonIncome },
-                { label: "Net Employee Salary", value: netEmployeeSalary },
-                { label: "Total Services", value: totalServicesCount },
+                { label: "Service value associated", value: grossIncome },
+                { label: "Configured material estimate", value: materialsTotal },
+                { label: "Service salon share", value: salonIncome },
+                { label: "Completed services", value: totalServicesCount, count: true },
               ].map((item, idx) => (
                 <div key={idx} className="summary-box p-3 border rounded">
                   <div className="text-sm text-gray-600">{item.label}</div>
-                  <div className="font-bold text-lg">{item.value.toLocaleString()} UGX</div>
+                  <div className="font-bold text-lg">{Number(item.value || 0).toLocaleString()}{item.count ? "" : " UGX"}</div>
                 </div>
               ))}
             </div>
@@ -432,19 +438,22 @@ useEffect(() => {
               {employeeTotals.map((emp, idx) => (
                 <div key={idx} className="employee-summary grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-2">
                   <div className="border px-4 py-2 text-center">
-                    <p className="font-bold text-l center text-gray-600">Total Salary</p><br />
+                    <p className="font-bold text-l center text-gray-600">Earnings created</p><br />
                     {emp.totalSalary.toLocaleString()} UGX</div>
                   <div className="border px-4 py-2 text-center">
-                    <p className="font-bold text-l text-gray-600">Total Advances</p><br />
+                    <p className="font-bold text-l text-gray-600">Payments disbursed</p><br />
+                  {emp.paymentsDisbursed.toLocaleString()} UGX</div>
+                  <div className="border px-4 py-2 text-center">
+                    <p className="font-bold text-l text-gray-600">Advances disbursed</p><br />
                   {emp.totalAdvances.toLocaleString()} UGX</div>
                   <div className="border px-4 py-2 text-center">
-                  <p className="font-bold text-l text-gray-600">Total Tag Fees</p><br />
-                  {emp.totalTagFees.toLocaleString()} UGX</div>
+                  <p className="font-bold text-l text-gray-600">Effective payroll deductions</p><br />
+                  {emp.effectivePayrollDeductions.toLocaleString()} UGX</div>
                   <div className="border px-4 py-2 text-center">
-                  <p className="font-bold text-l text-gray-600">Total Late Fees</p><br />
-                  {emp.totalLateFees.toLocaleString()} UGX</div>
+                  <p className="font-bold text-l text-gray-600">Outstanding advances at period end</p><br />
+                  {emp.advancesOutstanding.toLocaleString()} UGX</div>
                   <div className="border px-4 py-2 text-center font-semibold">
-                  <p className="font-bold text-l text-gray-600">Net Salary</p><br />
+                  <p className="font-bold text-l text-gray-600">Earnings payable at period end</p><br />
                   {emp.netSalary.toLocaleString()} UGX</div>
                 </div>
               ))}
@@ -522,11 +531,12 @@ useEffect(() => {
                     <th className="border px-4 py-2">Clock In</th>
                     <th className="border px-4 py-2">Clock Out</th>
                     <th className="border px-4 py-2">Hours</th>
-                    <th className="border px-4 py-2 text-right">Total Salary</th>
-                    <th className="border px-4 py-2 text-right">Advances</th>
-                    <th className="border px-4 py-2 text-right">Tag Fees</th>
-                    <th className="border px-4 py-2 text-right">Late Fees</th>
-                    <th className="border px-4 py-2 text-right">Net Salary</th>
+                    <th className="border px-4 py-2 text-right">Earnings created</th>
+                    <th className="border px-4 py-2 text-right">Payments disbursed</th>
+                    <th className="border px-4 py-2 text-right">Advances disbursed</th>
+                    <th className="border px-4 py-2 text-right">Effective payroll deductions</th>
+                    <th className="border px-4 py-2 text-right">Earnings payable at period end</th>
+                    <th className="border px-4 py-2 text-right">Outstanding advances at period end</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -538,10 +548,11 @@ useEffect(() => {
                       <td className="border px-4 py-2">{emp.clockOut ? emp.clockOut.toLocaleTimeString() : "-"}</td>
                       <td className="border px-4 py-2">{emp.totalHours}</td>
                       <td className="border px-4 py-2 text-right">{emp.totalSalary.toLocaleString()} UGX</td>
+                      <td className="border px-4 py-2 text-right">{emp.paymentsDisbursed.toLocaleString()} UGX</td>
                       <td className="border px-4 py-2 text-right">{emp.totalAdvances.toLocaleString()} UGX</td>
-                      <td className="border px-4 py-2 text-right">{emp.totalTagFees.toLocaleString()} UGX</td>
-                      <td className="border px-4 py-2 text-right">{emp.totalLateFees.toLocaleString()} UGX</td>
+                      <td className="border px-4 py-2 text-right">{emp.effectivePayrollDeductions.toLocaleString()} UGX</td>
                       <td className="border px-4 py-2 text-right font-semibold">{emp.netSalary.toLocaleString()} UGX</td>
+                      <td className="border px-4 py-2 text-right font-semibold">{emp.advancesOutstanding.toLocaleString()} UGX</td>
                     </tr>
                   ))}
                 </tbody>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { DateTime } from "luxon";
 import { useData } from "../../context/DataContext.jsx";
+import { DashboardSkeleton } from "../../components/loading/DashboardSkeleton.jsx";
 import FinanceRequestNotice from "../../components/finance/FinanceRequestNotice.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
@@ -464,9 +465,7 @@ export default function EmployeeDashboard() {
 
   if (!user?.id) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center text-slate-500">
-        Loading your dashboard...
-      </div>
+      <div className="dashboard-page p-4 sm:p-6"><DashboardSkeleton /></div>
     );
   }
 

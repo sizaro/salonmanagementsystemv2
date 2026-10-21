@@ -34,6 +34,7 @@ const ManagerLayout = () => {
           {/* Employee operations */}
           <Route path="employees-management" element={<Employees />} />
           <Route path="employees/:id" element={<EmployeeProfilePage />} />
+          <Route path="employee-report" element={<EmployeeReport />} />
 
           {/* Staff Performance */}
           <Route path="staff-performance" element={<StaffPerformance />} />

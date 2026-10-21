@@ -35,6 +35,13 @@ const APPOINTMENT_TRANSITIONS = {
 };
 
 const VALID_SERVICE_SOURCES = new Set(["walk_in", "online_booking"]);
+const VALID_COLLECTION_METHODS = new Set([
+  "CASH",
+  "MTN_MOMO",
+  "AIRTEL_MONEY",
+  "BANK_TRANSFER",
+  "OTHER",
+]);
 
 const requestError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -75,6 +82,30 @@ const normalizeServiceSource = (value, fallback = "walk_in") => {
   }
 
   return source;
+};
+
+const normalizeCollectionMethod = (value, fallback = "CASH") => {
+  const method = String(value || fallback)
+    .trim()
+    .toUpperCase();
+
+  if (!VALID_COLLECTION_METHODS.has(method)) {
+    throw requestError(
+      "Invalid collection method. Use cash, MTN MoMo, Airtel Money, bank transfer, or other.",
+    );
+  }
+
+  return method;
+};
+
+const normalizeCollectionReference = (value) => {
+  const reference = String(value || "").trim();
+
+  if (reference.length > 120) {
+    throw requestError("Collection reference cannot exceed 120 characters.");
+  }
+
+  return reference || null;
 };
 
 const normalizeInternalPerformers = (performers = []) => {
@@ -556,29 +587,15 @@ export const createServiceTransaction = async (req, res) => {
       });
     }
 
-    // =====================================================
-    // DEBUG
-    // =====================================================
-
-    console.log("SERVICE DATA BEFORE MODEL:", {
-      entry_type: data.entry_type,
-
-      service_source: data.service_source,
-
-      status: data.status,
-
-      service_date: data.service_date,
-
-      service_time: data.service_time,
-
-      appointment_date: data.appointment_date,
-
-      appointment_time: data.appointment_time,
-
-      salon_id: data.salon_id,
-
-      performers: data.performers,
-    });
+    // Customer appointments are not collections yet. They remain CASH by
+    // default until an authorised staff member completes the service and
+    // records the actual collection method.
+    data.collection_method = isCustomer
+      ? "CASH"
+      : normalizeCollectionMethod(req.body.collection_method);
+    data.collection_reference = isCustomer
+      ? null
+      : normalizeCollectionReference(req.body.collection_reference);
 
     // =====================================================
     // SAVE
@@ -782,6 +799,8 @@ export const updateServiceTransaction = async (req, res) => {
       customer_note,
       status,
       service_source,
+      collection_method,
+      collection_reference,
     } = req.body;
 
     const performers = Array.isArray(req.body.performers)
@@ -799,6 +818,23 @@ export const updateServiceTransaction = async (req, res) => {
             existing.service_source || "walk_in",
           )
         : existing.service_source || null;
+
+    // Customer money is only recognised when the service is completed. A
+    // pending or confirmed appointment may retain its default, but cannot be
+    // classified as a mobile or bank collection ahead of completion.
+    const canRecordCollection = finalStatus === "completed";
+
+    const finalCollectionMethod = canRecordCollection
+      ? collection_method !== undefined
+        ? normalizeCollectionMethod(collection_method)
+        : normalizeCollectionMethod(existing.collection_method)
+      : "CASH";
+
+    const finalCollectionReference = canRecordCollection
+      ? collection_reference !== undefined
+        ? normalizeCollectionReference(collection_reference)
+        : existing.collection_reference || null
+      : null;
 
     const finalServiceDefinitionId = Number(
       service_definition_id || existing.service_definition_id,
@@ -883,6 +919,10 @@ export const updateServiceTransaction = async (req, res) => {
       status: status ?? existing.status,
 
       service_source: finalServiceSource,
+
+      collection_method: finalCollectionMethod,
+
+      collection_reference: finalCollectionReference,
 
       performers,
 
@@ -1073,6 +1113,16 @@ export const updateServiceTransactionAppointment = async (req, res) => {
       service_date: completedAt?.toISODate() || null,
 
       service_time: completedAt?.toFormat("HH:mm:ss") || null,
+
+      collection_method:
+        status === "completed" && req.user?.role !== "customer"
+          ? normalizeCollectionMethod(req.body.collection_method, appointment.collection_method || "CASH")
+          : appointment.collection_method || "CASH",
+
+      collection_reference:
+        status === "completed" && req.user?.role !== "customer"
+          ? normalizeCollectionReference(req.body.collection_reference)
+          : appointment.collection_reference || null,
     };
 
     const updated = await updateServiceTransactionAppointmentModel(

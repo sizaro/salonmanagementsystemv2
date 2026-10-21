@@ -229,12 +229,6 @@ const OwnerAdvances = () => {
   // CRUD HANDLERS
   // ========================
 
-  const handleAddPast = () => {
-    setEditingAdvance(null);
-    setNewAdvanceEntryType("past");
-    setShowModal(true);
-  };
-
   const handleEdit = async (advanceId) => {
     try {
       const advance = await fetchAdvanceById(advanceId);
@@ -487,18 +481,17 @@ const OwnerAdvances = () => {
             Create Finance Advance Request
           </Link>
 
-          <button
-            type="button"
-            onClick={handleAddPast}
+          <Link
+            to="/owner/finance?action=past-advance&tab=advances"
             className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-md shadow"
           >
             Add Past Advance
-          </button>
+          </Link>
         </div>
       </div>
 
       <div className="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-950">
-        <span className="font-semibold">Settlement rule:</span> current employee advances are requested, approved, disbursed, acknowledged, and then settled from Employee Finance. Direct historical entries remain available for audit, but are not silently deducted from pay.
+        <span className="font-semibold">Settlement rule:</span> all new advances, including past entries, are recorded through Employee Finance so approval, disbursement, receipt evidence, and settlement remain connected. Existing legacy entries remain available here for audit and are not silently deducted from pay.
       </div>
 
       {/* SUMMARY */}

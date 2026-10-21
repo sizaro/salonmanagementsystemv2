@@ -1,0 +1,40 @@
+/* Scoped Salehish loading visuals: no global element styles or theme overrides. */
+.salehish-loader{position:relative;display:grid;place-items:center;overflow:hidden;isolation:isolate;box-sizing:border-box;font-family:Inter,system-ui,sans-serif;background:radial-gradient(ellipse at 50% 45%,#fffafc,#f0e6ed 64%,#e2d5e2)}
+.salehish-loader--fullscreen{position:fixed;inset:0;z-index:1000;min-height:100dvh}
+.salehish-loader--inline{height:420px;min-height:350px;border-radius:18px}
+.salehish-loader__ambient{position:absolute;width:250px;height:250px;border-radius:50%;filter:blur(60px);opacity:.26;pointer-events:none;animation:sh-float 8s ease-in-out infinite alternate}
+.salehish-loader__ambient--one{background:#b23b78;top:-90px;right:-55px}
+.salehish-loader__ambient--two{background:#35235d;bottom:-100px;left:-65px;animation-delay:-4s}
+.salehish-loader__assembly{position:relative;width:300px;height:300px;display:grid;place-items:center;flex:none}
+.salehish-loader__halo{position:absolute;inset:60px;border-radius:50%;background:radial-gradient(circle,#fff9fc,rgba(194,99,153,.12) 65%,transparent);animation:sh-breathe 4s ease-in-out infinite}
+.salehish-loader__orbit{position:absolute;inset:0;width:100%;height:100%;overflow:visible;animation:sh-spin 5s linear infinite;filter:drop-shadow(0 2px 6px rgba(122,36,86,.24))}
+.salehish-loader__ring{fill:none;stroke-width:6;stroke-linecap:round}
+.salehish-loader__outer{fill:none;stroke:#a64483;stroke-width:1;opacity:.18}
+.salehish-loader__emblem{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;text-align:center}
+.salehish-loader__flame{width:40px;height:62px;animation:sh-flame 3s ease-in-out infinite;filter:drop-shadow(0 3px 4px rgba(117,35,83,.2))}
+.salehish-loader__name{font-family:Georgia,serif;font-size:19px;font-weight:900;color:#591d40;white-space:nowrap;animation:sh-name 5s ease-in-out infinite}
+.salehish-loader__rule{width:166px;height:5px;border-radius:8px;margin-top:5px;background:linear-gradient(90deg,#25204b,#a12865,#25204b);animation:sh-rule 5s ease-in-out infinite}
+.salehish-loader__subtitle{font-size:12px;font-weight:700;letter-spacing:.13em;color:#25204b;margin-top:8px;animation:sh-sub 5s ease-in-out infinite}
+.salehish-loader__spark{position:absolute;border-radius:50%;background:#c34279;box-shadow:0 0 8px #d6679e;animation:sh-spark 3.5s ease-in-out infinite;pointer-events:none}
+.salehish-loader__caption{position:absolute;bottom:22px;max-width:90%;text-align:center;font-size:10px;letter-spacing:.18em;color:#855d7a;animation:sh-caption 5s ease-in-out infinite}
+@keyframes sh-spin{to{transform:rotate(360deg)}}
+@keyframes sh-float{to{transform:translate(40px,-30px) scale(1.25)}}
+@keyframes sh-breathe{0%,100%{transform:scale(.93);opacity:.65}50%{transform:scale(1.08);opacity:1}}
+@keyframes sh-flame{0%,100%{transform:translateY(2px) scale(.98)}50%{transform:translateY(-3px) scale(1.035)}}
+@keyframes sh-name{0%,100%{opacity:.87;transform:translateY(1px)}50%{opacity:1;transform:translateY(-2px)}}
+@keyframes sh-sub{0%,100%{opacity:.8;letter-spacing:.13em}50%{opacity:1;letter-spacing:.145em}}
+@keyframes sh-rule{0%,100%{opacity:.8}50%{opacity:1}}
+@keyframes sh-spark{0%,100%{opacity:0;transform:scale(.3)}50%{opacity:.9;transform:scale(1.4)}}
+@keyframes sh-caption{0%,100%{opacity:.55}50%{opacity:1}}
+/* Reusable skeletons: tune background tokens to match the existing salon theme. */
+.sh-skeleton{background:linear-gradient(110deg,rgba(135,58,104,.09) 8%,rgba(255,255,255,.65) 20%,rgba(135,58,104,.09) 34%);background-size:240% 100%;border-radius:9px;animation:sh-shimmer 1.8s linear infinite}
+.sh-skeleton-card{border:1px solid rgba(137,72,111,.15);background:rgba(255,255,255,.54);backdrop-filter:blur(14px);border-radius:16px;padding:18px;display:grid;gap:13px;box-shadow:0 8px 28px rgba(69,30,57,.04)}
+.sh-skeleton-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:14px}
+.sh-skeleton-table{display:grid;gap:10px}
+.sh-skeleton-table-row{display:grid;grid-template-columns:1.2fr 1fr 1fr .6fr;gap:12px;align-items:center;padding:12px;border-radius:12px;background:rgba(255,255,255,.4)}
+.sh-loading-spinner{width:1em;height:1em;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;vertical-align:middle;animation:sh-spin .7s linear infinite;flex:none}
+.sh-loading-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:9px 16px;border:0;border-radius:10px;background:#81245b;color:#fff;font:600 14px Inter,system-ui,sans-serif;cursor:pointer}
+.sh-loading-button:disabled{cursor:wait;opacity:.72}
+@keyframes sh-shimmer{to{background-position-x:-240%}}
+@media(max-width:380px){.salehish-loader__assembly{transform:scale(.86)}}
+@media(prefers-reduced-motion:reduce){.salehish-loader *, .sh-skeleton,.sh-loading-spinner{animation:none!important}}

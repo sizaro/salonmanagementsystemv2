@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import db from "./database.js";
-import { sha256, signatureFromDataUrl, storeReceiptPdf, storeSignaturePng } from "../utils/financeReceiptStorage.js";
+import { sha256, signatureFromDataUrl, storeManualReceipt, storeReceiptPdf, storeSignaturePng } from "../utils/financeReceiptStorage.js";
 import { createEmployeeFinanceReceiptPdf, receiptDocumentHash } from "../utils/employeeFinanceReceiptPdf.js";
 
 const STAFF_ROLES = new Set(["owner", "manager", "cashier"]);
@@ -56,11 +56,26 @@ const prepareSignature = async (signatureDataUrl) => {
   return { signatureUrl: await storeSignaturePng(buffer), signatureHash: sha256(buffer) };
 };
 
+const prepareManualReceipt = async (value) => {
+  if (!value) return null;
+  const match = /^data:(application\/pdf|image\/(?:png|jpeg|webp));base64,([a-z0-9+/=\s]+)$/i.exec(String(value));
+  if (!match) throw financeError("Upload a PDF, PNG, JPEG, or WebP manual receipt");
+  const buffer = Buffer.from(match[2], "base64");
+  if (!buffer.length || buffer.length > 8_000_000) throw financeError("The manual receipt is invalid or exceeds 8 MB");
+  return { url: await storeManualReceipt(buffer, match[1]), hash: sha256(buffer), mimeType: match[1] };
+};
+
+const historicalTimestamp = (value) => {
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.getTime()) || timestamp > new Date()) throw financeError("Choose a valid past business date and time");
+  return timestamp.toISOString();
+};
+
 const transactionIdentity = async ({ salonId, sourceType, sourceId }) => {
   const table = sourceType === "ADVANCE" ? "employee_advance_requests" : "employee_payments";
   const amountColumn = "requested_amount";
   const { rows } = await db.query(
-    `SELECT t.id, t.employee_id, t.${amountColumn} AS amount,
+    `SELECT t.id, t.employee_id, t.${amountColumn} AS amount, t.manual_receipt_url,
             u.role AS employee_role,
             TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS employee_name
      FROM ${table} t
@@ -103,6 +118,11 @@ const paymentAvailability = async (client, { salonId, employeeId, periodId }) =>
          FROM employee_earnings ee
          WHERE ee.salon_id = $1
            AND ee.employee_id = $2
+            AND NOT EXISTS (
+              SELECT 1 FROM employee_finance_cutovers cutover
+              WHERE cutover.salon_id = ee.salon_id
+                AND ee.earning_date <= cutover.legacy_ends_on
+            )
            AND ($3::date IS NULL OR ee.earning_date >= $3::date)
            AND ($4::date IS NULL OR ee.earning_date <= $4::date)
        ), 0)::numeric AS earned_amount,
@@ -134,9 +154,23 @@ const paymentAvailability = async (client, { salonId, employeeId, periodId }) =>
            0
          ))
          FROM employee_advance_requests ar
+          LEFT JOIN advances source_advance
+            ON source_advance.id = ar.advance_id
+           AND source_advance.salon_id = ar.salon_id
+          LEFT JOIN employee_finance_cutovers cutover
+            ON cutover.salon_id = ar.salon_id
          WHERE ar.salon_id = $1
            AND ar.employee_id = $2
            AND ar.workflow_status IN ('DISBURSED', 'ACKNOWLEDGED')
+            -- Imported automatic advances are historical closure evidence,
+            -- never available for a new controlled-workflow deduction.
+            AND NOT (
+              cutover.salon_id IS NOT NULL
+              AND source_advance.id IS NOT NULL
+              AND source_advance.advance_date <= cutover.legacy_ends_on
+              AND COALESCE(ar.entry_type, 'CURRENT') <> 'PAST'
+              AND ar.manual_receipt_url IS NULL
+            )
        ), 0)::numeric AS advance_outstanding`,
     [
       salonId,
@@ -159,8 +193,9 @@ const paymentAvailability = async (client, { salonId, employeeId, periodId }) =>
   };
 };
 
-const mapAdvanceRequest = (row) => ({
+const mapAdvanceRequest = ({ manual_receipt_url, manual_receipt_hash, ...row }) => ({
   ...row,
+  manual_receipt_attached: Boolean(manual_receipt_url),
   requested_amount: Number(row.requested_amount || 0),
   settled_amount: Number(row.settled_amount || 0),
   outstanding_amount: Number(row.outstanding_amount || 0),
@@ -169,8 +204,9 @@ const mapAdvanceRequest = (row) => ({
     : [],
 });
 
-const mapPayment = (row) => ({
+const mapPayment = ({ manual_receipt_url, manual_receipt_hash, ...row }) => ({
   ...row,
+  manual_receipt_attached: Boolean(manual_receipt_url),
   requested_amount: Number(row.requested_amount || 0),
 });
 
@@ -249,6 +285,29 @@ export const createAdvanceRequest = async ({
   return mapAdvanceRequest(rows[0]);
 };
 
+export const createPastAdvance = async ({ salonId, actorId, actorRole, employeeId, amount, reason, occurredAt, lateEntryReason, manualReceiptDataUrl }) => {
+  assertRole(actorRole, STAFF_ROLES, "Only salon finance staff may record a past advance");
+  const targetEmployeeId = Number(employeeId);
+  const requestedAmount = positiveAmount(amount, "Advance amount");
+  const businessOccurredAt = historicalTimestamp(occurredAt);
+  if (!Number.isInteger(targetEmployeeId) || !String(lateEntryReason || "").trim()) throw financeError("Employee and late-entry reason are required");
+  const evidence = await prepareManualReceipt(manualReceiptDataUrl);
+  const { rows } = await db.query(
+    `INSERT INTO employee_advance_requests (
+       salon_id, employee_id, requested_amount, reason, requested_by, entry_type,
+       business_occurred_at, late_entry_reason, manual_receipt_url, manual_receipt_hash, manual_receipt_mime_type
+     )
+     SELECT $1, u.id, $3, $4, $5, 'PAST', $6, $7, $8, $9, $10
+     FROM users u WHERE u.id = $2 AND u.salon_id = $1
+       AND LOWER(COALESCE(u.role, '')) = ANY($11::text[]) AND LOWER(COALESCE(u.status, 'active')) = 'active'
+     RETURNING *`,
+    [salonId, targetEmployeeId, requestedAmount, String(reason || "").trim() || null, actorId, businessOccurredAt,
+      String(lateEntryReason).trim(), evidence?.url || null, evidence?.hash || null, evidence?.mimeType || null, [...FINANCE_EMPLOYEE_ROLES]],
+  );
+  if (!rows[0]) throw financeError("Choose an active employee, manager, or cashier in this salon", 404);
+  return mapAdvanceRequest(rows[0]);
+};
+
 export const listAdvanceRequests = async ({ salonId, actorId, actorRole }) => {
   const isStaff = STAFF_ROLES.has(String(actorRole || "").toLowerCase());
   const { rows } = await db.query(
@@ -259,6 +318,17 @@ export const listAdvanceRequests = async ({ salonId, actorId, actorRole }) => {
     [salonId, isStaff, actorId],
   );
   return rows.map(mapAdvanceRequest);
+};
+
+export const getAdvanceRequestManualReceipt = async ({ salonId, requestId }) => {
+  const { rows } = await db.query(
+    `SELECT manual_receipt_url
+     FROM employee_advance_requests
+     WHERE id = $1 AND salon_id = $2`,
+    [requestId, salonId],
+  );
+  if (!rows[0]?.manual_receipt_url) throw financeError("A signed paper receipt is not attached", 404);
+  return rows[0].manual_receipt_url;
 };
 
 export const decideAdvanceRequest = async ({
@@ -282,6 +352,9 @@ export const decideAdvanceRequest = async ({
     && String(actorRole || "").toLowerCase() !== "owner") {
     throw financeError("A manager's advance request must be approved by the owner", 403);
   }
+  if (approved && identity.manual_receipt_url) {
+    throw financeError("Verify the signed paper receipt instead of adding a digital approval", 409);
+  }
   const signature = approved ? await prepareSignature(signatureDataUrl) : null;
   const nextStatus = approved ? "APPROVED" : "REJECTED";
   return db.transaction(async (client) => {
@@ -293,10 +366,11 @@ export const decideAdvanceRequest = async ({
          rejection_reason = CASE WHEN $1::varchar = 'REJECTED' THEN $3::varchar ELSE NULL END,
          updated_at = NOW()
      WHERE id = $4 AND salon_id = $5 AND workflow_status = 'REQUESTED'
+       AND ($1::varchar = 'REJECTED' OR manual_receipt_url IS NULL)
      RETURNING *`,
       [nextStatus, actorId, String(rejectionReason || "").trim() || null, requestId, salonId],
     );
-    if (!rows[0]) throw financeError("Advance request is unavailable for review", 409);
+    if (!rows[0]) throw financeError("Advance request is unavailable for digital approval; verify its signed paper receipt instead", 409);
     if (signature) {
       await insertSignature(client, {
         salonId,
@@ -337,15 +411,16 @@ export const disburseAdvanceRequest = async ({
          advance_date, advance_time, entry_type, backdate_reason, created_at
        ) VALUES (
          $1, $2, $3, $4,
-         (NOW() AT TIME ZONE 'Africa/Kampala')::date,
-         (NOW() AT TIME ZONE 'Africa/Kampala')::time,
-         'current', NULL, NOW()
+         (COALESCE($5::timestamptz, NOW()) AT TIME ZONE 'Africa/Kampala')::date,
+         (COALESCE($5::timestamptz, NOW()) AT TIME ZONE 'Africa/Kampala')::time,
+         CASE WHEN $5::timestamptz IS NULL THEN 'current' ELSE 'past' END,
+         CASE WHEN $5::timestamptz IS NULL THEN NULL ELSE $6 END, NOW()
        ) RETURNING id`,
       [
         request.employee_id,
         request.requested_amount,
         request.reason || "Approved employee advance request",
-        salonId,
+        salonId, request.business_occurred_at, request.late_entry_reason,
       ],
     );
     const receipt = receiptNumber("ADV");
@@ -354,7 +429,9 @@ export const disburseAdvanceRequest = async ({
        SET workflow_status = 'DISBURSED',
            advance_id = $1,
            disbursed_by = $2,
-           disbursed_at = NOW(),
+           disbursed_at = COALESCE(business_occurred_at, NOW()),
+           acknowledged_by = NULL,
+           acknowledged_at = NULL,
            receipt_number = $3,
            updated_at = NOW()
        WHERE id = $4
@@ -364,9 +441,12 @@ export const disburseAdvanceRequest = async ({
     await client.query(
       `INSERT INTO employee_finance_receipts (
          salon_id, employee_id, receipt_number, receipt_type,
-         advance_request_id, amount, issued_by
-       ) VALUES ($1, $2, $3, 'ADVANCE', $4, $5, $6)`,
-      [salonId, request.employee_id, receipt, requestId, request.requested_amount, actorId],
+         advance_request_id, amount, issued_by, issued_at, acknowledged_by, acknowledged_at,
+         manual_receipt_url, manual_receipt_hash, manual_receipt_mime_type, manual_receipt_verified_by, manual_receipt_verified_at
+       ) VALUES ($1, $2, $3, 'ADVANCE', $4, $5, $6, COALESCE($7::timestamptz, NOW()),
+         NULL, NULL, $8, $9, $10, NULL, NULL)`,
+      [salonId, request.employee_id, receipt, requestId, request.requested_amount, actorId, request.business_occurred_at,
+        request.manual_receipt_url, request.manual_receipt_hash, request.manual_receipt_mime_type],
     );
     return mapAdvanceRequest(updatedRows[0]);
   });
@@ -412,6 +492,93 @@ export const acknowledgeAdvanceRequest = async ({ salonId, actorId, requestId, s
   });
   await finaliseReceipt({ salonId, receiptId: result.receiptId });
   return result.request;
+};
+
+export const verifyAdvanceManualReceipt = async ({ salonId, actorId, actorRole, requestId }) => {
+  assertRole(actorRole, REVIEWER_ROLES, "Only an owner or manager may verify a signed paper receipt");
+  return db.transaction(async (client) => {
+    const { rows } = await client.query(
+      `SELECT ar.*, u.role AS employee_role
+       FROM employee_advance_requests ar
+       JOIN users u ON u.id = ar.employee_id AND u.salon_id = ar.salon_id
+       WHERE ar.id = $1 AND ar.salon_id = $2
+       FOR UPDATE`,
+      [requestId, salonId],
+    );
+    const request = rows[0];
+    if (!request || !["REQUESTED", "DISBURSED"].includes(request.workflow_status) || !request.manual_receipt_url) {
+      throw financeError("This advance has no paper receipt available for verification", 409);
+    }
+    if (Number(request.employee_id) === Number(actorId)) {
+      throw financeError("You cannot verify your own paper receipt", 403);
+    }
+    if (String(request.employee_role || "").toLowerCase() === "manager"
+      && String(actorRole || "").toLowerCase() !== "owner") {
+      throw financeError("A manager's paper receipt must be verified by the owner", 403);
+    }
+    if (request.workflow_status === "REQUESTED") {
+      const { rows: advanceRows } = await client.query(
+        `INSERT INTO advances (
+           employee_id, amount, description, salon_id,
+           advance_date, advance_time, entry_type, backdate_reason, created_at
+         ) VALUES (
+           $1, $2, $3, $4,
+           (COALESCE($5::timestamptz, NOW()) AT TIME ZONE 'Africa/Kampala')::date,
+           (COALESCE($5::timestamptz, NOW()) AT TIME ZONE 'Africa/Kampala')::time,
+           'past', $6, NOW()
+         ) RETURNING id`,
+        [request.employee_id, request.requested_amount, request.reason || "Historical employee advance", salonId,
+          request.business_occurred_at, request.late_entry_reason],
+      );
+      const receipt = receiptNumber("ADV");
+      const { rows: updatedRows } = await client.query(
+        `UPDATE employee_advance_requests
+         SET workflow_status = 'ACKNOWLEDGED', advance_id = $1,
+             reviewed_by = $2, reviewed_at = NOW(), disbursed_by = $2,
+             disbursed_at = COALESCE(business_occurred_at, NOW()),
+             acknowledged_by = employee_id,
+             acknowledged_at = COALESCE(business_occurred_at, NOW()),
+             receipt_number = $3, updated_at = NOW()
+         WHERE id = $4 AND salon_id = $5 AND workflow_status = 'REQUESTED'
+         RETURNING *`,
+        [advanceRows[0].id, actorId, receipt, requestId, salonId],
+      );
+      if (!updatedRows[0]) throw financeError("The advance is unavailable for paper-receipt verification", 409);
+      await client.query(
+        `INSERT INTO employee_finance_receipts (
+           salon_id, employee_id, receipt_number, receipt_type,
+           advance_request_id, amount, issued_by, issued_at, acknowledged_by, acknowledged_at,
+           manual_receipt_url, manual_receipt_hash, manual_receipt_mime_type, manual_receipt_verified_by, manual_receipt_verified_at
+         ) VALUES ($1, $2, $3, 'ADVANCE', $4, $5, $6, COALESCE($7::timestamptz, NOW()),
+           $2, COALESCE($7::timestamptz, NOW()), $8, $9, $10, $6, NOW())`,
+        [salonId, request.employee_id, receipt, requestId, request.requested_amount, actorId,
+          request.business_occurred_at, request.manual_receipt_url, request.manual_receipt_hash, request.manual_receipt_mime_type],
+      );
+      return mapAdvanceRequest(updatedRows[0]);
+    }
+
+    const { rows: updatedRows } = await client.query(
+      `UPDATE employee_advance_requests
+       SET workflow_status = 'ACKNOWLEDGED', acknowledged_by = employee_id,
+           acknowledged_at = COALESCE(business_occurred_at, NOW()), updated_at = NOW()
+       WHERE id = $1 AND salon_id = $2 AND workflow_status = 'DISBURSED'
+       RETURNING *`,
+      [requestId, salonId],
+    );
+    const receiptResult = await client.query(
+      `UPDATE employee_finance_receipts
+       SET acknowledged_by = employee_id,
+           acknowledged_at = COALESCE(issued_at, NOW()),
+           manual_receipt_verified_by = $1,
+           manual_receipt_verified_at = NOW()
+       WHERE salon_id = $2 AND advance_request_id = $3
+         AND manual_receipt_url IS NOT NULL AND acknowledged_at IS NULL
+       RETURNING id`,
+      [actorId, salonId, requestId],
+    );
+    if (!receiptResult.rows[0]) throw financeError("The advance receipt is unavailable for verification", 409);
+    return mapAdvanceRequest(updatedRows[0]);
+  });
 };
 
 export const settleAdvanceRequest = async ({
@@ -649,6 +816,31 @@ export const createEmployeePayment = async ({
   });
 };
 
+export const createPastEmployeePayment = async ({ salonId, actorId, actorRole, employeeId, amount, paymentMethod, paymentReference, notes, occurredAt, lateEntryReason, manualReceiptDataUrl }) => {
+  assertRole(actorRole, STAFF_ROLES, "Only salon finance staff may record a past payment");
+  const targetEmployeeId = Number(employeeId);
+  const requestedAmount = positiveAmount(amount, "Payment amount");
+  const businessOccurredAt = historicalTimestamp(occurredAt);
+  const method = String(paymentMethod || "CASH").trim().toUpperCase();
+  if (!PAYMENT_METHODS.has(method)) throw financeError("Invalid payment method");
+  if (!Number.isInteger(targetEmployeeId) || !String(lateEntryReason || "").trim()) throw financeError("Employee and late-entry reason are required");
+  const evidence = await prepareManualReceipt(manualReceiptDataUrl);
+  return db.transaction(async (client) => {
+    const availability = await paymentAvailability(client, { salonId, employeeId: targetEmployeeId, periodId: null });
+    if (requestedAmount > availability.available) throw financeError(`Payment exceeds available earnings of ${availability.available.toLocaleString()} UGX`);
+    const { rows } = await client.query(
+      `INSERT INTO employee_payments (
+         salon_id, employee_id, requested_amount, payment_method, payment_reference, notes, requested_by,
+         entry_type, business_occurred_at, late_entry_reason, manual_receipt_url, manual_receipt_hash, manual_receipt_mime_type
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,'PAST',$8,$9,$10,$11,$12) RETURNING *`,
+      [salonId, targetEmployeeId, requestedAmount, method, String(paymentReference || "").trim() || null,
+        String(notes || "").trim() || null, actorId, businessOccurredAt, String(lateEntryReason).trim(),
+        evidence?.url || null, evidence?.hash || null, evidence?.mimeType || null],
+    );
+    return mapPayment(rows[0]);
+  });
+};
+
 export const listEmployeePayments = async ({ salonId, actorId, actorRole }) => {
   const isStaff = STAFF_ROLES.has(String(actorRole || "").toLowerCase());
   const { rows } = await db.query(
@@ -659,6 +851,17 @@ export const listEmployeePayments = async ({ salonId, actorId, actorRole }) => {
     [salonId, isStaff, actorId],
   );
   return rows.map(mapPayment);
+};
+
+export const getEmployeePaymentManualReceipt = async ({ salonId, paymentId }) => {
+  const { rows } = await db.query(
+    `SELECT manual_receipt_url
+     FROM employee_payments
+     WHERE id = $1 AND salon_id = $2`,
+    [paymentId, salonId],
+  );
+  if (!rows[0]?.manual_receipt_url) throw financeError("A signed paper receipt is not attached", 404);
+  return rows[0].manual_receipt_url;
 };
 
 export const decideEmployeePayment = async ({
@@ -678,6 +881,9 @@ export const decideEmployeePayment = async ({
   if (Number(identity.employee_id) === Number(actorId)) {
     throw financeError("You cannot approve your own payment request", 403);
   }
+  if (approved && identity.manual_receipt_url) {
+    throw financeError("Verify the signed paper receipt instead of adding a digital approval", 409);
+  }
   const signature = approved ? await prepareSignature(signatureDataUrl) : null;
   return db.transaction(async (client) => {
     const { rows } = await client.query(
@@ -688,10 +894,11 @@ export const decideEmployeePayment = async ({
          rejection_reason = CASE WHEN $1::varchar = 'REJECTED' THEN $3::varchar ELSE NULL END,
          updated_at = NOW()
      WHERE id = $4 AND salon_id = $5 AND workflow_status = 'REQUESTED'
+       AND ($1::varchar = 'REJECTED' OR manual_receipt_url IS NULL)
      RETURNING *`,
       [approved ? "APPROVED" : "REJECTED", actorId, String(rejectionReason || "").trim() || null, paymentId, salonId],
     );
-    if (!rows[0]) throw financeError("Payment is unavailable for review", 409);
+    if (!rows[0]) throw financeError("Payment is unavailable for digital approval; verify its signed paper receipt instead", 409);
     if (signature) {
       await insertSignature(client, {
         salonId,
@@ -736,7 +943,9 @@ export const disburseEmployeePayment = async ({ salonId, actorId, actorRole, pay
       `UPDATE employee_payments
        SET workflow_status = 'DISBURSED',
            disbursed_by = $1,
-           disbursed_at = NOW(),
+           disbursed_at = COALESCE(business_occurred_at, NOW()),
+           acknowledged_by = NULL,
+           acknowledged_at = NULL,
            receipt_number = $2,
            updated_at = NOW()
        WHERE id = $3
@@ -746,9 +955,12 @@ export const disburseEmployeePayment = async ({ salonId, actorId, actorRole, pay
     await client.query(
       `INSERT INTO employee_finance_receipts (
          salon_id, employee_id, receipt_number, receipt_type,
-         employee_payment_id, amount, issued_by
-       ) VALUES ($1, $2, $3, 'PAYMENT', $4, $5, $6)`,
-      [salonId, payment.employee_id, receipt, paymentId, payment.requested_amount, actorId],
+         employee_payment_id, amount, issued_by, issued_at, acknowledged_by, acknowledged_at,
+         manual_receipt_url, manual_receipt_hash, manual_receipt_mime_type, manual_receipt_verified_by, manual_receipt_verified_at
+       ) VALUES ($1, $2, $3, 'PAYMENT', $4, $5, $6, COALESCE($7::timestamptz, NOW()),
+         NULL, NULL, $8, $9, $10, NULL, NULL)`,
+      [salonId, payment.employee_id, receipt, paymentId, payment.requested_amount, actorId, payment.business_occurred_at,
+        payment.manual_receipt_url, payment.manual_receipt_hash, payment.manual_receipt_mime_type],
     );
     return mapPayment(updatedRows[0]);
   });
@@ -796,11 +1008,95 @@ export const acknowledgeEmployeePayment = async ({ salonId, actorId, paymentId, 
   return result.payment;
 };
 
+export const verifyPaymentManualReceipt = async ({ salonId, actorId, actorRole, paymentId }) => {
+  assertRole(actorRole, REVIEWER_ROLES, "Only an owner or manager may verify a signed paper receipt");
+  return db.transaction(async (client) => {
+    const { rows } = await client.query(
+      `SELECT ep.*, u.role AS employee_role
+       FROM employee_payments ep
+       JOIN users u ON u.id = ep.employee_id AND u.salon_id = ep.salon_id
+       WHERE ep.id = $1 AND ep.salon_id = $2
+       FOR UPDATE`,
+      [paymentId, salonId],
+    );
+    const payment = rows[0];
+    if (!payment || !["REQUESTED", "DISBURSED"].includes(payment.workflow_status) || !payment.manual_receipt_url) {
+      throw financeError("This payment has no paper receipt available for verification", 409);
+    }
+    if (Number(payment.employee_id) === Number(actorId)) {
+      throw financeError("You cannot verify your own paper receipt", 403);
+    }
+    if (String(payment.employee_role || "").toLowerCase() === "manager"
+      && String(actorRole || "").toLowerCase() !== "owner") {
+      throw financeError("A manager's paper receipt must be verified by the owner", 403);
+    }
+    if (payment.workflow_status === "REQUESTED") {
+      await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+        `employee-payment:${salonId}:${payment.employee_id}:all`,
+      ]);
+      const availability = await paymentAvailability(client, {
+        salonId,
+        employeeId: payment.employee_id,
+        periodId: payment.financial_period_id,
+      });
+      if (Number(payment.requested_amount) > availability.available) {
+        throw financeError("Payment now exceeds available earnings and needs management review", 409);
+      }
+      const receipt = receiptNumber("PAY");
+      const { rows: updatedRows } = await client.query(
+        `UPDATE employee_payments
+         SET workflow_status = 'ACKNOWLEDGED', approved_by = $1, approved_at = NOW(),
+             disbursed_by = $1, disbursed_at = COALESCE(business_occurred_at, NOW()),
+             acknowledged_by = employee_id,
+             acknowledged_at = COALESCE(business_occurred_at, NOW()),
+             receipt_number = $2, updated_at = NOW()
+         WHERE id = $3 AND salon_id = $4 AND workflow_status = 'REQUESTED'
+         RETURNING *`,
+        [actorId, receipt, paymentId, salonId],
+      );
+      if (!updatedRows[0]) throw financeError("The payment is unavailable for paper-receipt verification", 409);
+      await client.query(
+        `INSERT INTO employee_finance_receipts (
+           salon_id, employee_id, receipt_number, receipt_type,
+           employee_payment_id, amount, issued_by, issued_at, acknowledged_by, acknowledged_at,
+           manual_receipt_url, manual_receipt_hash, manual_receipt_mime_type, manual_receipt_verified_by, manual_receipt_verified_at
+         ) VALUES ($1, $2, $3, 'PAYMENT', $4, $5, $6, COALESCE($7::timestamptz, NOW()),
+           $2, COALESCE($7::timestamptz, NOW()), $8, $9, $10, $6, NOW())`,
+        [salonId, payment.employee_id, receipt, paymentId, payment.requested_amount, actorId,
+          payment.business_occurred_at, payment.manual_receipt_url, payment.manual_receipt_hash, payment.manual_receipt_mime_type],
+      );
+      return mapPayment(updatedRows[0]);
+    }
+
+    const { rows: updatedRows } = await client.query(
+      `UPDATE employee_payments
+       SET workflow_status = 'ACKNOWLEDGED', acknowledged_by = employee_id,
+           acknowledged_at = COALESCE(business_occurred_at, NOW()), updated_at = NOW()
+       WHERE id = $1 AND salon_id = $2 AND workflow_status = 'DISBURSED'
+       RETURNING *`,
+      [paymentId, salonId],
+    );
+    const receiptResult = await client.query(
+      `UPDATE employee_finance_receipts
+       SET acknowledged_by = employee_id,
+           acknowledged_at = COALESCE(issued_at, NOW()),
+           manual_receipt_verified_by = $1,
+           manual_receipt_verified_at = NOW()
+       WHERE salon_id = $2 AND employee_payment_id = $3
+         AND manual_receipt_url IS NOT NULL AND acknowledged_at IS NULL
+       RETURNING id`,
+      [actorId, salonId, paymentId],
+    );
+    if (!receiptResult.rows[0]) throw financeError("The payment receipt is unavailable for verification", 409);
+    return mapPayment(updatedRows[0]);
+  });
+};
+
 const loadReceiptDetail = async ({ salonId, receiptId }) => {
   const { rows } = await db.query(
     `SELECT
        r.id, r.salon_id, r.employee_id, r.receipt_number, r.receipt_type,
-       r.amount, r.issued_at, r.acknowledged_at, r.pdf_url, r.document_hash,
+       r.amount, r.issued_at, r.acknowledged_at, r.pdf_url, r.document_hash, r.manual_receipt_url, r.manual_receipt_mime_type,
        r.finalized_at, r.document_version, r.advance_request_id, r.employee_payment_id,
        s.name AS salon_name, s.phone AS salon_phone, s.email AS salon_email,
        TRIM(CONCAT(COALESCE(employee.first_name, ''), ' ', COALESCE(employee.last_name, ''))) AS employee_name,
@@ -889,7 +1185,9 @@ export const getEmployeeFinanceReceiptDetail = async ({ salonId, actorId, actorR
     receipt: {
       ...detail.receipt,
       pdf_available: Boolean(detail.receipt.pdf_url),
+      manual_receipt_available: Boolean(detail.receipt.manual_receipt_url),
       pdf_url: undefined,
+      manual_receipt_url: undefined,
     },
     signatures: detail.signatures.map(({ signature_url: _privateReference, ...signature }) => ({
       ...signature,
@@ -912,6 +1210,13 @@ export const getEmployeeFinanceReceiptSignature = async ({ salonId, actorId, act
   return rows[0].signature_url;
 };
 
+export const getEmployeeFinanceManualReceipt = async ({ salonId, actorId, actorRole, receiptId }) => {
+  await getEmployeeFinanceReceiptDetail({ salonId, actorId, actorRole, receiptId });
+  const { rows } = await db.query("SELECT manual_receipt_url FROM employee_finance_receipts WHERE id = $1 AND salon_id = $2", [receiptId, salonId]);
+  if (!rows[0]?.manual_receipt_url) throw financeError("A manual receipt is not attached", 404);
+  return rows[0].manual_receipt_url;
+};
+
 export const getEmployeeFinanceReceipts = async ({ salonId, actorId, actorRole }) => {
   const isStaff = STAFF_ROLES.has(String(actorRole || "").toLowerCase());
   const { rows } = await db.query(
@@ -920,6 +1225,7 @@ export const getEmployeeFinanceReceipts = async ({ salonId, actorId, actorRole }
          r.id, r.salon_id, r.employee_id, r.receipt_number, r.receipt_type,
          r.amount, r.issued_by, r.issued_at, r.acknowledged_by, r.acknowledged_at,
          r.pdf_url, r.finalized_at,
+         (r.manual_receipt_url IS NOT NULL) AS manual_receipt_attached,
          EXISTS(SELECT 1 FROM employee_finance_receipt_signatures rs WHERE rs.receipt_id = r.id AND rs.signature_type = 'ACKNOWLEDGEMENT') AS has_employee_signature,
          EXISTS(SELECT 1 FROM employee_finance_receipt_signatures rs WHERE (rs.receipt_id = r.id OR rs.advance_request_id = r.advance_request_id OR rs.employee_payment_id = r.employee_payment_id) AND rs.signature_type = 'APPROVAL') AS has_management_signature,
          TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS employee_name
@@ -934,6 +1240,7 @@ export const getEmployeeFinanceReceipts = async ({ salonId, actorId, actorRole }
          asl.amount, asl.settled_by AS issued_by, asl.settled_at AS issued_at,
          NULL::integer AS acknowledged_by, NULL::timestamptz AS acknowledged_at,
          NULL::text AS pdf_url, NULL::timestamptz AS finalized_at,
+         FALSE AS manual_receipt_attached,
          FALSE AS has_employee_signature, FALSE AS has_management_signature,
          TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS employee_name
        FROM employee_advance_settlements asl

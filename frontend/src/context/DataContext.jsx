@@ -25,7 +25,11 @@ export const DataProvider = ({ children }) => {
   const [lateFees, setLateFees] = useState([]);
   const [tagFees, setTagFees] = useState([]);
   const [sessions, setSessions] = useState([]);
+  const [financialSummary, setFinancialSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  // This only represents the first session restore when the application starts.
+  // Other requests also use `loading`, so they must not replace the whole app.
+  const [authInitializing, setAuthInitializing] = useState(true);
   const [user, setUser] = useState(null);
   const [financeUpdateVersion, setFinanceUpdateVersion] = useState(0);
   const [isDataLoaded] = useState(false);
@@ -94,6 +98,7 @@ export const DataProvider = ({ children }) => {
     setTagFees(data.tagFees ?? []);
     setLateFees(data.lateFees ?? []);
     setSessions(data.sessions ?? []);
+    setFinancialSummary(data.financial_summary ?? null);
   };
 
   // =====================================
@@ -964,6 +969,7 @@ export const DataProvider = ({ children }) => {
       } catch {
         setUser(null);
       } finally {
+        setAuthInitializing(false);
         setLoading(false);
       }
     })();
@@ -1210,7 +1216,9 @@ export const DataProvider = ({ children }) => {
         clockings,
         activeClockings,
         sessions,
+        financialSummary,
         loading,
+        authInitializing,
         lateFees,
         tagFees,
         isDataLoaded,

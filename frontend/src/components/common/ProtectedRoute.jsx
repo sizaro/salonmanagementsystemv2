@@ -1,16 +1,13 @@
 // src/components/common/ProtectedRoute.jsx
 import { Navigate } from "react-router-dom";
 import { useData } from "../../context/DataContext";
+import { SalehishPageLoader } from "../loading/SalehishPageLoader.jsx";
 
 const ProtectedRoute = ({ children, role }) => {
-  const { user, loading } = useData();
+  const { user, authInitializing } = useData();
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen text-gray-600">
-        Checking access...
-      </div>
-    );
+  if (authInitializing) {
+    return <SalehishPageLoader message="RESTORING YOUR SALON WORKSPACE" />;
   }
 
   if (!user) {

@@ -1,5 +1,4 @@
 import {
-  saveAdvance,
   fetchAllAdvances,
   fetchAdvanceById,
   isFinanceWorkflowAdvance,
@@ -46,52 +45,10 @@ export const getAdvanceById = async (req, res) => {
  */
 export const createAdvance = async (req, res) => {
   try {
-    const salon_id = getSalonId(req);
-
-    const {
-      employee_id,
-      amount,
-      description,
-      entry_type = "current",
-      advance_date,
-      advance_time,
-      backdate_reason,
-    } = req.body;
-
-    if (entry_type !== "past") {
-      return res.status(409).json({
-        error:
-          "New current advances must be requested through Employee Finance so approval, signatures, and settlement are recorded.",
-        code: "USE_EMPLOYEE_FINANCE_WORKFLOW",
-      });
-    }
-
-    if (req.user?.role !== "owner") {
-      return res.status(403).json({
-        error: "Only owners can create past advances",
-      });
-    }
-
-    if (entry_type === "past" && (!advance_date || !advance_time || !String(backdate_reason || "").trim())) {
-      return res.status(400).json({
-        error: "Past advance requires a business date, time, and backdate reason",
-      });
-    }
-
-    const newAdvance = await saveAdvance({
-      employee_id,
-      amount,
-      description,
-      salon_id,
-      entry_type,
-      advance_date,
-      advance_time,
-      backdate_reason: entry_type === "past" ? String(backdate_reason).trim() : null,
-    });
-
-    res.status(201).json({
-      message: "Advance created successfully",
-      data: newAdvance,
+    return res.status(409).json({
+      error:
+        "New advances, including past entries, must be recorded through Employee Finance so approval, disbursement, receipt evidence, and settlement are recorded.",
+      code: "USE_EMPLOYEE_FINANCE_WORKFLOW",
     });
   } catch (err) {
     console.error("Error creating advance:", err);

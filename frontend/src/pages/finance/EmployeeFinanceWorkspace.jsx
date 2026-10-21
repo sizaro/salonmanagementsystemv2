@@ -5,6 +5,7 @@ import Modal from "../../components/Modal.jsx";
 import { useData } from "../../context/DataContext.jsx";
 import SignatureDialog from "../../components/finance/SignatureDialog.jsx";
 import FinanceReceiptDialog from "../../components/finance/FinanceReceiptDialog.jsx";
+import { TableSkeleton } from "../../components/loading/DashboardSkeleton.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 const STAFF_ROLES = new Set(["owner", "manager", "cashier"]);
@@ -45,6 +46,7 @@ export default function EmployeeFinanceWorkspace() {
   const [notice, setNotice] = useState("");
   const [advanceForm, setAdvanceForm] = useState({ employee_id: "", amount: "", reason: "" });
   const [paymentForm, setPaymentForm] = useState({ employee_id: "", amount: "", payment_method: "CASH", payment_reference: "", notes: "" });
+  const [pastForm, setPastForm] = useState({ employee_id: "", amount: "", reason: "", payment_method: "CASH", payment_reference: "", business_occurred_at: "", late_entry_reason: "", manual_receipt_data_url: "", manual_receipt_name: "" });
   const [activeForm, setActiveForm] = useState(null);
   const [activeTab, setActiveTab] = useState("advances");
   const [selectedEmployeeOverview, setSelectedEmployeeOverview] = useState(null);
@@ -55,6 +57,7 @@ export default function EmployeeFinanceWorkspace() {
   const [signatureEmployeeOverview, setSignatureEmployeeOverview] = useState(null);
   const [signatureEmployeeLoading, setSignatureEmployeeLoading] = useState(false);
   const [selectedReceiptId, setSelectedReceiptId] = useState(null);
+  const [paperReceiptTarget, setPaperReceiptTarget] = useState(null);
 
   const employees = useMemo(
     () => isStaff
@@ -110,8 +113,10 @@ export default function EmployeeFinanceWorkspace() {
     if (["advances", "payments", "receipts"].includes(tab)) {
       setActiveTab(tab);
     }
-    if (["advance", "payment"].includes(action)) {
+    if (["advance", "payment", "past-advance", "past-payment"].includes(action)) {
       setActiveForm(action);
+    } else if (!action) {
+      setActiveForm(null);
     }
   }, [searchParams]);
 
@@ -204,6 +209,27 @@ export default function EmployeeFinanceWorkspace() {
     }, "Payment prepared for review.");
   };
 
+  const readManualReceipt = (file) => {
+    if (!file) return setPastForm((current) => ({ ...current, manual_receipt_data_url: "", manual_receipt_name: "" }));
+    if (!/(application\/pdf|image\/(png|jpeg|webp))/.test(file.type) || file.size > 8_000_000) {
+      setError("Attach a PDF, PNG, JPEG, or WebP receipt no larger than 8 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setPastForm((current) => ({ ...current, manual_receipt_data_url: String(reader.result || ""), manual_receipt_name: file.name }));
+    reader.readAsDataURL(file);
+  };
+
+  const submitPast = (event) => {
+    event.preventDefault();
+    const isAdvance = activeForm === "past-advance";
+    run(async () => {
+      const payload = { ...pastForm, employee_id: Number(pastForm.employee_id), amount: Number(pastForm.amount) };
+      await axios.post(`${API_URL}/employee-finance/${isAdvance ? "past-advances" : "past-payments"}`, payload, { withCredentials: true });
+      setPastForm({ employee_id: "", amount: "", reason: "", payment_method: "CASH", payment_reference: "", business_occurred_at: "", late_entry_reason: "", manual_receipt_data_url: "", manual_receipt_name: "" });
+    }, isAdvance ? "Past advance recorded for management approval." : "Past payment recorded for management approval.");
+  };
+
   const openSettlement = (request) => {
     setSettlementTarget(request);
     setSettlementForm({
@@ -248,6 +274,23 @@ export default function EmployeeFinanceWorkspace() {
     "Receipt acknowledged.",
   );
 
+  const verifyPaperReceipt = async (kind, id) => {
+    if (!window.confirm("Verify that the uploaded paper receipt has the required signed evidence? This will mark the employee acknowledgement as recorded.")) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await axios.post(`${API_URL}/employee-finance/${kind}/${id}/verify-paper-receipt`, {}, { withCredentials: true });
+      setPaperReceiptTarget(null);
+      setNotice("Signed paper receipt verified. The employee acknowledgement has been recorded.");
+      await load();
+    } catch (requestError) {
+      setError(requestError.response?.data?.error || "The paper receipt could not be verified.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const requestApprovalSignature = (kind, row) => setSignatureTarget({ kind, row, action: "APPROVAL" });
   const requestAcknowledgementSignature = (kind, row) => setSignatureTarget({ kind, row, action: "ACKNOWLEDGEMENT" });
   const requestPayrollDeductionConsent = (row, settlement) => setSignatureTarget({
@@ -288,6 +331,8 @@ export default function EmployeeFinanceWorkspace() {
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => setActiveForm("advance")} className="rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-[var(--salehish-ink)] hover:bg-emerald-300">{isStaff ? "Create advance request" : "Request an advance"}</button>
             {isStaff && <button type="button" onClick={() => setActiveForm("payment")} className="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/20">Prepare employee payment</button>}
+            {isStaff && <button type="button" onClick={() => setActiveForm("past-advance")} className="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/20">Add past advance</button>}
+            {isStaff && <button type="button" onClick={() => setActiveForm("past-payment")} className="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/20">Add past payment</button>}
           </div>
         </div>
       </header>
@@ -367,6 +412,23 @@ export default function EmployeeFinanceWorkspace() {
         </form>
       </Modal>}
 
+      {["past-advance", "past-payment"].includes(activeForm) && isStaff && <Modal isOpen onClose={closeForm} sizeClass="max-w-xl">
+        <form onSubmit={submitPast} className="space-y-4 p-2">
+          <h2 className="text-lg font-semibold text-slate-900">{activeForm === "past-advance" ? "Add past advance" : "Add past payment"}</h2>
+          <p className="text-sm text-slate-600">This is entered with its real business time. Without a paper receipt it follows the normal approval and signing workflow. With an uploaded receipt already signed by the employee and management, an Owner or Manager verifies that evidence once instead of collecting duplicate digital signatures.</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-sm font-medium text-slate-700 sm:col-span-2">Employee<select required value={pastForm.employee_id} onChange={(event) => setPastForm((current) => ({ ...current, employee_id: event.target.value }))} className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2"><option value="">Choose employee</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.first_name} {employee.last_name} · {employee.role}</option>)}</select></label>
+            <label className="text-sm font-medium text-slate-700">Amount (UGX)<input required min="1" type="number" value={pastForm.amount} onChange={(event) => setPastForm((current) => ({ ...current, amount: event.target.value }))} className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2" /></label>
+            <label className="text-sm font-medium text-slate-700">Actual date and time<input required type="datetime-local" value={pastForm.business_occurred_at} onChange={(event) => setPastForm((current) => ({ ...current, business_occurred_at: event.target.value }))} className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2" /></label>
+            {activeForm === "past-payment" && <><label className="text-sm font-medium text-slate-700">Payment method<select value={pastForm.payment_method} onChange={(event) => setPastForm((current) => ({ ...current, payment_method: event.target.value }))} className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2"><option value="CASH">Cash</option><option value="MOBILE_MONEY">Mobile money</option><option value="BANK_TRANSFER">Bank transfer</option><option value="OTHER">Other</option></select></label><label className="text-sm font-medium text-slate-700">Reference<input value={pastForm.payment_reference} onChange={(event) => setPastForm((current) => ({ ...current, payment_reference: event.target.value }))} className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2" /></label></>}
+            <label className="text-sm font-medium text-slate-700 sm:col-span-2">Reason / notes<textarea value={pastForm.reason} onChange={(event) => setPastForm((current) => ({ ...current, reason: event.target.value }))} className="mt-1 block min-h-20 w-full rounded-xl border border-slate-300 px-3 py-2" /></label>
+            <label className="text-sm font-medium text-slate-700 sm:col-span-2">Why is this being entered late?<textarea required value={pastForm.late_entry_reason} onChange={(event) => setPastForm((current) => ({ ...current, late_entry_reason: event.target.value }))} className="mt-1 block min-h-20 w-full rounded-xl border border-slate-300 px-3 py-2" /></label>
+            <label className="text-sm font-medium text-slate-700 sm:col-span-2">Signed paper receipt (optional)<input type="file" accept="application/pdf,image/png,image/jpeg,image/webp" onChange={(event) => readManualReceipt(event.target.files?.[0])} className="mt-1 block w-full text-sm" />{pastForm.manual_receipt_name && <span className="mt-1 block text-xs text-emerald-700">Attached: {pastForm.manual_receipt_name}</span>}</label>
+            <button disabled={busy} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 sm:col-span-2">{busy ? "Saving…" : activeForm === "past-advance" ? "Record past advance" : "Record past payment"}</button>
+          </div>
+        </form>
+      </Modal>}
+
       {settlementTarget && <Modal isOpen onClose={() => setSettlementTarget(null)} sizeClass="max-w-xl">
         <form onSubmit={submitSettlement} className="space-y-4 p-2">
           <h2 className="text-lg font-semibold text-slate-900">Settle employee advance</h2>
@@ -412,11 +474,11 @@ export default function EmployeeFinanceWorkspace() {
         </div>
 
         {activeTab === "advances" && <WorkflowTable title="Advance requests" empty="No advance requests yet." rows={requests} employees={employees} loading={loading} columns={["Employee", "Amount", "Reason", "Status", "Requested", "Actions"]} render={(request) => <tr key={request.id} className="border-t border-slate-100">
-          <td className="px-4 py-3 font-medium text-slate-800">{employeeProfilePath(request.employee_id) ? <Link className="hover:text-blue-700 hover:underline" to={employeeProfilePath(request.employee_id)}>{request.employee_name || "You"}</Link> : (request.employee_name || "You")}</td><td className="px-4 py-3"><p>{money(request.requested_amount)}</p>{["DISBURSED", "ACKNOWLEDGED"].includes(String(request.workflow_status || "").toUpperCase()) && <p className="mt-1 text-xs text-slate-500">Outstanding: {money(request.outstanding_amount)}</p>}</td><td className="px-4 py-3 text-slate-600">{request.reason || "—"}</td><td className="px-4 py-3"><Status value={request.workflow_status} /></td><td className="px-4 py-3 text-xs text-slate-600">{formatRecordDate(request.created_at)}</td><td className="px-4 py-3"><Actions row={request} kind="advance-requests" isStaff={isStaff} canReview={canReviewRequests && Number(request.employee_id) !== Number(user?.id) && !(String(request.employee_role || "").toLowerCase() === "manager" && !isOwner)} canSettleAdvances={canSettleAdvances} canEmployeeAcknowledge={Number(request.employee_id) === Number(user?.id)} canEmployeeConsent={Number(request.employee_id) === Number(user?.id)} busy={busy} decide={decide} disburse={disburse} acknowledge={acknowledge} requestApprovalSignature={requestApprovalSignature} requestAcknowledgementSignature={requestAcknowledgementSignature} requestPayrollDeductionConsent={requestPayrollDeductionConsent} openSettlement={openSettlement} /></td>
+          <td className="px-4 py-3 font-medium text-slate-800">{employeeProfilePath(request.employee_id) ? <Link className="hover:text-blue-700 hover:underline" to={employeeProfilePath(request.employee_id)}>{request.employee_name || "You"}</Link> : (request.employee_name || "You")}</td><td className="px-4 py-3"><p>{money(request.requested_amount)}</p>{["DISBURSED", "ACKNOWLEDGED"].includes(String(request.workflow_status || "").toUpperCase()) && <p className="mt-1 text-xs text-slate-500">Outstanding: {money(request.outstanding_amount)}</p>}</td><td className="px-4 py-3 text-slate-600">{request.reason || "—"}</td><td className="px-4 py-3"><Status value={request.workflow_status} /></td><td className="px-4 py-3 text-xs text-slate-600">{formatRecordDate(request.created_at)}</td><td className="px-4 py-3"><Actions row={request} kind="advance-requests" isStaff={isStaff} canReview={canReviewRequests && Number(request.employee_id) !== Number(user?.id) && !(String(request.employee_role || "").toLowerCase() === "manager" && !isOwner)} canSettleAdvances={canSettleAdvances} canEmployeeAcknowledge={Number(request.employee_id) === Number(user?.id)} canEmployeeConsent={Number(request.employee_id) === Number(user?.id)} busy={busy} decide={decide} disburse={disburse} acknowledge={acknowledge} reviewPaperReceipt={(kind, row) => setPaperReceiptTarget({ kind, row })} requestApprovalSignature={requestApprovalSignature} requestAcknowledgementSignature={requestAcknowledgementSignature} requestPayrollDeductionConsent={requestPayrollDeductionConsent} openSettlement={openSettlement} /></td>
         </tr>} />}
 
         {activeTab === "payments" && <WorkflowTable title="Employee payments" empty="No payments prepared yet." rows={payments} employees={employees} loading={loading} columns={["Employee", "Amount", "Method", "Status", "Prepared", "Actions"]} render={(payment) => <tr key={payment.id} className="border-t border-slate-100">
-          <td className="px-4 py-3 font-medium text-slate-800">{employeeProfilePath(payment.employee_id) ? <Link className="hover:text-blue-700 hover:underline" to={employeeProfilePath(payment.employee_id)}>{payment.employee_name || "You"}</Link> : (payment.employee_name || "You")}</td><td className="px-4 py-3">{money(payment.requested_amount)}</td><td className="px-4 py-3">{displayStatus(payment.payment_method)}</td><td className="px-4 py-3"><Status value={payment.workflow_status} /></td><td className="px-4 py-3 text-xs text-slate-600">{formatRecordDate(payment.created_at)}</td><td className="px-4 py-3"><Actions row={payment} kind="payments" isStaff={isStaff} canReview={canReviewRequests && Number(payment.employee_id) !== Number(user?.id)} canEmployeeAcknowledge={Number(payment.employee_id) === Number(user?.id)} busy={busy} decide={decide} disburse={disburse} acknowledge={acknowledge} requestApprovalSignature={requestApprovalSignature} requestAcknowledgementSignature={requestAcknowledgementSignature} /></td>
+          <td className="px-4 py-3 font-medium text-slate-800">{employeeProfilePath(payment.employee_id) ? <Link className="hover:text-blue-700 hover:underline" to={employeeProfilePath(payment.employee_id)}>{payment.employee_name || "You"}</Link> : (payment.employee_name || "You")}</td><td className="px-4 py-3">{money(payment.requested_amount)}</td><td className="px-4 py-3">{displayStatus(payment.payment_method)}</td><td className="px-4 py-3"><Status value={payment.workflow_status} /></td><td className="px-4 py-3 text-xs text-slate-600">{formatRecordDate(payment.created_at)}</td><td className="px-4 py-3"><Actions row={payment} kind="payments" isStaff={isStaff} canReview={canReviewRequests && Number(payment.employee_id) !== Number(user?.id)} canEmployeeAcknowledge={Number(payment.employee_id) === Number(user?.id)} busy={busy} decide={decide} disburse={disburse} acknowledge={acknowledge} reviewPaperReceipt={(kind, row) => setPaperReceiptTarget({ kind, row })} requestApprovalSignature={requestApprovalSignature} requestAcknowledgementSignature={requestAcknowledgementSignature} /></td>
         </tr>} />}
 
         {activeTab === "receipts" && <ReceiptList receipts={receipts} employees={employees} loading={loading} onView={setSelectedReceiptId} />}
@@ -434,21 +496,88 @@ export default function EmployeeFinanceWorkspace() {
         onConfirm={signReceipt}
       />
       <FinanceReceiptDialog receiptId={selectedReceiptId} onClose={() => setSelectedReceiptId(null)} />
+      <PaperReceiptReviewDialog target={paperReceiptTarget} busy={busy} onClose={() => setPaperReceiptTarget(null)} onVerify={() => verifyPaperReceipt(paperReceiptTarget?.kind, paperReceiptTarget?.row?.id)} />
     </div>
   );
 }
 
+function PaperReceiptReviewDialog({ target, busy, onClose, onVerify }) {
+  const paperReceiptUrl = target?.row
+    ? `${API_URL}/employee-finance/${target.kind}/${target.row.id}/paper-receipt`
+    : null;
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [previewError, setPreviewError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl = "";
+
+    setPreviewUrl("");
+    setPreviewError("");
+    if (!paperReceiptUrl) return undefined;
+
+    axios.get(paperReceiptUrl, { withCredentials: true, responseType: "blob" })
+      .then(({ data }) => {
+        objectUrl = URL.createObjectURL(data);
+        if (active) setPreviewUrl(objectUrl);
+      })
+      .catch(() => {
+        if (active) setPreviewError("The receipt could not be shown here. Open it in a new tab to review it.");
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [paperReceiptUrl]);
+
+  if (!target?.row) return null;
+  const { kind, row } = target;
+  const isPdf = String(row.manual_receipt_mime_type || "").toLowerCase() === "application/pdf";
+  const label = kind === "payments" ? "past payment" : "past advance";
+
+  return <Modal isOpen onClose={onClose} sizeClass="max-w-5xl">
+    <div className="space-y-5 p-2">
+      <header className="rounded-2xl bg-slate-950 p-5 text-white">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-200">Management evidence review</p>
+        <h2 className="mt-1 text-xl font-semibold">Verify signed paper receipt</h2>
+        <p className="mt-2 text-sm text-slate-300">Review the attached evidence before recording this {label} as approved, disbursed, and acknowledged.</p>
+      </header>
+      <section className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <ReviewInfo label="Employee" value={row.employee_name || "—"} />
+        <ReviewInfo label="Amount" value={money(row.requested_amount)} />
+        <ReviewInfo label="Actual business time" value={formatRecordDate(row.business_occurred_at)} />
+        <ReviewInfo label="Entered late because" value={row.late_entry_reason || "—"} />
+      </section>
+      {row.reason && <section className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reason / notes</p><p className="mt-1 text-sm text-slate-800">{row.reason}</p></section>}
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+        {!previewUrl && !previewError && <div className="flex min-h-[420px] items-center justify-center p-6 text-sm text-slate-600">Loading signed paper receipt…</div>}
+        {previewError && <div className="flex min-h-[420px] items-center justify-center p-6 text-center text-sm text-rose-700">{previewError}</div>}
+        {previewUrl && (isPdf ? <iframe title="Signed paper receipt" src={previewUrl} className="h-[58vh] min-h-[420px] w-full bg-white" /> : <div className="flex max-h-[58vh] min-h-[420px] items-center justify-center overflow-auto bg-slate-100 p-4"><img src={previewUrl} alt="Signed paper receipt" className="max-h-[54vh] max-w-full rounded-lg bg-white object-contain shadow" /></div>)}
+      </section>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
+        <a href={paperReceiptUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-indigo-700 hover:underline">Open in a new tab</a>
+        <div className="flex gap-3"><button type="button" onClick={onClose} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">Close</button><button type="button" disabled={busy} onClick={onVerify} className="rounded-xl bg-indigo-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Verifying…" : "Verify signed paper receipt"}</button></div>
+      </div>
+    </div>
+  </Modal>;
+}
+
+function ReviewInfo({ label, value }) { return <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 break-words text-sm font-medium text-slate-900">{value}</p></div>; }
+
 function Status({ value }) { return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(value)}`}>{displayStatus(value)}</span>; }
 
-function Actions({ row, kind, isStaff, canReview, canSettleAdvances, canEmployeeAcknowledge, canEmployeeConsent, busy, decide, disburse, requestApprovalSignature, requestAcknowledgementSignature, requestPayrollDeductionConsent, openSettlement }) {
+function Actions({ row, kind, isStaff, canReview, canSettleAdvances, canEmployeeAcknowledge, canEmployeeConsent, busy, decide, disburse, reviewPaperReceipt, requestApprovalSignature, requestAcknowledgementSignature, requestPayrollDeductionConsent, openSettlement }) {
   const status = String(row.workflow_status || "").toUpperCase();
   return <div className="flex flex-wrap gap-2">
-    {canReview && status === "REQUESTED" && <><button disabled={busy} onClick={() => requestApprovalSignature(kind, row)} className="rounded-lg bg-emerald-700 px-2.5 py-1.5 text-xs font-semibold text-white">Approve & sign</button><button disabled={busy} onClick={() => decide(kind, row.id, false)} className="rounded-lg bg-rose-700 px-2.5 py-1.5 text-xs font-semibold text-white">Reject</button></>}
+    {canReview && status === "REQUESTED" && !row.manual_receipt_attached && <><button disabled={busy} onClick={() => requestApprovalSignature(kind, row)} className="rounded-lg bg-emerald-700 px-2.5 py-1.5 text-xs font-semibold text-white">Approve & sign</button><button disabled={busy} onClick={() => decide(kind, row.id, false)} className="rounded-lg bg-rose-700 px-2.5 py-1.5 text-xs font-semibold text-white">Reject</button></>}
+    {canReview && status === "REQUESTED" && String(row.entry_type || "").toUpperCase() === "PAST" && row.manual_receipt_attached && <><button disabled={busy} onClick={() => reviewPaperReceipt(kind, row)} className="rounded-lg bg-indigo-700 px-2.5 py-1.5 text-xs font-semibold text-white">Review signed paper receipt</button><button disabled={busy} onClick={() => decide(kind, row.id, false)} className="rounded-lg bg-rose-700 px-2.5 py-1.5 text-xs font-semibold text-white">Reject</button></>}
     {isStaff && status === "APPROVED" && <button disabled={busy} onClick={() => disburse(kind, row.id)} className="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white">Disburse</button>}
+    {canReview && status === "DISBURSED" && String(row.entry_type || "").toUpperCase() === "PAST" && row.manual_receipt_attached && <button disabled={busy} onClick={() => reviewPaperReceipt(kind, row)} className="rounded-lg bg-indigo-700 px-2.5 py-1.5 text-xs font-semibold text-white">Review signed paper receipt</button>}
     {kind === "advance-requests" && canSettleAdvances && ["DISBURSED", "ACKNOWLEDGED"].includes(status) && Number(row.outstanding_amount || 0) > 0 && <button disabled={busy} onClick={() => openSettlement(row)} className="rounded-lg bg-[var(--salehish-burgundy)] px-2.5 py-1.5 text-xs font-semibold text-white">Settle</button>}
-    {canEmployeeAcknowledge && status === "DISBURSED" && <button disabled={busy} onClick={() => requestAcknowledgementSignature(kind, row)} className="rounded-lg bg-[var(--salehish-burgundy)] px-2.5 py-1.5 text-xs font-semibold text-white">Acknowledge & sign</button>}
+    {canEmployeeAcknowledge && status === "DISBURSED" && !row.manual_receipt_attached && <button disabled={busy} onClick={() => requestAcknowledgementSignature(kind, row)} className="rounded-lg bg-[var(--salehish-burgundy)] px-2.5 py-1.5 text-xs font-semibold text-white">Acknowledge & sign</button>}
     {canEmployeeConsent && (row.pending_payroll_deductions || []).map((settlement) => <button key={settlement.id} disabled={busy} onClick={() => requestPayrollDeductionConsent(row, settlement)} className="rounded-lg bg-amber-700 px-2.5 py-1.5 text-xs font-semibold text-white">Approve salary deduction {money(settlement.amount)}</button>)}
-    {isStaff && status === "DISBURSED" && <span className="text-xs text-slate-500">Awaiting employee acknowledgement</span>}
+    {isStaff && status === "DISBURSED" && <span className="text-xs text-slate-500">{row.manual_receipt_attached ? "Awaiting management paper-receipt verification" : "Awaiting employee acknowledgement"}</span>}
     {row.receipt_number && <span className="self-center font-mono text-[11px] text-slate-500">{row.receipt_number}</span>}
   </div>;
 }
@@ -476,7 +605,8 @@ function WorkflowTable({ title, empty, rows, employees, columns, loading, render
     return period !== "YEAR" || date.getFullYear() === now.getFullYear();
   }), [employeeId, period, rows, status]);
 
-  return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-slate-100 px-5 py-4"><div className="flex flex-wrap items-end justify-between gap-3"><h2 className="font-semibold text-slate-900">{title}</h2><p className="text-sm text-slate-500">Showing {filteredRows.length} of {rows.length}</p></div><div className="mt-4 flex flex-wrap items-end gap-3"><label className="text-sm font-medium text-slate-700">Status<select value={status} onChange={(event) => setStatus(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="ALL">All statuses</option>{statuses.map((item) => <option key={item} value={item}>{displayStatus(item)}</option>)}</select></label><label className="text-sm font-medium text-slate-700">Employee<select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="ALL">All employees</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.first_name} {employee.last_name}</option>)}</select></label><label className="text-sm font-medium text-slate-700">When<select value={period} onChange={(event) => setPeriod(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="ALL">All time</option><option value="TODAY">Today</option><option value="MONTH">This month</option><option value="YEAR">This year</option></select></label></div></div><div className="overflow-x-auto"><table className="min-w-[860px] w-full text-sm"><thead className="bg-slate-50 text-left text-slate-600"><tr>{columns.map((column) => <th key={column} className="px-4 py-3 font-semibold">{column}</th>)}</tr></thead><tbody>{loading ? <tr><td colSpan={columns.length} className="px-4 py-8 text-center text-slate-500">Loading…</td></tr> : filteredRows.length ? filteredRows.map(render) : <tr><td colSpan={columns.length} className="px-4 py-8 text-center text-slate-500">{rows.length ? "No records match these filters." : empty}</td></tr>}</tbody></table></div></section>;
+  if (loading) return <TableSkeleton rows={6} />;
+  return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-slate-100 px-5 py-4"><div className="flex flex-wrap items-end justify-between gap-3"><h2 className="font-semibold text-slate-900">{title}</h2><p className="text-sm text-slate-500">Showing {filteredRows.length} of {rows.length}</p></div><div className="mt-4 flex flex-wrap items-end gap-3"><label className="text-sm font-medium text-slate-700">Status<select value={status} onChange={(event) => setStatus(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="ALL">All statuses</option>{statuses.map((item) => <option key={item} value={item}>{displayStatus(item)}</option>)}</select></label><label className="text-sm font-medium text-slate-700">Employee<select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="ALL">All employees</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.first_name} {employee.last_name}</option>)}</select></label><label className="text-sm font-medium text-slate-700">When<select value={period} onChange={(event) => setPeriod(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="ALL">All time</option><option value="TODAY">Today</option><option value="MONTH">This month</option><option value="YEAR">This year</option></select></label></div></div><div className="overflow-x-auto"><table className="min-w-[860px] w-full text-sm"><thead className="bg-slate-50 text-left text-slate-600"><tr>{columns.map((column) => <th key={column} className="px-4 py-3 font-semibold">{column}</th>)}</tr></thead><tbody>{filteredRows.length ? filteredRows.map(render) : <tr><td colSpan={columns.length} className="px-4 py-8 text-center text-slate-500">{rows.length ? "No records match these filters." : empty}</td></tr>}</tbody></table></div></section>;
 }
 
 function ReceiptList({ receipts, employees, loading, onView }) {
@@ -484,29 +614,78 @@ function ReceiptList({ receipts, employees, loading, onView }) {
   const [signature, setSignature] = useState("ALL");
   const [employeeId, setEmployeeId] = useState("ALL");
   const [period, setPeriod] = useState("ALL");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
+  const [rangeStart, setRangeStart] = useState("");
+  const [rangeEnd, setRangeEnd] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
+  const dateKey = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  };
+  const today = dateKey(new Date());
+  const currentMonth = today.slice(0, 7);
+  const currentYear = today.slice(0, 4);
+
+  const choosePeriod = (nextPeriod) => {
+    setPeriod(nextPeriod);
+    if (nextPeriod === "DATE" && !selectedDate) setSelectedDate(today);
+    if (nextPeriod === "MONTH" && !selectedMonth) setSelectedMonth(currentMonth);
+    if (nextPeriod === "YEAR" && !selectedYear) setSelectedYear(currentYear);
+    if (nextPeriod === "RANGE" && !rangeEnd) setRangeEnd(today);
+  };
+
   const filteredReceipts = useMemo(() => receipts.filter((receipt) => {
     if (type !== "ALL" && String(receipt.receipt_type || "").toUpperCase() !== type) return false;
     if (employeeId !== "ALL" && Number(receipt.employee_id) !== Number(employeeId)) return false;
     if (signature === "SIGNED" && !(receipt.has_management_signature && receipt.has_employee_signature)) return false;
     if (signature === "AWAITING_EMPLOYEE" && !(receipt.has_management_signature && !receipt.has_employee_signature)) return false;
     if (signature === "UNSIGNED" && (receipt.has_management_signature || receipt.has_employee_signature)) return false;
-    if (period !== "ALL") {
-      const issued = new Date(receipt.issued_at);
-      const now = new Date();
-      if (Number.isNaN(issued.getTime())) return false;
-      if (period === "TODAY" && issued.toDateString() !== now.toDateString()) return false;
-      if (period === "MONTH" && (issued.getMonth() !== now.getMonth() || issued.getFullYear() !== now.getFullYear())) return false;
-      if (period === "YEAR" && issued.getFullYear() !== now.getFullYear()) return false;
-    }
+    const issuedDate = dateKey(receipt.issued_at);
+    if (!issuedDate) return false;
+    if (period === "TODAY" && issuedDate !== today) return false;
+    if (period === "CURRENT_MONTH" && issuedDate.slice(0, 7) !== currentMonth) return false;
+    if (period === "CURRENT_YEAR" && issuedDate.slice(0, 4) !== currentYear) return false;
+    if (period === "DATE" && selectedDate && issuedDate !== selectedDate) return false;
+    if (period === "MONTH" && selectedMonth && issuedDate.slice(0, 7) !== selectedMonth) return false;
+    if (period === "YEAR" && selectedYear && issuedDate.slice(0, 4) !== selectedYear) return false;
+    if (period === "RANGE" && ((rangeStart && issuedDate < rangeStart) || (rangeEnd && issuedDate > rangeEnd))) return false;
     return true;
-  }), [employeeId, period, receipts, signature, type]);
-  if (loading) return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Loading receipts…</div>;
+  }), [currentMonth, currentYear, employeeId, period, rangeEnd, rangeStart, receipts, selectedDate, selectedMonth, selectedYear, signature, today, type]);
+
+  useEffect(() => setPage(1), [employeeId, period, rangeEnd, rangeStart, selectedDate, selectedMonth, selectedYear, signature, type]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredReceipts.length / pageSize));
+  const activePage = Math.min(page, pageCount);
+  const displayedReceipts = filteredReceipts.slice((activePage - 1) * pageSize, activePage * pageSize);
+  const firstShown = filteredReceipts.length ? ((activePage - 1) * pageSize) + 1 : 0;
+  const lastShown = Math.min(activePage * pageSize, filteredReceipts.length);
+
+  if (loading) return <TableSkeleton rows={6} />;
   if (!receipts.length) return <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">Receipts appear after a payment or advance is disbursed.</div>;
-  return <section className="space-y-4"><div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex flex-wrap items-end gap-3"><label className="text-sm font-medium text-slate-700">Type<select value={type} onChange={(event) => setType(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="ALL">All receipt types</option><option value="ADVANCE">Advances</option><option value="PAYMENT">Payments</option><option value="ADVANCE_SETTLEMENT">Advance settlements</option></select></label><label className="text-sm font-medium text-slate-700">Signature status<select value={signature} onChange={(event) => setSignature(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="ALL">All records</option><option value="SIGNED">Both signed</option><option value="AWAITING_EMPLOYEE">Awaiting employee</option><option value="UNSIGNED">No signatures</option></select></label><label className="text-sm font-medium text-slate-700">Employee<select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="ALL">All employees</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.first_name} {employee.last_name}</option>)}</select></label><label className="text-sm font-medium text-slate-700">Period<select value={period} onChange={(event) => setPeriod(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="ALL">All time</option><option value="TODAY">Today</option><option value="MONTH">This month</option><option value="YEAR">This year</option></select></label><p className="pb-2 text-sm text-slate-500">Showing {filteredReceipts.length} of {receipts.length}</p></div></div>{filteredReceipts.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{filteredReceipts.map((receipt) => {
+  return <section className="space-y-4">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-sm font-medium text-slate-700">Type<select value={type} onChange={(event) => setType(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="ALL">All receipt types</option><option value="ADVANCE">Advances</option><option value="PAYMENT">Payments</option><option value="ADVANCE_SETTLEMENT">Advance settlements</option></select></label>
+        <label className="text-sm font-medium text-slate-700">Signature status<select value={signature} onChange={(event) => setSignature(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="ALL">All records</option><option value="SIGNED">Both signed</option><option value="AWAITING_EMPLOYEE">Awaiting employee</option><option value="UNSIGNED">No signatures</option></select></label>
+        <label className="text-sm font-medium text-slate-700">Employee<select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="ALL">All employees</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.first_name} {employee.last_name}</option>)}</select></label>
+        <label className="text-sm font-medium text-slate-700">Period<select value={period} onChange={(event) => choosePeriod(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="ALL">All time</option><option value="TODAY">Today</option><option value="CURRENT_MONTH">This month</option><option value="CURRENT_YEAR">This year</option><option value="DATE">Specific day</option><option value="MONTH">Specific month</option><option value="YEAR">Specific year</option><option value="RANGE">Custom date range</option></select></label>
+        {period === "DATE" && <label className="text-sm font-medium text-slate-700">Day<input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label>}
+        {period === "MONTH" && <label className="text-sm font-medium text-slate-700">Month<input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label>}
+        {period === "YEAR" && <label className="text-sm font-medium text-slate-700">Year<input type="number" min="2000" max="2100" value={selectedYear} onChange={(event) => setSelectedYear(event.target.value)} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label>}
+        {period === "RANGE" && <><label className="text-sm font-medium text-slate-700">From<input type="date" value={rangeStart} max={rangeEnd || undefined} onChange={(event) => setRangeStart(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label><label className="text-sm font-medium text-slate-700">To<input type="date" value={rangeEnd} min={rangeStart || undefined} onChange={(event) => setRangeEnd(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label></>}
+        <p className="pb-2 text-sm text-slate-500">Showing {firstShown}–{lastShown} of {filteredReceipts.length} matching receipts</p>
+      </div>
+    </div>
+    {filteredReceipts.length ? <><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{displayedReceipts.map((receipt) => {
     const typeName = String(receipt.receipt_type || "").toUpperCase();
     const supported = ["ADVANCE", "PAYMENT"].includes(typeName);
     const settlement = typeName === "ADVANCE_SETTLEMENT";
-    const receiptState = settlement ? "Settlement ledger entry" : receipt.finalized_at ? "Signed receipt ready" : receipt.acknowledged_at ? "Legacy acknowledgement — no signature PDF" : "Awaiting employee signature";
+    const receiptState = settlement ? "Settlement ledger entry" : receipt.manual_receipt_attached ? (receipt.acknowledged_at ? "Signed paper receipt verified" : "Signed paper receipt awaiting verification") : receipt.finalized_at ? "Signed receipt ready" : receipt.acknowledged_at ? "Legacy acknowledgement — no signature PDF" : "Awaiting employee signature";
     return <article key={`${receipt.receipt_type}-${receipt.id}`} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="font-mono text-xs text-slate-500">{receipt.receipt_number}</p><h2 className="mt-1 font-semibold text-[var(--salehish-ink)]">{displayStatus(receipt.receipt_type)}</h2></div><p className="text-lg font-bold text-slate-900">{money(receipt.amount)}</p></div><p className="mt-4 text-sm font-medium text-slate-800">{receipt.employee_name || "You"}</p><p className="mt-1 text-xs text-slate-500">{receiptState}</p><div className="mt-4 flex items-center justify-between gap-3"><div className="flex gap-1.5 text-[11px] font-semibold">{settlement ? <span className="rounded-full bg-indigo-100 px-2 py-1 text-[var(--salehish-burgundy)]">Settlement recorded</span> : <><span className={`rounded-full px-2 py-1 ${receipt.has_management_signature ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>Management {receipt.has_management_signature ? "signed" : "unsigned"}</span><span className={`rounded-full px-2 py-1 ${receipt.has_employee_signature ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>Employee {receipt.has_employee_signature ? "signed" : "unsigned"}</span></>}</div>{supported && <button type="button" onClick={() => onView(receipt.id)} className="text-sm font-semibold text-blue-700 hover:underline">View receipt</button>}</div></article>;
-  })}</div> : <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">No receipts match these filters.</div>}</section>;
+    })}</div>{pageCount > 1 && <nav aria-label="Receipt pages" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm"><p className="text-sm text-slate-600">Page {activePage} of {pageCount}</p><div className="flex gap-2"><button type="button" disabled={activePage === 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-45">Previous</button><button type="button" disabled={activePage === pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-45">Next</button></div></nav>}</> : <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">No receipts match these filters.</div>}
+  </section>;
 }

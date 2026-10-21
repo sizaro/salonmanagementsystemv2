@@ -837,6 +837,8 @@ export const saveServiceTransaction = async (data) => {
     entry_type,
     backdate_reason,
     service_source,
+    collection_method = "CASH",
+    collection_reference,
     performers = [],
     salon_id,
   } = data;
@@ -930,6 +932,8 @@ export const saveServiceTransaction = async (data) => {
         entry_type,
         backdate_reason,
         service_source,
+        collection_method,
+        collection_reference,
         original_service_amount,
         charged_service_amount,
         discount_amount,
@@ -958,6 +962,8 @@ export const saveServiceTransaction = async (data) => {
         $16,
         $17,
         $18,
+        $19,
+        $20,
         NOW()
       )
 
@@ -978,6 +984,8 @@ export const saveServiceTransaction = async (data) => {
       entry_type || "current",
       backdate_reason || null,
       service_source || null,
+      collection_method,
+      collection_reference || null,
       originalServiceAmount,
       chargedServiceAmount,
       discountAmount,
@@ -1378,6 +1386,8 @@ export const updateServiceTransactionModel = async (id, updates, salon_id) => {
     status,
     cancel_reason,
     service_source,
+    collection_method,
+    collection_reference,
     performers = [],
   } = updates;
 
@@ -1406,10 +1416,14 @@ export const updateServiceTransactionModel = async (id, updates, salon_id) => {
 
         service_source = COALESCE($8, service_source),
 
+        collection_method = COALESCE($9, collection_method),
+
+        collection_reference = $10,
+
         updated_at = NOW()
 
-      WHERE id = $9
-        AND salon_id = $10
+      WHERE id = $11
+        AND salon_id = $12
 
       RETURNING *;
     `;
@@ -1423,6 +1437,8 @@ export const updateServiceTransactionModel = async (id, updates, salon_id) => {
       status || null,
       cancel_reason || null,
       service_source || null,
+      collection_method || null,
+      collection_reference || null,
       id,
       salon_id,
     ]);
@@ -1531,6 +1547,8 @@ export const updateServiceTransactionAppointmentModel = async (
     cancel_reason,
     service_date,
     service_time,
+    collection_method,
+    collection_reference,
     performers = null,
   } = updates;
 
@@ -1588,6 +1606,20 @@ export const updateServiceTransactionAppointmentModel = async (
             ELSE service_time
           END,
 
+        collection_method =
+          CASE
+            WHEN LOWER(COALESCE($1, status)) = 'completed'
+            THEN COALESCE($7, collection_method)
+            ELSE collection_method
+          END,
+
+        collection_reference =
+          CASE
+            WHEN LOWER(COALESCE($1, status)) = 'completed'
+            THEN $8
+            ELSE collection_reference
+          END,
+
         updated_at = NOW()
 
       WHERE id = $3
@@ -1603,6 +1635,8 @@ export const updateServiceTransactionAppointmentModel = async (
       salon_id,
       service_date || null,
       service_time || null,
+      collection_method || null,
+      collection_reference || null,
     ]);
 
     if (rows.length === 0) {

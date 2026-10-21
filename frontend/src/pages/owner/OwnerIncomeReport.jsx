@@ -113,6 +113,8 @@ const OwnerIncomeReport = () => {
     expenses = [],
 
     sessions = [],
+
+    financial_summary: financialSummary = null,
   } = report || {};
 
   // =======================================================
@@ -679,151 +681,92 @@ const OwnerIncomeReport = () => {
   }, [sectionList, servicesWithMaterials]);
 
   // =======================================================
-  // GLOBAL TOTALS
+  // AUTHORITATIVE FINANCIAL SUMMARY
   // =======================================================
-
-  const calculateTotals = (
-    servicesList = [],
-    expensesList = [],
-    advancesList = [],
-    tagFeesList = [],
-    lateFeesList = [],
-  ) => {
-    const grossIncome = servicesList.reduce(
-      (sum, service) =>
-        sum +
-        (parseFloat(service.full_amount ?? service.service_amount ?? 0) || 0),
-      0,
-    );
-
-    const employeesSalary = servicesList.reduce(
-      (sum, service) => sum + serviceEmployeeSalary(service),
-      0,
-    );
-
-    const materialsTotal = servicesList.reduce(
-      (sum, service) => sum + serviceMaterialsTotal(service),
-      0,
-    );
-
-    const totalExpenses = (expensesList || []).reduce(
-      (sum, expense) => sum + (parseFloat(expense.amount || 0) || 0),
-      0,
-    );
-
-    const totalAdvances = (advancesList || []).reduce(
-      (sum, advance) => sum + (parseFloat(advance.amount || 0) || 0),
-      0,
-    );
-
-    const totalLateFees = (lateFeesList || []).reduce(
-      (sum, fee) => sum + (parseFloat(fee.amount || 0) || 0),
-      0,
-    );
-
-    const totalTagFees = (tagFeesList || []).reduce(
-      (sum, fee) => sum + (parseFloat(fee.amount || 0) || 0),
-      0,
-    );
-
-    const deductions = totalAdvances + totalLateFees + totalTagFees;
-
-    const netEmployeeSalary = Math.max(0, employeesSalary - deductions);
-
-    const netIncome =
-      grossIncome - totalExpenses - materialsTotal - netEmployeeSalary;
-
-    // Cash still physically held by salon before paying
-    // remaining employee salaries.
-    const cashAtHand = netIncome + netEmployeeSalary;
-
+  // The API calculates the salary, advance and payment figures from the
+  // employee-finance ledger. This prevents a raw advance, tag fee, or late
+  // fee from silently reducing the salary earned from completed work.
+  const fallbackFinancialSummary = useMemo(() => {
+    const serviceRevenue = servicesWithMaterials.reduce((sum, service) => sum + (Number(service.full_amount ?? service.service_amount) || 0), 0);
+    const employeeEarnings = servicesWithMaterials.reduce((sum, service) => sum + serviceEmployeeSalary(service), 0);
+    const configuredMaterialCostEstimate = servicesWithMaterials.reduce((sum, service) => sum + serviceMaterialsTotal(service), 0);
+    const businessExpenses = expenses.reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
     return {
-      grossIncome,
-
-      employeesSalary,
-
-      materialsTotal,
-
-      totalExpenses,
-
-      totalAdvances,
-
-      totalLateFees,
-
-      totalTagFees,
-
-      netEmployeeSalary,
-
-      netIncome,
-
-      cashAtHand,
+      activity: {
+        service_revenue: serviceRevenue,
+        employee_earnings: employeeEarnings,
+        configured_material_cost_estimate: configuredMaterialCostEstimate,
+        business_expenses: businessExpenses,
+        operating_margin: serviceRevenue - employeeEarnings - configuredMaterialCostEstimate - businessExpenses,
+      },
+      finance_movements: {
+        employee_payments_disbursed: 0,
+        advances_disbursed: advances.reduce((sum, advance) => sum + (Number(advance.amount) || 0), 0),
+        effective_payroll_deductions: 0,
+        cash_advance_repayments: 0,
+        advance_waivers: 0,
+        tag_fees_recorded: tagFees.reduce((sum, fee) => sum + (Number(fee.amount) || 0), 0),
+        late_fees_recorded: lateFees.reduce((sum, fee) => sum + (Number(fee.amount) || 0), 0),
+      },
+      customer_collections: {
+        cash: serviceRevenue,
+        mtn_mobile_money: 0,
+        airtel_money: 0,
+        bank_transfer: 0,
+        other: 0,
+      },
+      cash_position: {
+        opening_balance_available: false,
+        cash_received_from_services: serviceRevenue,
+        cash_advance_repayments: 0,
+        cash_paid_to_employees: 0,
+        cash_advances_disbursed: advances.reduce((sum, advance) => sum + (Number(advance.amount) || 0), 0),
+        cash_business_expenses: businessExpenses,
+        net_cash_movement: serviceRevenue - businessExpenses - advances.reduce((sum, advance) => sum + (Number(advance.amount) || 0), 0),
+      },
+      closing_balances: { employee_earnings_payable: 0, advances_outstanding: 0 },
     };
-  };
+  }, [advances, expenses, lateFees, servicesWithMaterials, tagFees]);
 
-  const {
-    grossIncome,
-
-    employeesSalary,
-
-    materialsTotal,
-
-    totalExpenses,
-
-    totalAdvances,
-
-    totalLateFees,
-
-    totalTagFees,
-
-    netEmployeeSalary,
-
-    netIncome,
-
-    cashAtHand,
-  } = calculateTotals(
-    servicesWithMaterials,
-
-    expenses,
-
-    advances,
-
-    tagFees,
-
-    lateFees,
-  );
+  const reportFinance = financialSummary || fallbackFinancialSummary;
+  const activity = reportFinance.activity || fallbackFinancialSummary.activity;
+  const financeMovements = reportFinance.finance_movements || fallbackFinancialSummary.finance_movements;
+  const customerCollections = reportFinance.customer_collections || fallbackFinancialSummary.customer_collections;
+  const cashPosition = reportFinance.cash_position || fallbackFinancialSummary.cash_position;
+  const closingBalances = reportFinance.closing_balances || fallbackFinancialSummary.closing_balances;
 
   // =======================================================
   // FORMAT SESSION TIME
   // =======================================================
 
-  const formatEAT = (dateString) => {
-    if (!dateString) {
+  const sessionMoment = (date, time) => {
+    if (!date || !time) {
+      return null;
+    }
+    const parsed = new Date(`${date}T${time}+03:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const formatEAT = (date, time) => {
+    const moment = sessionMoment(date, time);
+    if (!moment) {
       return "N/A";
     }
-
-    try {
-      return new Date(dateString).toLocaleString("en-UG", {
-        timeZone: "Africa/Kampala",
-
-        hour: "2-digit",
-
-        minute: "2-digit",
-      });
-    } catch {
-      return dateString;
-    }
+    return moment.toLocaleString("en-UG", { timeZone: "Africa/Kampala", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" });
   };
 
   // =======================================================
   // SESSION DURATION
   // =======================================================
 
-  const calculateDuration = (openTime, closeTime) => {
-    if (!openTime || !closeTime) {
+  const calculateDuration = (openDate, openTime, closeDate, closeTime) => {
+    const openedAt = sessionMoment(openDate, openTime);
+    const closedAt = closeDate && closeTime ? sessionMoment(closeDate, closeTime) : new Date();
+    if (!openedAt || !closedAt) {
       return "N/A";
     }
 
-    const diffMs = new Date(closeTime).getTime() - new Date(openTime).getTime();
+    const diffMs = closedAt.getTime() - openedAt.getTime();
 
     if (Number.isNaN(diffMs) || diffMs < 0) {
       return "N/A";
@@ -841,21 +784,19 @@ const OwnerIncomeReport = () => {
   // =======================================================
 
   useEffect(() => {
-    if (!session?.open_time) {
+    if (!session?.open_date || !session?.open_time) {
       setLiveDuration("");
 
       return;
     }
 
     const updateDuration = () => {
-      const closeTime = session.close_time || new Date().toISOString();
-
-      setLiveDuration(calculateDuration(session.open_time, closeTime));
+      setLiveDuration(calculateDuration(session.open_date, session.open_time, session.close_date, session.close_time));
     };
 
     updateDuration();
 
-    if (session.close_time) {
+    if (session.close_date && session.close_time) {
       return;
     }
 
@@ -1165,6 +1106,14 @@ const OwnerIncomeReport = () => {
     return "Walk-in";
   };
 
+  const getCollectionMethodLabel = (service) => ({
+    CASH: "Cash",
+    MTN_MOMO: "MTN MoMo",
+    AIRTEL_MONEY: "Airtel Money",
+    BANK_TRANSFER: "Bank transfer",
+    OTHER: "Other",
+  }[String(service?.collection_method || "CASH").toUpperCase()] || "Other");
+
   // =======================================================
   // ACTUAL PERFORMERS
   // =======================================================
@@ -1324,15 +1273,15 @@ const OwnerIncomeReport = () => {
             <div>
               <p className="text-sm text-gray-600">Opened</p>
 
-              <p className="font-medium">{formatEAT(session.open_time)}</p>
+              <p className="font-medium">{formatEAT(session.open_date, session.open_time)}</p>
             </div>
 
             <div>
               <p className="text-sm text-gray-600">Closed</p>
 
               <p className="font-medium">
-                {session.close_time
-                  ? formatEAT(session.close_time)
+                {session.close_date && session.close_time
+                  ? formatEAT(session.close_date, session.close_time)
                   : "Still open"}
               </p>
             </div>
@@ -1343,7 +1292,7 @@ const OwnerIncomeReport = () => {
               <p className="font-medium">
                 {liveDuration || "N/A"}
 
-                {!session.close_time && " (Counting...)"}
+                {!(session.close_date && session.close_time) && " (Counting...)"}
               </p>
             </div>
           </div>
@@ -1375,7 +1324,7 @@ const OwnerIncomeReport = () => {
 
                 <div className="grid grid-cols-1 gap-2">
                   <div className="rounded border bg-blue-50 p-3">
-                    <div className="text-sm text-gray-700">Gross Income</div>
+                    <div className="text-sm text-gray-700">Completed-service revenue</div>
 
                     <div className="text-xl font-bold">
                       {formatMoney(section.totals.gross)} UGX
@@ -1384,7 +1333,7 @@ const OwnerIncomeReport = () => {
 
                   <div className="rounded border bg-blue-50 p-3">
                     <div className="text-sm text-gray-700">
-                      Employees Salary
+                      Employee earnings
                     </div>
 
                     <div className="text-xl font-bold">
@@ -1393,7 +1342,7 @@ const OwnerIncomeReport = () => {
                   </div>
 
                   <div className="rounded border bg-blue-50 p-3">
-                    <div className="text-sm text-gray-700">Materials Cost</div>
+                    <div className="text-sm text-gray-700">Configured material estimate</div>
 
                     <div className="text-xl font-bold">
                       {formatMoney(section.totals.materialsTotal)} UGX
@@ -1401,7 +1350,7 @@ const OwnerIncomeReport = () => {
                   </div>
 
                   <div className="rounded border bg-blue-100 p-3">
-                    <div className="text-sm text-gray-700">Salon Amount</div>
+                    <div className="text-sm text-gray-700">Salon service share</div>
 
                     <div className="text-xl font-bold text-green-700">
                       {formatMoney(section.totals.salonIncome)} UGX
@@ -1423,93 +1372,50 @@ const OwnerIncomeReport = () => {
       =================================================== */}
 
       <section className="mb-6 rounded-lg bg-white p-4 shadow">
-        <h2 className="mb-4 text-xl font-semibold text-blue-700">Summary</h2>
+        <h2 className="text-xl font-semibold text-blue-700">Financial summary</h2>
+        <p className="mt-1 text-sm text-gray-500">Revenue is recognised only for completed services. Advances, fees, and employee payments are displayed separately and do not silently reduce earnings.</p>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-gray-600">Operating activity</h3>
+        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {[
-            {
-              label: "Gross Income",
-
-              value: grossIncome,
-            },
-
-            {
-              label: "Employees Salary",
-
-              value: employeesSalary,
-            },
-
-            {
-              label: "Materials Cost",
-
-              value: materialsTotal,
-            },
-
-            {
-              label: "Expenses",
-
-              value: totalExpenses,
-            },
-
-            {
-              label: "Advances",
-
-              value: totalAdvances,
-            },
-
-            {
-              label: "Tag Fees",
-
-              value: totalTagFees,
-            },
-
-            {
-              label: "Late Fees",
-
-              value: totalLateFees,
-            },
-
-            {
-              label: "Net Employee Salary",
-
-              value: netEmployeeSalary,
-            },
-
-            {
-              label: "Net Income",
-
-              value: netIncome,
-            },
-
-            {
-              label: "Cash at Hand",
-
-              value: cashAtHand,
-            },
-          ].map((item) => (
-            <div
-              key={item.label}
-              className={`rounded border p-3 ${
-                item.label.includes("Net") ? "bg-green-50" : ""
-              } ${item.label === "Cash at Hand" ? "bg-green-100" : ""}`}
-            >
-              <div className="text-sm text-gray-600">{item.label}</div>
-
-              <div className="text-lg font-bold">
-                {formatMoney(item.value)} UGX
-              </div>
-            </div>
-          ))}
+            { label: "Completed-service revenue", value: activity.service_revenue },
+            { label: "Employee earnings created", value: activity.employee_earnings },
+            { label: "Configured material estimate", value: activity.configured_material_cost_estimate },
+            { label: "Business expenses", value: activity.business_expenses },
+            { label: "Operating margin", value: activity.operating_margin, accent: true },
+          ].map((item) => <div key={item.label} className={`rounded border p-3 ${item.accent ? "bg-emerald-50" : "bg-slate-50"}`}><div className="text-sm text-gray-600">{item.label}</div><div className="mt-1 text-lg font-bold">{formatMoney(item.value)} UGX</div></div>)}
         </div>
 
-        <p className="mt-4 text-md font-bold text-gray-700">
-          Total Completed Services: {totalServicesCount}
-        </p>
+        <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-gray-600">Finance movements during this period</h3>
+        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: "Employee payments disbursed", value: financeMovements.employee_payments_disbursed },
+            { label: "Advances disbursed", value: financeMovements.advances_disbursed },
+            { label: "Effective payroll deductions", value: financeMovements.effective_payroll_deductions },
+            { label: "Cash advance repayments", value: financeMovements.cash_advance_repayments },
+            { label: "Advance waivers", value: financeMovements.advance_waivers },
+            { label: "Tag fees recorded", value: financeMovements.tag_fees_recorded },
+            { label: "Late fees recorded", value: financeMovements.late_fees_recorded },
+          ].map((item) => <div key={item.label} className="rounded border bg-slate-50 p-3"><div className="text-sm text-gray-600">{item.label}</div><div className="mt-1 text-lg font-bold">{formatMoney(item.value)} UGX</div></div>)}
+        </div>
 
-        <p className="mt-1 text-sm text-gray-500">
-          Pending, confirmed and cancelled appointments are excluded from income
-          calculations.
-        </p>
+        <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-gray-600">Customer collections and cash movement</h3>
+        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="rounded border bg-emerald-50 p-3"><div className="text-sm text-gray-600">Cash service receipts</div><div className="mt-1 text-lg font-bold">{formatMoney(customerCollections.cash)} UGX</div></div>
+          <div className="rounded border bg-slate-50 p-3"><div className="text-sm text-gray-600">MTN MoMo receipts</div><div className="mt-1 text-lg font-bold">{formatMoney(customerCollections.mtn_mobile_money)} UGX</div></div>
+          <div className="rounded border bg-slate-50 p-3"><div className="text-sm text-gray-600">Airtel Money receipts</div><div className="mt-1 text-lg font-bold">{formatMoney(customerCollections.airtel_money)} UGX</div></div>
+          <div className="rounded border bg-slate-50 p-3"><div className="text-sm text-gray-600">Bank and other receipts</div><div className="mt-1 text-lg font-bold">{formatMoney(Number(customerCollections.bank_transfer || 0) + Number(customerCollections.other || 0))} UGX</div></div>
+          <div className="rounded border bg-emerald-100 p-3"><div className="text-sm text-gray-600">Net cash movement</div><div className="mt-1 text-lg font-bold">{formatMoney(cashPosition.net_cash_movement)} UGX</div></div>
+        </div>
+
+        <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-gray-600">Balances at the end of this period</h3>
+        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="rounded border bg-amber-50 p-3"><div className="text-sm text-gray-600">Employee earnings payable</div><div className="mt-1 text-lg font-bold">{formatMoney(closingBalances.employee_earnings_payable)} UGX</div></div>
+          <div className="rounded border bg-amber-50 p-3"><div className="text-sm text-gray-600">Outstanding employee advances</div><div className="mt-1 text-lg font-bold">{formatMoney(closingBalances.advances_outstanding)} UGX</div></div>
+          <div className="rounded border border-dashed bg-slate-50 p-3"><div className="text-sm font-medium text-gray-700">Cash at counter — period movement</div><div className="mt-1 text-lg font-bold">{formatMoney(cashPosition.net_cash_movement)} UGX</div><p className="mt-1 text-sm text-gray-500">This is the cash received and spent during the selected period. A true drawer balance also needs a recorded opening cash balance and a verified closing count.</p></div>
+        </div>
+
+        <p className="mt-4 text-md font-bold text-gray-700">Total completed services: {totalServicesCount}</p>
       </section>
 
       {/* ===================================================
@@ -1601,6 +1507,8 @@ const OwnerIncomeReport = () => {
 
                     <th className="px-4 py-3">Source</th>
 
+                    <th className="px-4 py-3">Collection</th>
+
                     <th className="px-4 py-3">Section</th>
 
                     <th className="px-4 py-3">Performed By</th>
@@ -1664,6 +1572,17 @@ const OwnerIncomeReport = () => {
                           >
                             {sourceLabel}
                           </span>
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-gray-800">
+                            {getCollectionMethodLabel(service)}
+                          </div>
+                          {service.collection_reference && (
+                            <div className="mt-1 max-w-36 truncate text-xs text-gray-500" title={service.collection_reference}>
+                              {service.collection_reference}
+                            </div>
+                          )}
                         </td>
 
                         {/* SECTION */}

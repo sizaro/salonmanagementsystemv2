@@ -38,6 +38,7 @@ export const resolveReportPeriod = (query) => {
     case "weekly": return weeklyPeriod(query.startDate, query.endDate);
     case "monthly": return monthlyPeriod(query.year, query.month);
     case "yearly": return yearlyPeriod(query.year);
-    default: throw new Error("period must be daily, weekly, monthly, or yearly");
+    case "custom": return weeklyPeriod(query.startDate, query.endDate);
+    default: throw new Error("period must be daily, weekly, monthly, yearly, or custom");
   }
 };

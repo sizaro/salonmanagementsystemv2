@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { DateTime } from "luxon";
+import { TableSkeleton } from "../../components/loading/DashboardSkeleton.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 const TIMEZONE = "Africa/Kampala";
@@ -70,19 +71,19 @@ export default function CashierStaffPayments() {
       </div>
 
       {error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {loading ? <TableSkeleton rows={6} /> : <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
         <table className="min-w-[920px] w-full text-sm">
           <thead className="bg-slate-50 text-left text-slate-700"><tr>
             <th className="px-4 py-3">Staff member</th><th className="px-4 py-3">Clock in</th><th className="px-4 py-3">Clock out</th><th className="px-4 py-3">Hours</th><th className="px-4 py-3 text-right">Gross salary</th><th className="px-4 py-3 text-right">Advances</th><th className="px-4 py-3 text-right">Net salary</th>
           </tr></thead>
           <tbody>
-            {loading ? <tr><td colSpan="7" className="px-4 py-8 text-center text-slate-500">Loading staff payments…</td></tr> : payroll.employees.length ? payroll.employees.map((employee) => <tr key={employee.id} className="border-t border-slate-100">
+            {payroll.employees.length ? payroll.employees.map((employee) => <tr key={employee.id} className="border-t border-slate-100">
               <td className="px-4 py-3 font-medium text-slate-800">{employee.name}<span className={`ml-2 rounded-full px-2 py-1 text-xs ${employee.isClockedIn ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>{employee.isClockedIn ? "Clocked in" : "Clocked out"}</span></td>
               <td className="px-4 py-3 text-slate-600">{formatClockTime(employee.clockIn)}</td><td className="px-4 py-3 text-slate-600">{formatClockTime(employee.clockOut)}</td><td className="px-4 py-3 text-slate-600">{formatHours(employee.totalMinutes)}</td><td className="px-4 py-3 text-right">{formatMoney(employee.grossSalary)}</td><td className="px-4 py-3 text-right text-amber-700">{formatMoney(employee.advances)}</td><td className="px-4 py-3 text-right font-semibold text-emerald-700">{formatMoney(employee.netSalary)}</td>
             </tr>) : <tr><td colSpan="7" className="px-4 py-8 text-center text-slate-500">No staff payment records for this period.</td></tr>}
           </tbody>
         </table>
-      </div>
+      </div>}
     </div>
   );
 }

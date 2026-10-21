@@ -62,6 +62,11 @@ export const getEmployeeFinanceOverview = async ({
          FROM employee_earnings ee
          WHERE ee.salon_id = $1
            AND ee.employee_id = $2
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = ee.salon_id
+               AND ee.earning_date <= cutover.legacy_ends_on
+           )
            AND ($3::date IS NULL OR ee.earning_date >= $3::date)
            AND ($4::date IS NULL OR ee.earning_date <= $4::date)
        ), 0)::numeric AS earned_amount,
@@ -70,6 +75,11 @@ export const getEmployeeFinanceOverview = async ({
          FROM employee_earnings ee
          WHERE ee.salon_id = $1
            AND ee.employee_id = $2
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = ee.salon_id
+               AND ee.earning_date <= cutover.legacy_ends_on
+           )
            AND ($3::date IS NULL OR ee.earning_date >= $3::date)
            AND ($4::date IS NULL OR ee.earning_date <= $4::date)
        ), 0)::integer AS earning_entries,
@@ -77,6 +87,11 @@ export const getEmployeeFinanceOverview = async ({
          SELECT MIN(ee.earning_date)::text
          FROM employee_earnings ee
          WHERE ee.salon_id = $1 AND ee.employee_id = $2
+          AND NOT EXISTS (
+            SELECT 1 FROM employee_finance_cutovers cutover
+            WHERE cutover.salon_id = ee.salon_id
+              AND ee.earning_date <= cutover.legacy_ends_on
+          )
            AND ($3::date IS NULL OR ee.earning_date >= $3::date)
            AND ($4::date IS NULL OR ee.earning_date <= $4::date)
        ) AS first_earning_date,
@@ -84,6 +99,11 @@ export const getEmployeeFinanceOverview = async ({
          SELECT MAX(ee.earning_date)::text
          FROM employee_earnings ee
          WHERE ee.salon_id = $1 AND ee.employee_id = $2
+          AND NOT EXISTS (
+            SELECT 1 FROM employee_finance_cutovers cutover
+            WHERE cutover.salon_id = ee.salon_id
+              AND ee.earning_date <= cutover.legacy_ends_on
+          )
            AND ($3::date IS NULL OR ee.earning_date >= $3::date)
            AND ($4::date IS NULL OR ee.earning_date <= $4::date)
        ) AS last_earning_date,
@@ -109,9 +129,21 @@ export const getEmployeeFinanceOverview = async ({
        COALESCE((
          SELECT SUM(ar.requested_amount)
          FROM employee_advance_requests ar
+         LEFT JOIN advances source_advance
+           ON source_advance.id = ar.advance_id
+          AND source_advance.salon_id = ar.salon_id
+         LEFT JOIN employee_finance_cutovers cutover
+           ON cutover.salon_id = ar.salon_id
          WHERE ar.salon_id = $1
            AND ar.employee_id = $2
            AND ar.workflow_status IN ('DISBURSED', 'ACKNOWLEDGED')
+           AND NOT (
+             cutover.salon_id IS NOT NULL
+             AND source_advance.id IS NOT NULL
+             AND source_advance.advance_date <= cutover.legacy_ends_on
+             AND COALESCE(ar.entry_type, 'CURRENT') <> 'PAST'
+             AND ar.manual_receipt_url IS NULL
+           )
        ), 0)::numeric AS advances_disbursed,
        COALESCE((
          SELECT SUM(asl.amount)
@@ -157,11 +189,21 @@ export const getSalonFinanceSummary = async ({ salonId }) => {
          SELECT SUM(ee.amount)
          FROM employee_earnings ee
          WHERE ee.salon_id = $1
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = ee.salon_id
+               AND ee.earning_date <= cutover.legacy_ends_on
+           )
        ), 0)::numeric AS earned_amount,
        COALESCE((
          SELECT COUNT(*)
          FROM employee_earnings ee
          WHERE ee.salon_id = $1
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = ee.salon_id
+               AND ee.earning_date <= cutover.legacy_ends_on
+           )
        ), 0)::integer AS earning_entries,
        COALESCE((
          SELECT SUM(ep.requested_amount)
@@ -214,6 +256,11 @@ export const getStaffFinanceSnapshot = async ({ salonId, date }) => {
          FROM employee_earnings ee
          WHERE ee.salon_id = u.salon_id
            AND ee.employee_id = u.id
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = ee.salon_id
+               AND ee.earning_date <= cutover.legacy_ends_on
+           )
            AND ee.earning_date = $2::date
        ), 0)::numeric AS earned_today,
        COALESCE((
@@ -221,6 +268,11 @@ export const getStaffFinanceSnapshot = async ({ salonId, date }) => {
          FROM employee_earnings ee
          WHERE ee.salon_id = u.salon_id
            AND ee.employee_id = u.id
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = ee.salon_id
+               AND ee.earning_date <= cutover.legacy_ends_on
+           )
        ), 0)::numeric
        - COALESCE((
          SELECT SUM(ep.requested_amount)
@@ -240,9 +292,21 @@ export const getStaffFinanceSnapshot = async ({ salonId, date }) => {
        COALESCE((
          SELECT SUM(ar.requested_amount)
          FROM employee_advance_requests ar
+         LEFT JOIN advances source_advance
+           ON source_advance.id = ar.advance_id
+          AND source_advance.salon_id = ar.salon_id
+         LEFT JOIN employee_finance_cutovers cutover
+           ON cutover.salon_id = ar.salon_id
          WHERE ar.salon_id = u.salon_id
            AND ar.employee_id = u.id
            AND ar.workflow_status IN ('DISBURSED', 'ACKNOWLEDGED')
+           AND NOT (
+             cutover.salon_id IS NOT NULL
+             AND source_advance.id IS NOT NULL
+             AND source_advance.advance_date <= cutover.legacy_ends_on
+             AND COALESCE(ar.entry_type, 'CURRENT') <> 'PAST'
+             AND ar.manual_receipt_url IS NULL
+           )
        ), 0)::numeric
        - COALESCE((
          SELECT SUM(asl.amount)

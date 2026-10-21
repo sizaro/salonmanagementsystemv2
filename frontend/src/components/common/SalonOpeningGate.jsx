@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { LoaderCircle, LogOut, Store } from "lucide-react";
+import { LogOut, Store } from "lucide-react";
 import { useData } from "../../context/DataContext";
+import { SalehishPageLoader } from "../loading/SalehishPageLoader.jsx";
+import { LoadingButton } from "../loading/LoadingButton.jsx";
 
 export default function SalonOpeningGate({ children }) {
   const { user, sessions, fetchSessions, openSalonSession, logoutUser } = useData();
@@ -47,12 +49,7 @@ export default function SalonOpeningGate({ children }) {
 
   if (checking) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100 p-6" aria-live="polite">
-        <div className="flex items-center gap-3 rounded-2xl bg-white px-6 py-5 text-slate-700 shadow-sm">
-          <LoaderCircle className="animate-spin" size={22} />
-          Checking today&apos;s salon session...
-        </div>
-      </main>
+      <main className="min-h-screen bg-stone-100 p-5"><SalehishPageLoader fullscreen={false} message="CHECKING TODAY'S SALON SESSION" className="mx-auto max-w-3xl shadow-xl" /></main>
     );
   }
 
@@ -69,14 +66,16 @@ export default function SalonOpeningGate({ children }) {
           <h2 className="mt-4 text-xl font-bold">Today&apos;s salon session is closed</h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-white/65">Open the salon once to begin today&apos;s work. Your permitted dashboard tools will become available as soon as the session is ready.</p>
           {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-          <button
+          <LoadingButton
             type="button"
-            disabled={opening}
+            loading={opening}
+            loadingLabel="Opening salon…"
             onClick={openSalon}
+            preserveStyle
             className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-400 px-5 py-3 font-bold text-slate-950 transition hover:-translate-y-0.5 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {opening ? <><LoaderCircle className="animate-spin" size={19} /> Opening salon...</> : "Open Salon"}
-          </button>
+            Open Salon
+          </LoadingButton>
           {opening && <p className="mt-3 text-xs font-medium text-amber-200" aria-live="polite">Please wait while the salon session is created.</p>}
           <button type="button" onClick={logoutUser} disabled={opening} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-white/65 transition hover:text-white disabled:opacity-50"><LogOut size={16} /> Log out</button>
         </section>

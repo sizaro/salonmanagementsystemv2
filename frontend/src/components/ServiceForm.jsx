@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { DateTime } from "luxon";
+import { LoadingButton } from "./loading/LoadingButton.jsx";
 
 const ZONE = "Africa/Kampala";
 
@@ -113,6 +114,10 @@ export default function ServiceForm({
     appointment_time: "",
 
     customerNote: "",
+
+    collection_method: "CASH",
+
+    collection_reference: "",
 
     status: serviceStatus || null,
 
@@ -252,6 +257,10 @@ export default function ServiceForm({
       appointment_time: serviceData.appointment_time || "",
 
       customerNote: serviceData.customer_note || "",
+
+      collection_method: serviceData.collection_method || "CASH",
+
+      collection_reference: serviceData.collection_reference || "",
 
       status: serviceData.status || serviceStatus || null,
 
@@ -976,6 +985,12 @@ export default function ServiceForm({
 
       customer_note: form.customerNote,
 
+      collection_method: isCustomer ? "CASH" : form.collection_method || "CASH",
+
+      collection_reference: isCustomer
+        ? null
+        : String(form.collection_reference || "").trim() || null,
+
       status: finalStatus,
 
       performers,
@@ -1626,6 +1641,51 @@ export default function ServiceForm({
 
         {!isCustomer && (
           <section className="rounded-2xl border border-stone-200 bg-stone-50/50 p-4 sm:p-5">
+            <div className="mb-5 grid gap-4 sm:grid-cols-2">
+              <label>
+                <span className={labelClass}>Customer collection method</span>
+                <select
+                  value={form.collection_method}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      collection_method: event.target.value,
+                      collection_reference:
+                        event.target.value === "CASH"
+                          ? ""
+                          : current.collection_reference,
+                    }))
+                  }
+                  className={fieldClass}
+                >
+                  <option value="CASH">Cash at counter</option>
+                  <option value="MTN_MOMO">MTN MoMo</option>
+                  <option value="AIRTEL_MONEY">Airtel Money</option>
+                  <option value="BANK_TRANSFER">Bank transfer</option>
+                  <option value="OTHER">Other method</option>
+                </select>
+              </label>
+
+              {form.collection_method !== "CASH" && (
+                <label>
+                  <span className={labelClass}>Reference (optional)</span>
+                  <input
+                    type="text"
+                    value={form.collection_reference}
+                    maxLength={120}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        collection_reference: event.target.value,
+                      }))
+                    }
+                    placeholder="Transaction or bank reference"
+                    className={fieldClass}
+                  />
+                </label>
+              )}
+            </div>
+
             <label className={labelClass}>Additional Information</label>
 
             <textarea
@@ -1672,21 +1732,16 @@ export default function ServiceForm({
               </button>
             )}
 
-            <button
+            <LoadingButton
               type="submit"
-              disabled={submitting || checkingAvailability}
+              loading={submitting}
+              loadingLabel="Submitting…"
+              disabled={checkingAvailability}
+              preserveStyle
               className="inline-flex min-w-40 items-center justify-center rounded-xl bg-[var(--salon-copper)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--salon-copper)] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting
-                ? "Submitting..."
-                : serviceData
-                  ? "Save & Complete"
-                  : isCustomer
-                    ? "Request Appointment"
-                    : entryType === "past"
-                      ? "Add Past Service"
-                      : "Add Service"}
-            </button>
+              {serviceData ? "Save & Complete" : isCustomer ? "Request Appointment" : entryType === "past" ? "Add Past Service" : "Add Service"}
+            </LoadingButton>
           </div>
         </div>
       </div>

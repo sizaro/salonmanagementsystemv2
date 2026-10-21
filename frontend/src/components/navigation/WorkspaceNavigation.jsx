@@ -34,6 +34,7 @@ const navigationByRole = {
     { path: "/manager/staff-performance", label: "Staff Performance", icon: BriefcaseBusiness },
     { path: "/manager/staff-finance", label: "Staff Finance", icon: HandCoins },
     { path: "/manager/income-review", label: "Daily Services", icon: BarChart3 },
+    { path: "/manager/employee-report", label: "Employee Report", icon: FileBarChart2 },
   ],
   employee: [
     { path: "/employee/dashboard", label: "Dashboard", icon: LayoutDashboard, primary: true },

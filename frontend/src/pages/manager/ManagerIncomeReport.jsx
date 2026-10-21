@@ -18,6 +18,7 @@ const ManagerIncomeReport = () => {
     advances = [],
     expenses = [],
     sessions = [],
+    financialSummary = null,
     sections = [],
     fetchUsers,
     fetchDailyData,
@@ -37,7 +38,13 @@ const ManagerIncomeReport = () => {
       const matchedMaterials = (serviceMaterials || []).filter(
         (m) => m.service_definition_id === service.service_definition_id
       );
-      return { ...service, materials: matchedMaterials.length > 0 ? matchedMaterials : null };
+      return {
+        ...service,
+        materials:
+          Array.isArray(service.materials) && service.materials.length > 0
+            ? service.materials
+            : matchedMaterials,
+      };
     });
   }, [services, serviceMaterials]);
 
@@ -192,50 +199,81 @@ const ManagerIncomeReport = () => {
     const totalAdvances = (advancesList || []).reduce((sum, a) => sum + (parseFloat(a.amount || 0) || 0), 0);
     const totalLateFees = (lateFeesList || []).reduce((sum, l) => sum + (parseFloat(l.amount || 0) || 0), 0);
     const totaltagFees = (tagFeesList || []).reduce((sum, t) => sum + (parseFloat(t.amount || 0) || 0), 0);
-    const netEmployeeSalary = Math.max(0, employeesSalary - (totalAdvances + totalLateFees + totaltagFees));
-    const netIncome = grossIncome - (totalExpenses + materialsTotal + netEmployeeSalary);
-    const cashAtHand = netIncome + netEmployeeSalary;
-    return { totalLateFees, totaltagFees, grossIncome, employeesSalary, materialsTotal, totalExpenses, totalAdvances, netEmployeeSalary, netIncome, cashAtHand };
+    return {
+      totalLateFees,
+      totaltagFees,
+      grossIncome,
+      employeesSalary,
+      materialsTotal,
+      totalExpenses,
+      totalAdvances,
+      operatingMargin: grossIncome - employeesSalary - materialsTotal - totalExpenses,
+    };
   };
 
-  const {
-    totalLateFees,
-    totaltagFees,
-    grossIncome,
-    employeesSalary,
-    materialsTotal,
-    totalExpenses,
-    totalAdvances,
-    netEmployeeSalary,
-    netIncome,
-    cashAtHand,
-  } = calculateTotals(servicesWithMaterials, expenses, advances, tagFees, lateFees);
-
-  const formatEAT = (dateString) => {
-    if (!dateString) return "N/A";
-    try {
-      return new Date(dateString).toLocaleString("en-UG", { timeZone: "Africa/Kampala", hour: "2-digit", minute: "2-digit" });
-    } catch (e) {
-      return dateString;
-    }
+  const fallbackFinance = calculateTotals(servicesWithMaterials, expenses, advances, tagFees, lateFees);
+  const activity = financialSummary?.activity || {
+    service_revenue: fallbackFinance.grossIncome,
+    employee_earnings: fallbackFinance.employeesSalary,
+    configured_material_cost_estimate: fallbackFinance.materialsTotal,
+    business_expenses: fallbackFinance.totalExpenses,
+    operating_margin: fallbackFinance.operatingMargin,
+  };
+  const financeMovements = financialSummary?.finance_movements || {
+    employee_payments_disbursed: 0,
+    advances_disbursed: fallbackFinance.totalAdvances,
+    effective_payroll_deductions: 0,
+    cash_advance_repayments: 0,
+    advance_waivers: 0,
+    tag_fees_recorded: fallbackFinance.totaltagFees,
+    late_fees_recorded: fallbackFinance.totalLateFees,
+  };
+  const closingBalances = financialSummary?.closing_balances || {
+    employee_earnings_payable: 0,
+    advances_outstanding: 0,
+  };
+  const customerCollections = financialSummary?.customer_collections || {
+    cash: activity.service_revenue,
+    mtn_mobile_money: 0,
+    airtel_money: 0,
+    bank_transfer: 0,
+    other: 0,
+  };
+  const cashPosition = financialSummary?.cash_position || {
+    net_cash_movement: Number(activity.service_revenue || 0) - Number(financeMovements.advances_disbursed || 0) - Number(activity.business_expenses || 0),
   };
 
-  const calculateDuration = (openUTC, closeUTC) => {
-    if (!openUTC || !closeUTC) return "N/A";
-    const diffMs = new Date(closeUTC) - new Date(openUTC);
+  const sessionMoment = (date, time) => {
+    if (!date || !time) return null;
+    const moment = new Date(`${date}T${time}+03:00`);
+    return Number.isNaN(moment.getTime()) ? null : moment;
+  };
+
+  const formatEAT = (date, time) => {
+    const moment = sessionMoment(date, time);
+    return moment
+      ? moment.toLocaleString("en-UG", { timeZone: "Africa/Kampala", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" })
+      : "N/A";
+  };
+
+  const calculateDuration = (openDate, openTime, closeDate, closeTime) => {
+    const openedAt = sessionMoment(openDate, openTime);
+    const closedAt = closeDate && closeTime ? sessionMoment(closeDate, closeTime) : new Date();
+    if (!openedAt || !closedAt) return "N/A";
+    const diffMs = closedAt - openedAt;
+    if (diffMs < 0) return "N/A";
     const hours = Math.floor(diffMs / (1000 * 60 * 60));
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
     return `${hours}h ${minutes}m`;
   };
 
   useEffect(() => {
-    if (!session) return;
-    const openUTC = session.open_time;
-    const closeUTC = session.close_time || session.server_now;
-    setLiveDuration(calculateDuration(openUTC, closeUTC));
-    if (!session.close_time) {
+    if (!session?.open_date || !session?.open_time) return;
+    const updateDuration = () => setLiveDuration(calculateDuration(session.open_date, session.open_time, session.close_date, session.close_time));
+    updateDuration();
+    if (!(session.close_date && session.close_time)) {
       const interval = setInterval(() => {
-        setLiveDuration(calculateDuration(openUTC, session.server_now));
+        updateDuration();
       }, 60 * 1000);
       return () => clearInterval(interval);
     }
@@ -449,15 +487,15 @@ const serviceNameCounts = useMemo(() => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <p className="text-sm text-gray-600">Opened</p>
-                <p className="font-medium">{formatEAT(session.open_time)}</p>
+                <p className="font-medium">{formatEAT(session.open_date, session.open_time)}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Closed</p>
-                <p className="font-medium">{session.close_time ? formatEAT(session.close_time) : "N/A"}</p>
+                <p className="font-medium">{session.close_date && session.close_time ? formatEAT(session.close_date, session.close_time) : "Still open"}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Duration</p>
-                <p className="font-medium">{liveDuration} {!session.close_time && "(Counting...)"}</p>
+                <p className="font-medium">{liveDuration} {!(session.close_date && session.close_time) && "(Counting...)"}</p>
               </div>
             </div>
           </section>
@@ -471,19 +509,19 @@ const serviceNameCounts = useMemo(() => {
                   <h3 className="text-md font-semibold text-blue-700 mb-2">{sec.name} Section Summary</h3>
                   <div className="grid grid-cols-1 gap-2">
                     <div className="p-3 rounded border bg-blue-50">
-                      <div className="text-sm text-gray-700">Gross Income</div>
+                      <div className="text-sm text-gray-700">Completed-service revenue</div>
                       <div className="text-xl font-bold">{(sec.totals.gross || 0).toLocaleString()} UGX</div>
                     </div>
                     <div className="p-3 rounded border bg-blue-50">
-                      <div className="text-sm text-gray-700">Employees Salary</div>
+                      <div className="text-sm text-gray-700">Employee earnings</div>
                       <div className="text-xl font-bold">{(sec.totals.employeeSalary || 0).toLocaleString()} UGX</div>
                     </div>
                     <div className="p-3 rounded border bg-blue-50">
-                      <div className="text-sm text-gray-700">Materials Cost</div>
+                      <div className="text-sm text-gray-700">Configured material estimate</div>
                       <div className="text-xl font-bold">{(sec.totals.materialsTotal || 0).toLocaleString()} UGX</div>
                     </div>
                     <div className="p-3 rounded border bg-blue-100">
-                      <div className="text-sm text-gray-700">Salon Amount</div>
+                      <div className="text-sm text-gray-700">Salon service share</div>
                       <div className="text-xl font-bold text-green-700">{(sec.totals.salonIncome || 0).toLocaleString()} UGX</div>
                     </div>
                     <div className="mb-2 text-sm font-medium text-purple-700">
@@ -497,33 +535,46 @@ const serviceNameCounts = useMemo(() => {
 
           {/* SUMMARY BOXES */}
           <section className="bg-white shadow rounded-lg p-4 mb-6">
-            <h2 className="text-xl font-semibold text-blue-700 mb-4">Summary</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            <h2 className="text-xl font-semibold text-blue-700 mb-1">Financial summary</h2>
+            <p className="mb-4 text-sm text-gray-500">Completed services create revenue and employee earnings. Advances, payments and deductions are tracked separately.</p>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-600">Operating activity</h3>
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               {[
-                { label: "Gross Income", value: grossIncome },
-                { label: "Employees Salary", value: employeesSalary },
-                { label: "Materials Cost", value: materialsTotal },
-                { label: "Expenses", value: totalExpenses },
-                { label: "Advances", value: totalAdvances },
-                { label: "Tag Fees", value: totaltagFees },
-                { label: "Late Fees", value: totalLateFees },
-                { label: "Net Employee Salary", value: netEmployeeSalary },
-                { label: "Net Income", value: netIncome },
-                { label: "Cash at Hand", value: cashAtHand },
-              ].map((item, idx) => (
-                <div
-                  key={idx}
-                  className={`summary-box p-3 border rounded ${item.label.includes("Net") ? "bg-green-50" : ""} ${item.label === "Cash at Hand" ? "bg-green-100" : ""}`}
-                >
-                  <div className="text-sm text-gray-600">{item.label}</div>
-                  <div className="font-bold text-lg">{(item.value || 0).toLocaleString()} UGX</div>
-                </div>
-              ))}
+                { label: "Completed-service revenue", value: activity.service_revenue },
+                { label: "Employee earnings created", value: activity.employee_earnings },
+                { label: "Configured material estimate", value: activity.configured_material_cost_estimate },
+                { label: "Business expenses", value: activity.business_expenses },
+                { label: "Operating margin", value: activity.operating_margin },
+              ].map((item) => <div key={item.label} className="summary-box p-3 border rounded bg-slate-50"><div className="text-sm text-gray-600">{item.label}</div><div className="font-bold text-lg">{Number(item.value || 0).toLocaleString()} UGX</div></div>)}
             </div>
-            <p className="text-md font-bold text-gray-700 mb-3">
-              Total Services: {totalServicesCount}
-            </p>
-
+            <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-gray-600">Finance movements during this period</h3>
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {[
+                { label: "Employee payments disbursed", value: financeMovements.employee_payments_disbursed },
+                { label: "Advances disbursed", value: financeMovements.advances_disbursed },
+                { label: "Effective payroll deductions", value: financeMovements.effective_payroll_deductions },
+                { label: "Cash advance repayments", value: financeMovements.cash_advance_repayments },
+                { label: "Advance waivers", value: financeMovements.advance_waivers },
+                { label: "Tag fees recorded", value: financeMovements.tag_fees_recorded },
+                { label: "Late fees recorded", value: financeMovements.late_fees_recorded },
+              ].map((item) => <div key={item.label} className="summary-box p-3 border rounded bg-slate-50"><div className="text-sm text-gray-600">{item.label}</div><div className="font-bold text-lg">{Number(item.value || 0).toLocaleString()} UGX</div></div>)}
+            </div>
+            <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-gray-600">Balances at the end of this period</h3>
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="summary-box p-3 border rounded bg-amber-50"><div className="text-sm text-gray-600">Employee earnings payable</div><div className="font-bold text-lg">{Number(closingBalances.employee_earnings_payable || 0).toLocaleString()} UGX</div></div>
+              <div className="summary-box p-3 border rounded bg-amber-50"><div className="text-sm text-gray-600">Outstanding employee advances</div><div className="font-bold text-lg">{Number(closingBalances.advances_outstanding || 0).toLocaleString()} UGX</div></div>
+              <div className="summary-box p-3 border rounded bg-emerald-50"><div className="text-sm text-gray-600">Cash service receipts</div><div className="font-bold text-lg">{Number(customerCollections.cash || 0).toLocaleString()} UGX</div><p className="mt-1 text-xs text-gray-500">Net cash movement: {Number(cashPosition.net_cash_movement || 0).toLocaleString()} UGX</p></div>
+            </div>
+            <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-gray-600">Customer collections by channel</h3>
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { label: "Cash", value: customerCollections.cash },
+                { label: "MTN MoMo", value: customerCollections.mtn_mobile_money },
+                { label: "Airtel Money", value: customerCollections.airtel_money },
+                { label: "Bank and other", value: Number(customerCollections.bank_transfer || 0) + Number(customerCollections.other || 0) },
+              ].map((item) => <div key={item.label} className="summary-box p-3 border rounded bg-emerald-50"><div className="text-sm text-gray-600">{item.label}</div><div className="font-bold text-lg">{Number(item.value || 0).toLocaleString()} UGX</div></div>)}
+            </div>
+            <p className="text-md font-bold text-gray-700 mt-4 mb-3">Total completed services: {totalServicesCount}</p>
           </section>
 
           <section className="bg-white shadow rounded-lg p-4 mb-6">
