@@ -11,7 +11,7 @@ export default function ServicesPage() {
         eyebrow="Our services"
         title="Know what to expect before you arrive."
         description="Explore detailed grooming, styling, skin care, family and wellness experiences. Final timing and pricing are confirmed during consultation."
-        image="/images/professional cuts.jpg"
+        image="/images/service-hero.webp"
         imageAlt="A precise professional haircut"
       />
       <ServiceMenu services={detailedServices} />

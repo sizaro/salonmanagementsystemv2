@@ -5,9 +5,9 @@ import SectionHeading from "../public/SectionHeading.jsx";
 import { formatUgx, resolvePublicMedia } from "../../lib/publicMedia.js";
 
 const fallbacks = [
-  { id: "cut", service_name: "Signature grooming", description: "Precision cutting, shaping and finishing tailored to your features.", service_amount: null, image_url: "/images/professional cuts.jpg" },
-  { id: "braids", service_name: "Braids & protective styling", description: "Beautiful, considered styling created with patience and care.", service_amount: null, image_url: "/images/women plaiting2.jpg" },
-  { id: "skin", service_name: "Restorative skin care", description: "A calm ritual that cleanses, refreshes and restores your natural glow.", service_amount: null, image_url: "/images/skin treatment.webp" },
+  { id: "cut", service_name: "Signature grooming", description: "Precision cutting, shaping and finishing tailored to your features.", service_amount: null, image_url: "/images/professional-cuts.webp" },
+  { id: "braids", service_name: "Braids & protective styling", description: "Beautiful, considered styling created with patience and care.", service_amount: null, image_url: "/images/women-plaiting-detail.webp" },
+  { id: "skin", service_name: "Restorative skin care", description: "A calm ritual that cleanses, refreshes and restores your natural glow.", service_amount: null, image_url: "/images/skin-treatment.webp" },
 ];
 
 export default function SignatureServices({ services = [] }) {

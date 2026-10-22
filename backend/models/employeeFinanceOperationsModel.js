@@ -589,6 +589,7 @@ export const settleAdvanceRequest = async ({
   amount,
   settlementMethod,
   notes,
+  settlementSignatureDataUrl,
 }) => {
   assertRole(actorRole, REVIEWER_ROLES, "Only an owner or manager may settle an advance");
   const requestedAmount = positiveAmount(amount, "Settlement amount");
@@ -599,6 +600,12 @@ export const settleAdvanceRequest = async ({
   if (method === "WAIVED" && String(actorRole || "").toLowerCase() !== "owner") {
     throw financeError("Only the owner may waive an employee advance", 403);
   }
+  // Payroll deductions have their own later employee-consent signature. Cash
+  // repayments and waivers become effective now, so management must sign the
+  // exact settlement before it is recorded.
+  const managementSignature = method === "PAYROLL_DEDUCTION"
+    ? null
+    : await prepareSignature(settlementSignatureDataUrl);
 
   return db.transaction(async (client) => {
     const { rows: advanceRows } = await client.query(
@@ -632,8 +639,9 @@ export const settleAdvanceRequest = async ({
     const { rows } = await client.query(
       `INSERT INTO employee_advance_settlements (
          salon_id, advance_request_id, employee_id, amount,
-         settlement_method, notes, receipt_number, settled_by, workflow_status
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         settlement_method, notes, receipt_number, settled_by, workflow_status,
+         settled_by_signature_url, settled_by_signature_hash, settled_by_declaration
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         salonId,
@@ -645,6 +653,11 @@ export const settleAdvanceRequest = async ({
         receipt,
         actorId,
         method === "PAYROLL_DEDUCTION" ? "PENDING_EMPLOYEE_CONSENT" : "EFFECTIVE",
+        managementSignature?.signatureUrl || null,
+        managementSignature?.signatureHash || null,
+        managementSignature
+          ? `${String(actorRole || "management").replace(/^./, (letter) => letter.toUpperCase())} confirms that UGX ${requestedAmount.toLocaleString("en-UG")} was ${method === "WAIVED" ? "waived" : "received in cash"} to settle advance ${receipt}.`
+          : null,
       ],
     );
     return {
@@ -653,6 +666,108 @@ export const settleAdvanceRequest = async ({
       requires_employee_consent: method === "PAYROLL_DEDUCTION",
     };
   });
+};
+
+export const getAdvanceSettlementEvidence = async ({
+  salonId,
+  actorId,
+  actorRole,
+  requestId,
+  settlementId,
+}) => {
+  const { rows } = await db.query(
+    `SELECT asl.employee_id, asl.settlement_method,
+            asl.employee_consent_signature_url, asl.settled_by_signature_url
+     FROM employee_advance_settlements asl
+     WHERE asl.id = $1 AND asl.advance_request_id = $2 AND asl.salon_id = $3`,
+    [settlementId, requestId, salonId],
+  );
+  const settlement = rows[0];
+  if (!settlement) throw financeError("Advance settlement was not found", 404);
+  const isStaff = STAFF_ROLES.has(String(actorRole || "").toLowerCase());
+  if (!isStaff && Number(settlement.employee_id) !== Number(actorId)) {
+    throw financeError("You are not allowed to view this settlement evidence", 403);
+  }
+  const reference = settlement.settlement_method === "PAYROLL_DEDUCTION"
+    ? settlement.employee_consent_signature_url
+    : settlement.settled_by_signature_url;
+  if (!reference) throw financeError("Signed settlement evidence is not available", 404);
+  return reference;
+};
+
+// Settlements are ledger records rather than ordinary payment/advance receipts,
+// but they still need the same auditable context when someone opens them.
+// Keep the private signature reference out of this response; the dedicated
+// evidence endpoint authorizes and streams it separately.
+export const getAdvanceSettlementReceiptDetail = async ({
+  salonId,
+  actorId,
+  actorRole,
+  requestId,
+  settlementId,
+}) => {
+  const { rows } = await db.query(
+    `SELECT
+       asl.id, asl.advance_request_id, asl.employee_id, asl.amount,
+       asl.settlement_method, asl.workflow_status, asl.notes, asl.receipt_number,
+       asl.settled_at, asl.created_at,
+       asl.employee_consented_at, asl.employee_consent_declaration,
+       asl.employee_consent_signature_url,
+       asl.settled_by_declaration, asl.settled_by_signature_url,
+       ar.reason AS advance_reason, ar.receipt_number AS advance_receipt_number,
+       TRIM(CONCAT(COALESCE(employee.first_name, ''), ' ', COALESCE(employee.last_name, ''))) AS employee_name,
+       employee.role AS employee_role,
+       TRIM(CONCAT(COALESCE(settler.first_name, ''), ' ', COALESCE(settler.last_name, ''))) AS settled_by_name,
+       settler.role AS settled_by_role,
+       TRIM(CONCAT(COALESCE(consenter.first_name, ''), ' ', COALESCE(consenter.last_name, ''))) AS consented_by_name,
+       consenter.role AS consented_by_role
+     FROM employee_advance_settlements asl
+     JOIN employee_advance_requests ar
+       ON ar.id = asl.advance_request_id AND ar.salon_id = asl.salon_id
+     JOIN users employee ON employee.id = asl.employee_id AND employee.salon_id = asl.salon_id
+     JOIN users settler ON settler.id = asl.settled_by AND settler.salon_id = asl.salon_id
+     LEFT JOIN users consenter ON consenter.id = asl.employee_consented_by AND consenter.salon_id = asl.salon_id
+     WHERE asl.id = $1
+       AND asl.advance_request_id = $2
+       AND asl.salon_id = $3`,
+    [settlementId, requestId, salonId],
+  );
+  const settlement = rows[0];
+  if (!settlement) throw financeError("Advance settlement was not found", 404);
+
+  const isStaff = STAFF_ROLES.has(String(actorRole || "").toLowerCase());
+  if (!isStaff && Number(settlement.employee_id) !== Number(actorId)) {
+    throw financeError("You are not allowed to view this settlement record", 403);
+  }
+
+  const employeeConsent = settlement.settlement_method === "PAYROLL_DEDUCTION";
+  return {
+    id: settlement.id,
+    advance_request_id: settlement.advance_request_id,
+    receipt_number: settlement.receipt_number,
+    amount: Number(settlement.amount || 0),
+    settlement_method: settlement.settlement_method,
+    workflow_status: settlement.workflow_status,
+    notes: settlement.notes,
+    settled_at: settlement.settled_at,
+    created_at: settlement.created_at,
+    advance_reason: settlement.advance_reason,
+    advance_receipt_number: settlement.advance_receipt_number,
+    employee_name: settlement.employee_name,
+    employee_role: settlement.employee_role,
+    settled_by_name: settlement.settled_by_name,
+    settled_by_role: settlement.settled_by_role,
+    consented_by_name: settlement.consented_by_name,
+    consented_by_role: settlement.consented_by_role,
+    evidence_kind: employeeConsent ? "EMPLOYEE_CONSENT" : "MANAGEMENT_ATTESTATION",
+    evidence_available: employeeConsent
+      ? Boolean(settlement.employee_consent_signature_url)
+      : Boolean(settlement.settled_by_signature_url),
+    evidence_signed_at: employeeConsent ? settlement.employee_consented_at : settlement.settled_at,
+    declaration: employeeConsent
+      ? settlement.employee_consent_declaration
+      : settlement.settled_by_declaration,
+  };
 };
 
 export const acknowledgeAdvanceSettlement = async ({
@@ -1228,6 +1343,9 @@ export const getEmployeeFinanceReceipts = async ({ salonId, actorId, actorRole }
          (r.manual_receipt_url IS NOT NULL) AS manual_receipt_attached,
          EXISTS(SELECT 1 FROM employee_finance_receipt_signatures rs WHERE rs.receipt_id = r.id AND rs.signature_type = 'ACKNOWLEDGEMENT') AS has_employee_signature,
          EXISTS(SELECT 1 FROM employee_finance_receipt_signatures rs WHERE (rs.receipt_id = r.id OR rs.advance_request_id = r.advance_request_id OR rs.employee_payment_id = r.employee_payment_id) AND rs.signature_type = 'APPROVAL') AS has_management_signature,
+         NULL::varchar AS settlement_method, NULL::varchar AS settlement_workflow_status,
+         FALSE AS settlement_evidence_available, NULL::timestamptz AS employee_consented_at,
+         NULL::text AS settlement_declaration, NULL::bigint AS advance_request_id,
          TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS employee_name
        FROM employee_finance_receipts r
        JOIN users u ON u.id = r.employee_id AND u.salon_id = r.salon_id
@@ -1241,7 +1359,19 @@ export const getEmployeeFinanceReceipts = async ({ salonId, actorId, actorRole }
          NULL::integer AS acknowledged_by, NULL::timestamptz AS acknowledged_at,
          NULL::text AS pdf_url, NULL::timestamptz AS finalized_at,
          FALSE AS manual_receipt_attached,
-         FALSE AS has_employee_signature, FALSE AS has_management_signature,
+         (asl.settlement_method = 'PAYROLL_DEDUCTION' AND asl.employee_consent_signature_url IS NOT NULL) AS has_employee_signature,
+         (asl.settlement_method <> 'PAYROLL_DEDUCTION' AND asl.settled_by_signature_url IS NOT NULL) AS has_management_signature,
+         asl.settlement_method, asl.workflow_status AS settlement_workflow_status,
+         CASE WHEN asl.settlement_method = 'PAYROLL_DEDUCTION'
+           THEN asl.employee_consent_signature_url IS NOT NULL
+           ELSE asl.settled_by_signature_url IS NOT NULL
+         END AS settlement_evidence_available,
+         asl.employee_consented_at,
+         CASE WHEN asl.settlement_method = 'PAYROLL_DEDUCTION'
+           THEN asl.employee_consent_declaration
+           ELSE asl.settled_by_declaration
+         END AS settlement_declaration,
+         asl.advance_request_id,
          TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS employee_name
        FROM employee_advance_settlements asl
        JOIN users u ON u.id = asl.employee_id AND u.salon_id = asl.salon_id

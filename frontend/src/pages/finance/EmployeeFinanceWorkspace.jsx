@@ -5,6 +5,7 @@ import Modal from "../../components/Modal.jsx";
 import { useData } from "../../context/DataContext.jsx";
 import SignatureDialog from "../../components/finance/SignatureDialog.jsx";
 import FinanceReceiptDialog from "../../components/finance/FinanceReceiptDialog.jsx";
+import AdvanceSettlementReceiptDialog from "../../components/finance/AdvanceSettlementReceiptDialog.jsx";
 import { TableSkeleton } from "../../components/loading/DashboardSkeleton.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
@@ -57,6 +58,7 @@ export default function EmployeeFinanceWorkspace() {
   const [signatureEmployeeOverview, setSignatureEmployeeOverview] = useState(null);
   const [signatureEmployeeLoading, setSignatureEmployeeLoading] = useState(false);
   const [selectedReceiptId, setSelectedReceiptId] = useState(null);
+  const [selectedSettlementReceipt, setSelectedSettlementReceipt] = useState(null);
   const [paperReceiptTarget, setPaperReceiptTarget] = useState(null);
 
   const employees = useMemo(
@@ -239,20 +241,32 @@ export default function EmployeeFinanceWorkspace() {
     });
   };
 
+  const recordSettlement = async (signatureDataUrl = null) => {
+    if (!settlementTarget) return;
+    await axios.post(`${API_URL}/employee-finance/advance-requests/${settlementTarget.id}/settlements`, {
+      amount: Number(settlementForm.amount),
+      settlement_method: settlementForm.settlement_method,
+      notes: settlementForm.notes,
+      settlement_signature_data_url: signatureDataUrl,
+    }, { withCredentials: true });
+  };
+
+  const finishSettlement = () => {
+    setSettlementTarget(null);
+    setSettlementForm({ amount: "", settlement_method: "PAYROLL_DEDUCTION", notes: "" });
+  };
+
   const submitSettlement = (event) => {
     event.preventDefault();
     if (!settlementTarget) return;
+    if (settlementForm.settlement_method !== "PAYROLL_DEDUCTION") {
+      setSignatureTarget({ kind: "advance-requests", row: settlementTarget, settlement: { ...settlementForm }, action: "SETTLEMENT_ATTESTATION" });
+      return;
+    }
     run(async () => {
-      await axios.post(`${API_URL}/employee-finance/advance-requests/${settlementTarget.id}/settlements`, {
-        amount: Number(settlementForm.amount),
-        settlement_method: settlementForm.settlement_method,
-        notes: settlementForm.notes,
-      }, { withCredentials: true });
-      setSettlementTarget(null);
-      setSettlementForm({ amount: "", settlement_method: "PAYROLL_DEDUCTION", notes: "" });
-    }, settlementForm.settlement_method === "PAYROLL_DEDUCTION"
-      ? "Payroll deduction sent to the employee for consent. Earnings are unchanged until they sign."
-      : "Advance settlement recorded.");
+      await recordSettlement();
+      finishSettlement();
+    }, "Payroll deduction sent to the employee for consent. Earnings are unchanged until they sign.");
   };
 
   const decide = (kind, id, approved) => {
@@ -302,6 +316,16 @@ export default function EmployeeFinanceWorkspace() {
   const signReceipt = async (signatureDataUrl) => {
     if (!signatureTarget) return;
     const { kind, row, settlement, action } = signatureTarget;
+    if (action === "SETTLEMENT_ATTESTATION") {
+      await run(async () => {
+        await recordSettlement(signatureDataUrl);
+        finishSettlement();
+      }, settlement?.settlement_method === "WAIVED"
+        ? "Advance waiver recorded with the owner's signed attestation."
+        : "Cash repayment recorded with management's signed attestation.");
+      setSignatureTarget(null);
+      return;
+    }
     const endpoint = action === "PAYROLL_DEDUCTION_CONSENT"
       ? `${API_URL}/employee-finance/advance-requests/${row.id}/settlements/${settlement.id}/acknowledge`
       : action === "APPROVAL"
@@ -432,7 +456,7 @@ export default function EmployeeFinanceWorkspace() {
       {settlementTarget && <Modal isOpen onClose={() => setSettlementTarget(null)} sizeClass="max-w-xl">
         <form onSubmit={submitSettlement} className="space-y-4 p-2">
           <h2 className="text-lg font-semibold text-slate-900">Settle employee advance</h2>
-          <p className="text-sm text-slate-600">{settlementTarget.employee_name || "Employee"} still has <strong>{money(settlementTarget.outstanding_amount)}</strong> outstanding from this advance. The original advance remains recorded for audit.</p>
+          <p className="text-sm text-slate-600">{settlementTarget.employee_name || "Employee"} still has <strong>{money(settlementTarget.outstanding_amount)}</strong> outstanding from this advance. A salary deduction waits for the employee's signed consent; a cash repayment or owner waiver requires your signed attestation.</p>
           <div className="grid gap-3">
             <label className="text-sm font-medium text-slate-700">Settlement method
               <select value={settlementForm.settlement_method} onChange={(event) => setSettlementForm((current) => ({ ...current, settlement_method: event.target.value }))} className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2">
@@ -448,7 +472,7 @@ export default function EmployeeFinanceWorkspace() {
             <label className="text-sm font-medium text-slate-700">Notes
               <textarea value={settlementForm.notes} onChange={(event) => setSettlementForm((current) => ({ ...current, notes: event.target.value }))} className="mt-1 block min-h-20 w-full rounded-xl border border-slate-300 px-3 py-2" placeholder="Optional repayment, deduction, or waiver note" />
             </label>
-            <button disabled={busy} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Recording…" : "Record settlement"}</button>
+            <button disabled={busy} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Recording…" : settlementForm.settlement_method === "PAYROLL_DEDUCTION" ? "Send for employee consent" : "Sign and record settlement"}</button>
           </div>
         </form>
       </Modal>}
@@ -481,14 +505,14 @@ export default function EmployeeFinanceWorkspace() {
           <td className="px-4 py-3 font-medium text-slate-800">{employeeProfilePath(payment.employee_id) ? <Link className="hover:text-blue-700 hover:underline" to={employeeProfilePath(payment.employee_id)}>{payment.employee_name || "You"}</Link> : (payment.employee_name || "You")}</td><td className="px-4 py-3">{money(payment.requested_amount)}</td><td className="px-4 py-3">{displayStatus(payment.payment_method)}</td><td className="px-4 py-3"><Status value={payment.workflow_status} /></td><td className="px-4 py-3 text-xs text-slate-600">{formatRecordDate(payment.created_at)}</td><td className="px-4 py-3"><Actions row={payment} kind="payments" isStaff={isStaff} canReview={canReviewRequests && Number(payment.employee_id) !== Number(user?.id)} canEmployeeAcknowledge={Number(payment.employee_id) === Number(user?.id)} busy={busy} decide={decide} disburse={disburse} acknowledge={acknowledge} reviewPaperReceipt={(kind, row) => setPaperReceiptTarget({ kind, row })} requestApprovalSignature={requestApprovalSignature} requestAcknowledgementSignature={requestAcknowledgementSignature} /></td>
         </tr>} />}
 
-        {activeTab === "receipts" && <ReceiptList receipts={receipts} employees={employees} loading={loading} onView={setSelectedReceiptId} />}
+        {activeTab === "receipts" && <ReceiptList receipts={receipts} employees={employees} loading={loading} onView={setSelectedReceiptId} onViewSettlement={setSelectedSettlementReceipt} />}
       </section>
       <SignatureDialog
         open={Boolean(signatureTarget)}
         busy={busy}
         signerName={`${user?.first_name || ""} ${user?.last_name || ""}`.trim()}
-        title={signatureTarget?.action === "APPROVAL" ? "Sign management approval" : signatureTarget?.action === "PAYROLL_DEDUCTION_CONSENT" ? "Approve payroll deduction" : "Sign receipt acknowledgement"}
-        declaration={signatureTarget?.action === "APPROVAL" ? `By signing, you approve this ${signatureTarget?.kind === "payments" ? "employee payment" : "employee advance"} for ${money(signatureTarget?.row?.requested_amount)}.` : signatureTarget?.action === "PAYROLL_DEDUCTION_CONSENT" ? `By signing, you agree that ${money(signatureTarget?.settlement?.amount)} will be deducted from your earned salary to settle advance ${signatureTarget?.settlement?.receipt_number}.` : `By signing, you confirm that you received ${money(signatureTarget?.row?.requested_amount)} under this ${signatureTarget?.kind === "payments" ? "employee payment" : "employee advance"}.`}
+        title={signatureTarget?.action === "APPROVAL" ? "Sign management approval" : signatureTarget?.action === "PAYROLL_DEDUCTION_CONSENT" ? "Approve payroll deduction" : signatureTarget?.action === "SETTLEMENT_ATTESTATION" ? "Sign settlement attestation" : "Sign receipt acknowledgement"}
+        declaration={signatureTarget?.action === "APPROVAL" ? `By signing, you approve this ${signatureTarget?.kind === "payments" ? "employee payment" : "employee advance"} for ${money(signatureTarget?.row?.requested_amount)}.` : signatureTarget?.action === "PAYROLL_DEDUCTION_CONSENT" ? `By signing, you agree that ${money(signatureTarget?.settlement?.amount)} will be deducted from your earned salary to settle advance ${signatureTarget?.settlement?.receipt_number}.` : signatureTarget?.action === "SETTLEMENT_ATTESTATION" ? `By signing, you confirm that ${money(signatureTarget?.settlement?.amount)} was ${signatureTarget?.settlement?.settlement_method === "WAIVED" ? "waived under owner authority" : "received in cash"} to settle this employee advance.` : `By signing, you confirm that you received ${money(signatureTarget?.row?.requested_amount)} under this ${signatureTarget?.kind === "payments" ? "employee payment" : "employee advance"}.`}
         reviewSummary={signatureTarget?.action === "APPROVAL" ? signatureEmployeeOverview : null}
         reviewSummaryLoading={signatureTarget?.action === "APPROVAL" && signatureEmployeeLoading}
         reviewSummaryRequired={signatureTarget?.action === "APPROVAL"}
@@ -496,6 +520,7 @@ export default function EmployeeFinanceWorkspace() {
         onConfirm={signReceipt}
       />
       <FinanceReceiptDialog receiptId={selectedReceiptId} onClose={() => setSelectedReceiptId(null)} />
+      <AdvanceSettlementReceiptDialog target={selectedSettlementReceipt} onClose={() => setSelectedSettlementReceipt(null)} />
       <PaperReceiptReviewDialog target={paperReceiptTarget} busy={busy} onClose={() => setPaperReceiptTarget(null)} onVerify={() => verifyPaperReceipt(paperReceiptTarget?.kind, paperReceiptTarget?.row?.id)} />
     </div>
   );
@@ -569,14 +594,16 @@ function Status({ value }) { return <span className={`inline-flex rounded-full p
 
 function Actions({ row, kind, isStaff, canReview, canSettleAdvances, canEmployeeAcknowledge, canEmployeeConsent, busy, decide, disburse, reviewPaperReceipt, requestApprovalSignature, requestAcknowledgementSignature, requestPayrollDeductionConsent, openSettlement }) {
   const status = String(row.workflow_status || "").toUpperCase();
+  const pendingPayrollDeductions = row.pending_payroll_deductions || [];
   return <div className="flex flex-wrap gap-2">
     {canReview && status === "REQUESTED" && !row.manual_receipt_attached && <><button disabled={busy} onClick={() => requestApprovalSignature(kind, row)} className="rounded-lg bg-emerald-700 px-2.5 py-1.5 text-xs font-semibold text-white">Approve & sign</button><button disabled={busy} onClick={() => decide(kind, row.id, false)} className="rounded-lg bg-rose-700 px-2.5 py-1.5 text-xs font-semibold text-white">Reject</button></>}
     {canReview && status === "REQUESTED" && String(row.entry_type || "").toUpperCase() === "PAST" && row.manual_receipt_attached && <><button disabled={busy} onClick={() => reviewPaperReceipt(kind, row)} className="rounded-lg bg-indigo-700 px-2.5 py-1.5 text-xs font-semibold text-white">Review signed paper receipt</button><button disabled={busy} onClick={() => decide(kind, row.id, false)} className="rounded-lg bg-rose-700 px-2.5 py-1.5 text-xs font-semibold text-white">Reject</button></>}
     {isStaff && status === "APPROVED" && <button disabled={busy} onClick={() => disburse(kind, row.id)} className="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white">Disburse</button>}
     {canReview && status === "DISBURSED" && String(row.entry_type || "").toUpperCase() === "PAST" && row.manual_receipt_attached && <button disabled={busy} onClick={() => reviewPaperReceipt(kind, row)} className="rounded-lg bg-indigo-700 px-2.5 py-1.5 text-xs font-semibold text-white">Review signed paper receipt</button>}
-    {kind === "advance-requests" && canSettleAdvances && ["DISBURSED", "ACKNOWLEDGED"].includes(status) && Number(row.outstanding_amount || 0) > 0 && <button disabled={busy} onClick={() => openSettlement(row)} className="rounded-lg bg-[var(--salehish-burgundy)] px-2.5 py-1.5 text-xs font-semibold text-white">Settle</button>}
+    {kind === "advance-requests" && canSettleAdvances && pendingPayrollDeductions.length > 0 && <span className="self-center rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800">Awaiting employee consent for {money(pendingPayrollDeductions.reduce((total, item) => total + Number(item.amount || 0), 0))}</span>}
+    {kind === "advance-requests" && canSettleAdvances && ["DISBURSED", "ACKNOWLEDGED"].includes(status) && Number(row.outstanding_amount || 0) > 0 && pendingPayrollDeductions.length === 0 && <button disabled={busy} onClick={() => openSettlement(row)} className="rounded-lg bg-[var(--salehish-burgundy)] px-2.5 py-1.5 text-xs font-semibold text-white">Settle</button>}
     {canEmployeeAcknowledge && status === "DISBURSED" && !row.manual_receipt_attached && <button disabled={busy} onClick={() => requestAcknowledgementSignature(kind, row)} className="rounded-lg bg-[var(--salehish-burgundy)] px-2.5 py-1.5 text-xs font-semibold text-white">Acknowledge & sign</button>}
-    {canEmployeeConsent && (row.pending_payroll_deductions || []).map((settlement) => <button key={settlement.id} disabled={busy} onClick={() => requestPayrollDeductionConsent(row, settlement)} className="rounded-lg bg-amber-700 px-2.5 py-1.5 text-xs font-semibold text-white">Approve salary deduction {money(settlement.amount)}</button>)}
+    {canEmployeeConsent && pendingPayrollDeductions.map((settlement) => <button key={settlement.id} disabled={busy} onClick={() => requestPayrollDeductionConsent(row, settlement)} className="rounded-lg bg-amber-700 px-2.5 py-1.5 text-xs font-semibold text-white">Approve salary deduction {money(settlement.amount)}</button>)}
     {isStaff && status === "DISBURSED" && <span className="text-xs text-slate-500">{row.manual_receipt_attached ? "Awaiting management paper-receipt verification" : "Awaiting employee acknowledgement"}</span>}
     {row.receipt_number && <span className="self-center font-mono text-[11px] text-slate-500">{row.receipt_number}</span>}
   </div>;
@@ -609,7 +636,7 @@ function WorkflowTable({ title, empty, rows, employees, columns, loading, render
   return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-slate-100 px-5 py-4"><div className="flex flex-wrap items-end justify-between gap-3"><h2 className="font-semibold text-slate-900">{title}</h2><p className="text-sm text-slate-500">Showing {filteredRows.length} of {rows.length}</p></div><div className="mt-4 flex flex-wrap items-end gap-3"><label className="text-sm font-medium text-slate-700">Status<select value={status} onChange={(event) => setStatus(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="ALL">All statuses</option>{statuses.map((item) => <option key={item} value={item}>{displayStatus(item)}</option>)}</select></label><label className="text-sm font-medium text-slate-700">Employee<select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="ALL">All employees</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.first_name} {employee.last_name}</option>)}</select></label><label className="text-sm font-medium text-slate-700">When<select value={period} onChange={(event) => setPeriod(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="ALL">All time</option><option value="TODAY">Today</option><option value="MONTH">This month</option><option value="YEAR">This year</option></select></label></div></div><div className="overflow-x-auto"><table className="min-w-[860px] w-full text-sm"><thead className="bg-slate-50 text-left text-slate-600"><tr>{columns.map((column) => <th key={column} className="px-4 py-3 font-semibold">{column}</th>)}</tr></thead><tbody>{filteredRows.length ? filteredRows.map(render) : <tr><td colSpan={columns.length} className="px-4 py-8 text-center text-slate-500">{rows.length ? "No records match these filters." : empty}</td></tr>}</tbody></table></div></section>;
 }
 
-function ReceiptList({ receipts, employees, loading, onView }) {
+function ReceiptList({ receipts, employees, loading, onView, onViewSettlement }) {
   const [type, setType] = useState("ALL");
   const [signature, setSignature] = useState("ALL");
   const [employeeId, setEmployeeId] = useState("ALL");
@@ -641,9 +668,10 @@ function ReceiptList({ receipts, employees, loading, onView }) {
   const filteredReceipts = useMemo(() => receipts.filter((receipt) => {
     if (type !== "ALL" && String(receipt.receipt_type || "").toUpperCase() !== type) return false;
     if (employeeId !== "ALL" && Number(receipt.employee_id) !== Number(employeeId)) return false;
-    if (signature === "SIGNED" && !(receipt.has_management_signature && receipt.has_employee_signature)) return false;
-    if (signature === "AWAITING_EMPLOYEE" && !(receipt.has_management_signature && !receipt.has_employee_signature)) return false;
-    if (signature === "UNSIGNED" && (receipt.has_management_signature || receipt.has_employee_signature)) return false;
+    const settlement = String(receipt.receipt_type || "").toUpperCase() === "ADVANCE_SETTLEMENT";
+    if (signature === "SIGNED" && !(settlement ? receipt.settlement_evidence_available : receipt.has_management_signature && receipt.has_employee_signature)) return false;
+    if (signature === "AWAITING_EMPLOYEE" && (settlement || !(receipt.has_management_signature && !receipt.has_employee_signature))) return false;
+    if (signature === "UNSIGNED" && (settlement ? receipt.settlement_evidence_available : receipt.has_management_signature || receipt.has_employee_signature)) return false;
     const issuedDate = dateKey(receipt.issued_at);
     if (!issuedDate) return false;
     if (period === "TODAY" && issuedDate !== today) return false;
@@ -684,8 +712,13 @@ function ReceiptList({ receipts, employees, loading, onView }) {
     const typeName = String(receipt.receipt_type || "").toUpperCase();
     const supported = ["ADVANCE", "PAYMENT"].includes(typeName);
     const settlement = typeName === "ADVANCE_SETTLEMENT";
-    const receiptState = settlement ? "Settlement ledger entry" : receipt.manual_receipt_attached ? (receipt.acknowledged_at ? "Signed paper receipt verified" : "Signed paper receipt awaiting verification") : receipt.finalized_at ? "Signed receipt ready" : receipt.acknowledged_at ? "Legacy acknowledgement — no signature PDF" : "Awaiting employee signature";
-    return <article key={`${receipt.receipt_type}-${receipt.id}`} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="font-mono text-xs text-slate-500">{receipt.receipt_number}</p><h2 className="mt-1 font-semibold text-[var(--salehish-ink)]">{displayStatus(receipt.receipt_type)}</h2></div><p className="text-lg font-bold text-slate-900">{money(receipt.amount)}</p></div><p className="mt-4 text-sm font-medium text-slate-800">{receipt.employee_name || "You"}</p><p className="mt-1 text-xs text-slate-500">{receiptState}</p><div className="mt-4 flex items-center justify-between gap-3"><div className="flex gap-1.5 text-[11px] font-semibold">{settlement ? <span className="rounded-full bg-indigo-100 px-2 py-1 text-[var(--salehish-burgundy)]">Settlement recorded</span> : <><span className={`rounded-full px-2 py-1 ${receipt.has_management_signature ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>Management {receipt.has_management_signature ? "signed" : "unsigned"}</span><span className={`rounded-full px-2 py-1 ${receipt.has_employee_signature ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>Employee {receipt.has_employee_signature ? "signed" : "unsigned"}</span></>}</div>{supported && <button type="button" onClick={() => onView(receipt.id)} className="text-sm font-semibold text-blue-700 hover:underline">View receipt</button>}</div></article>;
+    const payrollSettlement = settlement && receipt.settlement_method === "PAYROLL_DEDUCTION";
+    const receiptState = settlement
+      ? payrollSettlement
+        ? receipt.settlement_evidence_available ? "Employee salary-deduction consent recorded" : "Settlement is missing employee consent evidence"
+        : receipt.settlement_method === "WAIVED" ? "Owner waiver attestation recorded" : "Cash repayment attestation recorded"
+      : receipt.manual_receipt_attached ? (receipt.acknowledged_at ? "Signed paper receipt verified" : "Signed paper receipt awaiting verification") : receipt.finalized_at ? "Signed receipt ready" : receipt.acknowledged_at ? "Legacy acknowledgement — no signature PDF" : "Awaiting employee signature";
+    return <article key={`${receipt.receipt_type}-${receipt.id}`} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="font-mono text-xs text-slate-500">{receipt.receipt_number}</p><h2 className="mt-1 font-semibold text-[var(--salehish-ink)]">{displayStatus(receipt.receipt_type)}</h2></div><p className="text-lg font-bold text-slate-900">{money(receipt.amount)}</p></div><p className="mt-4 text-sm font-medium text-slate-800">{receipt.employee_name || "You"}</p><p className="mt-1 text-xs text-slate-500">{receiptState}</p>{settlement && receipt.settlement_declaration && <p className="mt-2 text-xs leading-5 text-slate-600">{receipt.settlement_declaration}</p>}<div className="mt-4 flex items-center justify-between gap-3"><div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">{settlement ? <><span className="rounded-full bg-indigo-100 px-2 py-1 text-[var(--salehish-burgundy)]">{displayStatus(receipt.settlement_method)}</span><span className={`rounded-full px-2 py-1 ${receipt.settlement_evidence_available ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>{payrollSettlement ? "Employee consent" : "Management attestation"} {receipt.settlement_evidence_available ? "signed" : "missing"}</span></> : <><span className={`rounded-full px-2 py-1 ${receipt.has_management_signature ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>Management {receipt.has_management_signature ? "signed" : "unsigned"}</span><span className={`rounded-full px-2 py-1 ${receipt.has_employee_signature ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>Employee {receipt.has_employee_signature ? "signed" : "unsigned"}</span></>}</div>{settlement ? <button type="button" onClick={() => onViewSettlement({ advanceRequestId: receipt.advance_request_id, settlementId: receipt.id })} className="text-sm font-semibold text-blue-700 hover:underline">View settlement record</button> : supported && <button type="button" onClick={() => onView(receipt.id)} className="text-sm font-semibold text-blue-700 hover:underline">View receipt</button>}</div></article>;
     })}</div>{pageCount > 1 && <nav aria-label="Receipt pages" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm"><p className="text-sm text-slate-600">Page {activePage} of {pageCount}</p><div className="flex gap-2"><button type="button" disabled={activePage === 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-45">Previous</button><button type="button" disabled={activePage === pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-45">Next</button></div></nav>}</> : <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">No receipts match these filters.</div>}
   </section>;
 }

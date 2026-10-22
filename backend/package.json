@@ -18,7 +18,8 @@
     "db:historical-employee-finance": "node scripts/applyHistoricalEmployeeFinanceEntries.js",
     "db:owner-intelligence": "node scripts/applyOwnerIntelligence.js",
     "db:service-collection-methods": "node scripts/applyServiceCollectionMethods.js",
-    "db:employee-finance-cutover": "node scripts/applyEmployeeFinanceCutover.js"
+    "db:employee-finance-cutover": "node scripts/applyEmployeeFinanceCutover.js",
+    "db:advance-settlement-attestation": "node scripts/applyAdvanceSettlementAttestation.js"
   },
   "author": "",
   "license": "ISC",

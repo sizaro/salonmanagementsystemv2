@@ -726,11 +726,11 @@ html {
 .workspace-overview-metric strong { margin-top: 0.15rem; font-size: 0.86rem; white-space: nowrap; }
 
 .workspace-action-menu { overflow: hidden; border: 1px solid #ecd9e4; border-radius: 1rem; background: white; }
-.workspace-action-menu-trigger { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; cursor: pointer; list-style: none; padding: 0.95rem 1rem; }
+.workspace-action-menu-trigger { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 0.75rem; border: 0; cursor: pointer; list-style: none; padding: 0.95rem 1rem; text-align: left; }
 .workspace-action-menu-trigger::-webkit-details-marker { display: none; }
 .workspace-action-menu-trigger > span:last-child { color: var(--salehish-burgundy); font-size: 1.2rem; line-height: 1; transition: transform 160ms ease; }
-.workspace-action-menu[open] .workspace-action-menu-trigger { border-bottom: 1px solid #f1e4ed; background: #fffafd; }
-.workspace-action-menu[open] .workspace-action-menu-trigger > span:last-child { transform: rotate(180deg); }
+.workspace-action-menu[data-open="true"] .workspace-action-menu-trigger { border-bottom: 1px solid #f1e4ed; background: #fffafd; }
+.workspace-action-menu[data-open="true"] .workspace-action-menu-trigger > span:last-child { transform: rotate(180deg); }
 .workspace-action-menu-content { padding: 0.7rem; }
 .workspace-action-menu-content button { border-color: #ead9e3 !important; }
 
@@ -1142,11 +1142,11 @@ html {
 .owner-dashboard-page .workspace-action-menu:nth-child(2) .workspace-action-menu-trigger > span:first-child::before { content: "¤"; }
 .owner-dashboard-page .workspace-action-menu:nth-child(3) .workspace-action-menu-trigger > span:first-child::before { content: "⌘"; }
 
-.owner-dashboard-page .workspace-action-menu[open] {
+.owner-dashboard-page .workspace-action-menu[data-open="true"] {
   box-shadow: var(--owner-shadow);
 }
 
-.owner-dashboard-page .workspace-action-menu[open] .workspace-action-menu-trigger {
+.owner-dashboard-page .workspace-action-menu[data-open="true"] .workspace-action-menu-trigger {
   background: linear-gradient(100deg, #fff9fc, #fff);
 }
 
@@ -1361,6 +1361,14 @@ html {
 
 .dashboard-main :is(table thead, .workspace-data-table th) {
   background: linear-gradient(100deg, #fff8fb, #fffdfd);
+}
+
+/* The global light table surface overrides the dark dashboard-table header.
+   Keep headings readable on operational finance tables. */
+.dashboard-main .dashboard-table thead,
+.dashboard-main .dashboard-table thead th {
+  background: linear-gradient(100deg, var(--salehish-plum), var(--salehish-burgundy));
+  color: #fff;
 }
 
 .dashboard-main :is(table tbody tr, .workspace-data-table tbody tr) {

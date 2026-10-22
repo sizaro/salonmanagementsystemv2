@@ -56,7 +56,7 @@ export default function SalonOpeningGate({ children }) {
   if (!activeSession) {
     return (
       <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--salon-ink)] p-5 text-white">
-        <img src="/images/salon_interior1.jpg" alt="" className="absolute inset-0 h-full w-full object-cover opacity-25" />
+        <img src="/images/salon-interior.webp" alt="" className="absolute inset-0 h-full w-full object-cover opacity-25" />
         <div className="absolute inset-0 bg-gradient-to-br from-[var(--salon-ink)] via-[var(--salon-ink)]/95 to-amber-950/80" />
         <section className="relative w-full max-w-xl rounded-[2rem] border border-white/15 bg-white/10 p-6 text-center shadow-2xl backdrop-blur-xl sm:p-10">
           <img src={user?.image_url ? (String(user.image_url).startsWith("http") ? user.image_url : `${import.meta.env.VITE_STATIC_URL || "http://localhost:5500"}${user.image_url}`) : "/default-avatar.png"} alt="" className="mx-auto h-24 w-24 rounded-3xl border-4 border-white/80 object-cover shadow-xl" />

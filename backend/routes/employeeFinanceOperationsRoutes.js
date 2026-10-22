@@ -8,6 +8,8 @@ import {
   openFinanceReceiptSignature,
   openFinanceManualReceipt,
   openAdvanceRequestPaperReceipt,
+  getAdvanceSettlementReceipt,
+  openAdvanceSettlementEvidence,
   openEmployeePaymentPaperReceipt,
   postAdvanceAcknowledgement,
   postAdvanceDecision,
@@ -37,6 +39,8 @@ router.post("/advance-requests/:id/acknowledge", requireRole("employee", "manage
 router.get("/advance-requests/:id/paper-receipt", requireRole("owner", "manager", "cashier"), openAdvanceRequestPaperReceipt);
 router.post("/advance-requests/:id/verify-paper-receipt", requireRole("owner", "manager"), postAdvanceManualReceiptVerification);
 router.post("/advance-requests/:id/settlements", requireRole("owner", "manager"), postAdvanceSettlement);
+router.get("/advance-requests/:id/settlements/:settlementId", requireRole("owner", "manager", "cashier", "employee"), getAdvanceSettlementReceipt);
+router.get("/advance-requests/:id/settlements/:settlementId/evidence", requireRole("owner", "manager", "cashier", "employee"), openAdvanceSettlementEvidence);
 router.post("/advance-requests/:id/settlements/:settlementId/acknowledge", requireRole("employee", "manager", "cashier"), postAdvanceSettlementAcknowledgement);
 
 router.get("/payments", requireRole("owner", "manager", "cashier", "employee"), getEmployeePayments);

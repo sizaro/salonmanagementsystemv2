@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, FileText, ShieldCheck } from "lucide-react";
 import ProfilePhotoInput from "./common/ProfilePhotoInput.jsx";
 
@@ -42,6 +42,9 @@ export default function UserForm({ user, onSubmit, onClose, role = "employee" })
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Moving through the review wizard must never submit the employee record.
+  // Only the visible final Save button sets this one-use submission intent.
+  const saveIntentRef = useRef(false);
 
   useEffect(() => {
     if (!user) {
@@ -106,6 +109,7 @@ export default function UserForm({ user, onSubmit, onClose, role = "employee" })
   };
 
   const nextStep = () => {
+    saveIntentRef.current = false;
     const validation = validateStep(step);
     if (validation) {
       setError(validation);
@@ -117,6 +121,8 @@ export default function UserForm({ user, onSubmit, onClose, role = "employee" })
 
   const submit = async (event) => {
     event.preventDefault();
+    if (step !== steps.length - 1 || !saveIntentRef.current) return;
+    saveIntentRef.current = false;
     const validation = validateStep(0) || validateStep(1);
     if (validation) {
       setError(validation);
@@ -220,8 +226,8 @@ export default function UserForm({ user, onSubmit, onClose, role = "employee" })
       </div>
 
       <div className="flex shrink-0 items-center justify-between gap-3 border-t border-stone-200 bg-white px-5 py-4 sm:px-7">
-        <button type="button" onClick={step === 0 ? onClose : () => { setError(""); setStep((current) => current - 1); }} disabled={submitting} className="inline-flex items-center gap-2 rounded-xl border border-stone-300 px-3 py-2 text-sm font-semibold disabled:opacity-50">{step === 0 ? "Cancel" : <><ArrowLeft size={16} /> Back</>}</button>
-        {step < steps.length - 1 ? <button type="button" onClick={nextStep} className="inline-flex items-center gap-2 rounded-xl bg-[var(--salon-ink)] px-4 py-2 text-sm font-semibold text-white">Next <ArrowRight size={16} /></button> : <button type="submit" disabled={submitting} className="inline-flex items-center gap-2 rounded-xl bg-[var(--salon-copper)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{submitting ? "Saving…" : <><Check size={16} /> Save employee</>}</button>}
+        <button type="button" onClick={step === 0 ? onClose : () => { saveIntentRef.current = false; setError(""); setStep((current) => current - 1); }} disabled={submitting} className="inline-flex items-center gap-2 rounded-xl border border-stone-300 px-3 py-2 text-sm font-semibold disabled:opacity-50">{step === 0 ? "Cancel" : <><ArrowLeft size={16} /> Back</>}</button>
+        {step < steps.length - 1 ? <button type="button" onClick={nextStep} className="inline-flex items-center gap-2 rounded-xl bg-[var(--salon-ink)] px-4 py-2 text-sm font-semibold text-white">Next <ArrowRight size={16} /></button> : <button type="submit" onClick={() => { saveIntentRef.current = true; }} disabled={submitting} className="inline-flex items-center gap-2 rounded-xl bg-[var(--salon-copper)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{submitting ? "Saving…" : <><Check size={16} /> Save employee</>}</button>}
       </div>
     </form>
   );

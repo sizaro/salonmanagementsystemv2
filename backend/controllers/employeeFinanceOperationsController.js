@@ -17,6 +17,8 @@ import {
   getEmployeeFinanceReceiptSignature,
   getEmployeeFinanceManualReceipt,
   getAdvanceRequestManualReceipt,
+  getAdvanceSettlementEvidence,
+  getAdvanceSettlementReceiptDetail,
   getEmployeePaymentManualReceipt,
   listAdvanceRequests,
   listEmployeePayments,
@@ -135,10 +137,35 @@ export const postAdvanceSettlement = async (req, res) => {
       amount: req.body?.amount,
       settlementMethod: req.body?.settlement_method,
       notes: req.body?.notes,
+      settlementSignatureDataUrl: req.body?.settlement_signature_data_url,
     });
     emitFinanceChange(req, "advance-settlement-recorded", settlement);
     res.status(201).json({ settlement });
   } catch (error) { respond(res, error); }
+};
+
+export const openAdvanceSettlementEvidence = async (req, res) => {
+  try {
+    return sendPrivateArtifact(res, await getAdvanceSettlementEvidence({
+      ...actor(req), requestId: Number(req.params.id), settlementId: Number(req.params.settlementId),
+    }));
+  } catch (error) { return respond(res, error); }
+};
+
+export const getAdvanceSettlementReceipt = async (req, res) => {
+  try {
+    const settlement = await getAdvanceSettlementReceiptDetail({
+      ...actor(req), requestId: Number(req.params.id), settlementId: Number(req.params.settlementId),
+    });
+    return res.json({
+      settlement: {
+        ...settlement,
+        evidence_asset_url: settlement.evidence_available
+          ? `/api/employee-finance/advance-requests/${req.params.id}/settlements/${req.params.settlementId}/evidence`
+          : null,
+      },
+    });
+  } catch (error) { return respond(res, error); }
 };
 
 export const postAdvanceSettlementAcknowledgement = async (req, res) => {

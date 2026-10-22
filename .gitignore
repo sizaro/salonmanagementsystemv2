@@ -1,0 +1,14 @@
+# Local package-manager cache
+.pnpm-store/
+
+# Runtime-only private employee evidence, generated receipts, and signatures.
+# These are stored by the configured production storage service in deployment.
+backend/private-uploads/
+backend/uploads/
+
+# Separate NestJS work-in-progress repository; it has its own Git history.
+backend-nest/
+
+# Build output
+frontend/dist/
+backend/dist/

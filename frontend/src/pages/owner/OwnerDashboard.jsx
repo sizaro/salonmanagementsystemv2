@@ -444,17 +444,19 @@ export default function OwnerDashboard() {
 
         {/* ACTION GROUPS */}
 
-        <div className="grid gap-3 lg:grid-cols-3">
+        <div className="grid items-start gap-3 lg:grid-cols-3">
           {/* OPERATIONS */}
 
-          <details
+          <div
             className="workspace-action-menu"
-            open={openActionMenu === "operations"}
-            onToggle={(event) =>
-              setOpenActionMenu(event.currentTarget.open ? "operations" : null)
-            }
+            data-open={openActionMenu === "operations"}
           >
-            <summary className="workspace-action-menu-trigger">
+            <button
+              type="button"
+              className="workspace-action-menu-trigger"
+              aria-expanded={openActionMenu === "operations"}
+              onClick={() => setOpenActionMenu((current) => current === "operations" ? null : "operations")}
+            >
               <span>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
                   Operations
@@ -465,9 +467,9 @@ export default function OwnerDashboard() {
                 </h3>
               </span>
               <span aria-hidden="true">⌄</span>
-            </summary>
+            </button>
 
-            <div className="workspace-action-menu-content space-y-2">
+            {openActionMenu === "operations" && <div className="workspace-action-menu-content space-y-2">
               <button
                 type="button"
                 onClick={() => setModalType("service")}
@@ -527,19 +529,21 @@ export default function OwnerDashboard() {
                   →
                 </span>
               </button>
-            </div>
-          </details>
+            </div>}
+          </div>
 
           {/* FINANCE */}
 
-          <details
+          <div
             className="workspace-action-menu"
-            open={openActionMenu === "finance"}
-            onToggle={(event) =>
-              setOpenActionMenu(event.currentTarget.open ? "finance" : null)
-            }
+            data-open={openActionMenu === "finance"}
           >
-            <summary className="workspace-action-menu-trigger">
+            <button
+              type="button"
+              className="workspace-action-menu-trigger"
+              aria-expanded={openActionMenu === "finance"}
+              onClick={() => setOpenActionMenu((current) => current === "finance" ? null : "finance")}
+            >
               <span>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
                   Finance
@@ -550,9 +554,9 @@ export default function OwnerDashboard() {
                 </h3>
               </span>
               <span aria-hidden="true">⌄</span>
-            </summary>
+            </button>
 
-            <div className="workspace-action-menu-content space-y-2">
+            {openActionMenu === "finance" && <div className="workspace-action-menu-content space-y-2">
               <button
                 type="button"
                 onClick={() => setModalType("expense")}
@@ -699,19 +703,21 @@ export default function OwnerDashboard() {
                   </span>
                 </span>
               </button>
-            </div>
-          </details>
+            </div>}
+          </div>
 
           {/* SETUP */}
 
-          <details
+          <div
             className="workspace-action-menu"
-            open={openActionMenu === "setup"}
-            onToggle={(event) =>
-              setOpenActionMenu(event.currentTarget.open ? "setup" : null)
-            }
+            data-open={openActionMenu === "setup"}
           >
-            <summary className="workspace-action-menu-trigger">
+            <button
+              type="button"
+              className="workspace-action-menu-trigger"
+              aria-expanded={openActionMenu === "setup"}
+              onClick={() => setOpenActionMenu((current) => current === "setup" ? null : "setup")}
+            >
               <span>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
                   Setup
@@ -722,9 +728,9 @@ export default function OwnerDashboard() {
                 </h3>
               </span>
               <span aria-hidden="true">⌄</span>
-            </summary>
+            </button>
 
-            <div className="workspace-action-menu-content space-y-2">
+            {openActionMenu === "setup" && <div className="workspace-action-menu-content space-y-2">
               <button
                 type="button"
                 onClick={() => navigate("/owner/setup")}
@@ -764,8 +770,8 @@ export default function OwnerDashboard() {
                   →
                 </span>
               </button>
-            </div>
-          </details>
+            </div>}
+          </div>
         </div>
       </section>
 

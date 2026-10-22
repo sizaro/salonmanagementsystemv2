@@ -1110,8 +1110,9 @@ export async function getEmployeeReportData({
          COALESCE(SUM(
            CASE WHEN ec.clock_out_date IS NOT NULL AND ec.clock_out_time IS NOT NULL
              THEN GREATEST(EXTRACT(EPOCH FROM ((ec.clock_out_date + ec.clock_out_time) - (ec.clock_in_date + ec.clock_in_time))) / 60, 0)
-             ELSE 0 END
-         ), 0)::integer AS completed_minutes
+             ELSE GREATEST(EXTRACT(EPOCH FROM ((NOW() AT TIME ZONE 'Africa/Kampala') - (ec.clock_in_date + ec.clock_in_time))) / 60, 0)
+           END
+         ), 0)::integer AS worked_minutes
        FROM employee_clocking ec
        WHERE ec.salon_id = $1 AND ec.employee_id = $2
          AND ec.clock_in_date BETWEEN $3::date AND $4::date`,
@@ -1167,7 +1168,7 @@ export async function getEmployeeReportData({
   const attendanceSummary = {
     completed_shifts: Number(attendance.completed_shifts || 0),
     open_shifts: Number(attendance.open_shifts || 0),
-    completed_minutes: Number(attendance.completed_minutes || 0),
+    worked_minutes: Number(attendance.worked_minutes || 0),
   };
   const sections = sectionResult.rows.map((row) => ({
     ...row,
