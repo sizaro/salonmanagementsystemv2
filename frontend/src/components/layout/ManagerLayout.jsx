@@ -18,34 +18,36 @@ import EmployeeProfilePage from "../../pages/employees/EmployeeProfilePage.jsx";
 import StatisticsAnalytics from "../../pages/statistics/StatisticsAnalytics.jsx";
 import StaffFinanceSnapshot from "../../pages/finance/StaffFinanceSnapshot.jsx";
 import CashierIncomeReview from "../../pages/cashier/CashierIncomeReview.jsx";
+import ExternalPaymentsLedger from "../../pages/payments/ExternalPaymentsLedger.jsx";
 
 const ManagerLayout = () => {
   return (
-    <SalonOpeningGate><div className="dashboard-shell">
-      <ManagerSidebar />
-      <main className="dashboard-main">
-        <Routes>
+    <SalonOpeningGate>
+      <div className="dashboard-shell">
+        <ManagerSidebar />
+        <main className="dashboard-main">
+          <Routes>
+            {/* Dashboard */}
+            <Route index element={<ManagerDashboard />} />
+            <Route path="dashboard" element={<ManagerDashboard />} />
 
-          {/* Dashboard */}
-          <Route index element={<ManagerDashboard />} />
-          <Route path="dashboard" element={<ManagerDashboard />} />
+            {/* Income Reports */}
+            {/* Employee operations */}
+            <Route path="employees-management" element={<Employees />} />
+            <Route path="employees/:id" element={<EmployeeProfilePage />} />
+            <Route path="employee-report" element={<EmployeeReport />} />
 
-          {/* Income Reports */}
-          {/* Employee operations */}
-          <Route path="employees-management" element={<Employees />} />
-          <Route path="employees/:id" element={<EmployeeProfilePage />} />
-          <Route path="employee-report" element={<EmployeeReport />} />
-
-          {/* Staff Performance */}
-          <Route path="staff-performance" element={<StaffPerformance />} />
-          <Route path="finance" element={<EmployeeFinanceWorkspace />} />
-          <Route path="staff-finance" element={<StaffFinanceSnapshot />} />
-          <Route path="income-review" element={<CashierIncomeReview />} />
-          <Route path="statistics" element={<StatisticsAnalytics />} />
-
-        </Routes>
-      </main>
-    </div></SalonOpeningGate>
+            {/* Staff Performance */}
+            <Route path="staff-performance" element={<StaffPerformance />} />
+            <Route path="finance" element={<EmployeeFinanceWorkspace />} />
+            <Route path="payments" element={<ExternalPaymentsLedger />} />
+            <Route path="staff-finance" element={<StaffFinanceSnapshot />} />
+            <Route path="income-review" element={<CashierIncomeReview />} />
+            <Route path="statistics" element={<StatisticsAnalytics />} />
+          </Routes>
+        </main>
+      </div>
+    </SalonOpeningGate>
   );
 };
 

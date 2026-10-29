@@ -23,9 +23,10 @@ import {
   updateServiceTransactionAppointmentModel,
   validateAppointmentRequestModel,
   fetchAppointmentBusyEmployeeIdsModel,
+  fetchAppointmentSettingsModel,
+  saveAppointmentSettingsModel,
+  recordAppointmentEventModel,
 } from "../models/servicesModel.js";
-
-const KAMPALA_ZONE = "Africa/Kampala";
 
 const APPOINTMENT_TRANSITIONS = {
   pending: new Set(["confirmed", "cancelled"]),
@@ -139,6 +140,51 @@ const normalizeCustomerBookingPerformers = (performers = []) => {
     preferred_employee_id:
       performer.preferred_employee_id || performer.employee_id || null,
   }));
+};
+
+const appointmentSettingsPayload = (body = {}) => {
+  const opening_time = String(body.opening_time || "").trim();
+  const closing_time = String(body.closing_time || "").trim();
+  const slot_interval_minutes = Number(body.slot_interval_minutes);
+  const minimum_notice_minutes = Number(body.minimum_notice_minutes);
+  const maximum_booking_days = Number(body.maximum_booking_days);
+  const customer_cancellation_notice_minutes = Number(body.customer_cancellation_notice_minutes);
+  if (!/^\d{2}:\d{2}(:\d{2})?$/.test(opening_time) || !/^\d{2}:\d{2}(:\d{2})?$/.test(closing_time)) {
+    throw requestError("Opening and closing times must be valid times.");
+  }
+  if (![15, 30, 60].includes(slot_interval_minutes)
+    || !Number.isInteger(minimum_notice_minutes) || minimum_notice_minutes < 0
+    || !Number.isInteger(maximum_booking_days) || maximum_booking_days < 1
+    || !Number.isInteger(customer_cancellation_notice_minutes) || customer_cancellation_notice_minutes < 0) {
+    throw requestError("Appointment settings contain an invalid interval, notice period, or booking horizon.");
+  }
+  return {
+    opening_time,
+    closing_time,
+    slot_interval_minutes,
+    minimum_notice_minutes,
+    maximum_booking_days,
+    customer_cancellation_notice_minutes,
+    allow_unassigned_confirmation: Boolean(body.allow_unassigned_confirmation),
+  };
+};
+
+export const getAppointmentSettings = async (req, res) => {
+  try {
+    const data = await fetchAppointmentSettingsModel(Number(req.salon_id || req.user?.salon_id));
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Unable to load appointment settings." });
+  }
+};
+
+export const updateAppointmentSettings = async (req, res) => {
+  try {
+    const data = await saveAppointmentSettingsModel(Number(req.salon_id || req.user?.salon_id), appointmentSettingsPayload(req.body));
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(error.statusCode || 400).json({ success: false, message: error.message || "Unable to update appointment settings." });
+  }
 };
 
 // =========================================================
@@ -381,6 +427,7 @@ export const deleteServiceDefinition = async (req, res) => {
 export const createServiceTransaction = async (req, res) => {
   try {
     const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+    const appointmentSettings = await fetchAppointmentSettingsModel(salon_id);
 
     const isCustomer = req.user?.role === "customer";
 
@@ -414,7 +461,7 @@ export const createServiceTransaction = async (req, res) => {
     let finalServiceTime = null;
 
     if (entry_type === "current") {
-      const now = DateTime.now().setZone(KAMPALA_ZONE);
+      const now = DateTime.now().setZone(appointmentSettings.timezone);
 
       finalServiceDate = now.toISODate();
 
@@ -491,10 +538,11 @@ export const createServiceTransaction = async (req, res) => {
         throw requestError("Appointment date and time are required");
       }
 
+      const settings = appointmentSettings;
       const requestedAt = DateTime.fromISO(
         `${data.appointment_date}T${data.appointment_time}`,
         {
-          zone: KAMPALA_ZONE,
+          zone: settings.timezone,
         },
       );
 
@@ -506,28 +554,21 @@ export const createServiceTransaction = async (req, res) => {
       // TWO-HOUR RULE
       // ===================================================
 
-      const minimumBookingTime = DateTime.now().setZone(KAMPALA_ZONE).plus({
-        hours: 1,
-      });
+      const minimumBookingTime = DateTime.now().setZone(settings.timezone).plus({ minutes: settings.minimum_notice_minutes });
 
       if (requestedAt < minimumBookingTime) {
-        throw requestError(
-          "Appointments must be booked at least 1 hour in advance",
-        );
+        throw requestError(`Appointments must be booked at least ${settings.minimum_notice_minutes} minutes in advance`);
       }
 
-      // ===================================================
-      // 30-MINUTE SLOT RULE
-      // ===================================================
-
-      if (![0, 30].includes(requestedAt.minute) || requestedAt.second !== 0) {
-        throw requestError("Appointments must start on a 30-minute time slot");
+      if (requestedAt > DateTime.now().setZone(settings.timezone).endOf("day").plus({ days: settings.maximum_booking_days })) {
+        throw requestError(`Appointments can only be booked ${settings.maximum_booking_days} days in advance.`);
       }
 
-      if (requestedAt.hour < 8 || requestedAt.hour > 23) {
-        throw requestError(
-          "Choose an appointment time between 08:00 and 23:30",
-        );
+      const openingAt = DateTime.fromISO(`${data.appointment_date}T${settings.opening_time}`, { zone: settings.timezone });
+      const closingAt = DateTime.fromISO(`${data.appointment_date}T${settings.closing_time}`, { zone: settings.timezone });
+      const slotOffset = Math.round(requestedAt.diff(openingAt, "minutes").minutes);
+      if (requestedAt < openingAt || requestedAt > closingAt || slotOffset % settings.slot_interval_minutes !== 0) {
+        throw requestError(`Choose an appointment time within salon hours using ${settings.slot_interval_minutes}-minute slots.`);
       }
 
       // ===================================================
@@ -535,6 +576,7 @@ export const createServiceTransaction = async (req, res) => {
       // ===================================================
 
       data.performers = normalizeCustomerBookingPerformers(performers);
+      data.appointment_idempotency_key = String(req.body.appointment_idempotency_key || "").trim().slice(0, 120) || null;
 
       // Booking MUST check slot conflicts.
       await validateAppointmentRequestModel({
@@ -597,6 +639,13 @@ export const createServiceTransaction = async (req, res) => {
       ? null
       : normalizeCollectionReference(req.body.collection_reference);
 
+    if (!isCustomer && ["MTN_MOMO", "AIRTEL_MONEY", "BANK_TRANSFER"].includes(data.collection_method)) {
+      throw requestError(
+        "External collections must be initiated through the centralized payment flow.",
+        409,
+      );
+    }
+
     // =====================================================
     // SAVE
     // =====================================================
@@ -607,7 +656,17 @@ export const createServiceTransaction = async (req, res) => {
     // SOCKET EVENT
     // =====================================================
 
-    if (data.status === "pending") emitAppointmentChange(req, "created", transaction);
+    if (data.status === "pending" && !transaction.appointment_already_exists) {
+      await recordAppointmentEventModel({
+        salonId: salon_id,
+        transactionId: transaction.id,
+        actorUserId: req.user?.id || null,
+        eventType: "created",
+        toStatus: "pending",
+        details: { source: "online_booking" },
+      });
+      emitAppointmentChange(req, "created", transaction);
+    }
 
     return res.json({
       success: true,
@@ -929,6 +988,16 @@ export const updateServiceTransaction = async (req, res) => {
       salon_id,
     };
 
+    if (
+      status === "completed" &&
+      ["MTN_MOMO", "AIRTEL_MONEY", "BANK_TRANSFER"].includes(updates.collection_method)
+    ) {
+      throw requestError(
+        "External collections must be initiated through the centralized payment flow.",
+        409,
+      );
+    }
+
     const updated = await updateServiceTransactionModel(id, updates, salon_id);
 
     if (updated?.appointment_date || updated?.service_source === "online_booking") {
@@ -992,6 +1061,23 @@ export const updateServiceTransactionAppointment = async (req, res) => {
           403,
         );
       }
+
+      const settings = await fetchAppointmentSettingsModel(salon_id);
+      if (Number(settings.customer_cancellation_notice_minutes || 0) > 0) {
+        const appointmentAt = DateTime.fromISO(
+          `${appointment.appointment_date}T${appointment.appointment_time}`,
+          { zone: settings.timezone },
+        );
+        const cancellationCutoff = DateTime.now().setZone(settings.timezone).plus({
+          minutes: Number(settings.customer_cancellation_notice_minutes),
+        });
+        if (!appointmentAt.isValid || appointmentAt < cancellationCutoff) {
+          throw requestError(
+            `Appointments must be cancelled at least ${settings.customer_cancellation_notice_minutes} minutes before the scheduled time.`,
+            409,
+          );
+        }
+      }
     }
 
     // ===================================================
@@ -1036,6 +1122,7 @@ export const updateServiceTransactionAppointment = async (req, res) => {
     // ===================================================
 
     if (status === "confirmed") {
+      const settings = await fetchAppointmentSettingsModel(salon_id);
       await validateAppointmentRequestModel({
         salon_id,
 
@@ -1049,7 +1136,10 @@ export const updateServiceTransactionAppointment = async (req, res) => {
 
         exclude_transaction_id: Number(id),
 
-        require_actual_employees: false,
+        // The normal production setting preserves the salon workflow: a
+        // booking can be confirmed with no named employee, and the actual
+        // team is recorded only at completion.
+        require_actual_employees: !settings.allow_unassigned_confirmation,
 
         check_appointment_conflicts: true,
       });
@@ -1100,8 +1190,12 @@ export const updateServiceTransactionAppointment = async (req, res) => {
     // COMPLETION DATE / TIME
     // ===================================================
 
-    const completedAt =
-      status === "completed" ? DateTime.now().setZone(KAMPALA_ZONE) : null;
+    const completionSettings = status === "completed"
+      ? await fetchAppointmentSettingsModel(salon_id)
+      : null;
+    const completedAt = status === "completed"
+      ? DateTime.now().setZone(completionSettings.timezone)
+      : null;
 
     const updates = {
       status,
@@ -1125,6 +1219,16 @@ export const updateServiceTransactionAppointment = async (req, res) => {
           : appointment.collection_reference || null,
     };
 
+    if (
+      status === "completed" &&
+      ["MTN_MOMO", "AIRTEL_MONEY", "BANK_TRANSFER"].includes(updates.collection_method)
+    ) {
+      throw requestError(
+        "External collections must be initiated through the centralized payment flow.",
+        409,
+      );
+    }
+
     const updated = await updateServiceTransactionAppointmentModel(
       id,
       updates,
@@ -1132,6 +1236,16 @@ export const updateServiceTransactionAppointment = async (req, res) => {
     );
 
     const refreshed = await fetchServiceTransactionById(updated.id, salon_id);
+
+    await recordAppointmentEventModel({
+      salonId: salon_id,
+      transactionId: updated.id,
+      actorUserId: req.user?.id || null,
+      eventType: status === "cancelled" ? "cancelled" : status,
+      fromStatus: currentStatus || null,
+      toStatus: status,
+      reason: status === "cancelled" ? cancel_reason : null,
+    });
 
     emitAppointmentChange(req, status, refreshed || updated);
 
@@ -1166,10 +1280,11 @@ export const getAppointmentAvailability = async (req, res) => {
       throw requestError("Appointment date and time are required");
     }
 
+    const settings = await fetchAppointmentSettingsModel(salon_id);
     const requestedAt = DateTime.fromISO(
       `${appointment_date}T${appointment_time}`,
       {
-        zone: KAMPALA_ZONE,
+        zone: settings.timezone,
       },
     );
 
@@ -1177,10 +1292,18 @@ export const getAppointmentAvailability = async (req, res) => {
       throw requestError("Enter a valid appointment date and time");
     }
 
+    const openingAt = DateTime.fromISO(`${appointment_date}T${settings.opening_time}`, { zone: settings.timezone });
+    const closingAt = DateTime.fromISO(`${appointment_date}T${settings.closing_time}`, { zone: settings.timezone });
+    const slotOffset = Math.round(requestedAt.diff(openingAt, "minutes").minutes);
+    if (requestedAt < openingAt || requestedAt > closingAt || slotOffset % settings.slot_interval_minutes !== 0) {
+      throw requestError("Choose an appointment time within the salon's configured booking hours.");
+    }
+
     const busyEmployeeIds = await fetchAppointmentBusyEmployeeIdsModel(
       salon_id,
       appointment_date,
       appointment_time,
+      req.query.service_definition_id ? Number(req.query.service_definition_id) : null,
     );
 
     return res.json({

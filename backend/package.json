@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "test:payments": "node --test tests/paymentProviders.test.js",
     "db:appointment-upgrade": "node scripts/applyAppointmentFlowUpgrade.js",
     "db:historical-records-upgrade": "node scripts/applyHistoricalBusinessRecordsUpgrade.js",
     "db:employee-finance-foundation": "node scripts/applyEmployeeFinanceFoundation.js",
@@ -19,7 +20,8 @@
     "db:owner-intelligence": "node scripts/applyOwnerIntelligence.js",
     "db:service-collection-methods": "node scripts/applyServiceCollectionMethods.js",
     "db:employee-finance-cutover": "node scripts/applyEmployeeFinanceCutover.js",
-    "db:advance-settlement-attestation": "node scripts/applyAdvanceSettlementAttestation.js"
+    "db:advance-settlement-attestation": "node scripts/applyAdvanceSettlementAttestation.js",
+    "db:payment-engine-foundation": "node scripts/applyPaymentEngineFoundation.js"
   },
   "author": "",
   "license": "ISC",

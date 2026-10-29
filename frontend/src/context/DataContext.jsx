@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react";
+import { createContext, useContext, useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { DateTime } from "luxon";
@@ -52,11 +45,9 @@ export const DataProvider = ({ children }) => {
 
   // const SOCKET_API_URL = import.meta.env.VITE_API_URL || "https://salonmanagementsystemv2-ru0i.onrender.com";
   const API_URL = import.meta.env.VITE_API_URL || "/api";
-  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (
-    API_URL.startsWith("http")
-      ? API_URL.replace(/\/api\/?$/, "")
-      : window.location.origin
-  );
+  const SOCKET_URL =
+    import.meta.env.VITE_SOCKET_URL ||
+    (API_URL.startsWith("http") ? API_URL.replace(/\/api\/?$/, "") : window.location.origin);
 
   //   const socket = io(SOCKET_API_URL.replace("/api", ""), {
   //     withCredentials: true,
@@ -143,7 +134,6 @@ export const DataProvider = ({ children }) => {
       const requestId = ++reportRequestIdRef.current;
       activeReportRef.current = { type: "daily", args: [formattedDate] };
 
-
       const res = await axios.get(`${API_URL}/reports/daily`, {
         params: {
           date: formattedDate,
@@ -155,13 +145,9 @@ export const DataProvider = ({ children }) => {
 
       if (requestId === reportRequestIdRef.current) applyReportData(data);
 
-
       return data;
     } catch (err) {
-      console.error(
-        "Error fetching daily report:",
-        err.response?.data || err.message,
-      );
+      console.error("Error fetching daily report:", err.response?.data || err.message);
 
       throw err;
     }
@@ -181,7 +167,6 @@ export const DataProvider = ({ children }) => {
       const requestId = ++reportRequestIdRef.current;
       activeReportRef.current = { type: "weekly", args: [startDate, endDate] };
 
-
       const res = await axios.get(`${API_URL}/reports/weekly`, {
         params: {
           startDate,
@@ -194,13 +179,9 @@ export const DataProvider = ({ children }) => {
 
       if (requestId === reportRequestIdRef.current) applyReportData(data);
 
-
       return data;
     } catch (err) {
-      console.error(
-        "Error fetching weekly report:",
-        err.response?.data || err.message,
-      );
+      console.error("Error fetching weekly report:", err.response?.data || err.message);
 
       throw err;
     }
@@ -232,7 +213,6 @@ export const DataProvider = ({ children }) => {
         args: [selectedYear, selectedMonth],
       };
 
-
       const res = await axios.get(`${API_URL}/reports/monthly`, {
         params: {
           year: selectedYear,
@@ -245,13 +225,9 @@ export const DataProvider = ({ children }) => {
 
       if (requestId === reportRequestIdRef.current) applyReportData(data);
 
-
       return data;
     } catch (err) {
-      console.error(
-        "Error fetching monthly report:",
-        err.response?.data || err.message,
-      );
+      console.error("Error fetching monthly report:", err.response?.data || err.message);
 
       throw err;
     }
@@ -270,7 +246,6 @@ export const DataProvider = ({ children }) => {
       const requestId = ++reportRequestIdRef.current;
       activeReportRef.current = { type: "yearly", args: [selectedYear] };
 
-
       const res = await axios.get(`${API_URL}/reports/yearly`, {
         params: {
           year: selectedYear,
@@ -282,13 +257,9 @@ export const DataProvider = ({ children }) => {
 
       if (requestId === reportRequestIdRef.current) applyReportData(data);
 
-
       return data;
     } catch (err) {
-      console.error(
-        "Error fetching yearly report:",
-        err.response?.data || err.message,
-      );
+      console.error("Error fetching yearly report:", err.response?.data || err.message);
 
       throw err;
     }
@@ -392,8 +363,7 @@ export const DataProvider = ({ children }) => {
 
   const createUser = async (userData) => {
     try {
-      const submittedRole =
-        userData instanceof FormData ? userData.get("role") : userData?.role;
+      const submittedRole = userData instanceof FormData ? userData.get("role") : userData?.role;
       const isCustomerRegistration = submittedRole === "customer";
       const endpoint = isCustomerRegistration
         ? `${API_URL}/users/register-customer`
@@ -593,10 +563,7 @@ export const DataProvider = ({ children }) => {
 
   const updateLateFee = async (id, lateFeeData) => {
     try {
-      const res = await axios.put(
-        `${API_URL}/fees/late_fees/${id}`,
-        lateFeeData,
-      );
+      const res = await axios.put(`${API_URL}/fees/late_fees/${id}`, lateFeeData);
       await fetchLateFees();
       return res.data;
     } catch (err) {
@@ -749,9 +716,7 @@ export const DataProvider = ({ children }) => {
   const fetchServiceDefinitionById = async (id) => {
     try {
       if (!id) throw new Error("Service definition ID is required");
-      const res = await axios.get(
-        `${API_URL}/services/service_definitions/${id}`,
-      );
+      const res = await axios.get(`${API_URL}/services/service_definitions/${id}`);
       return res.data.data; // returns the single service definition object
     } catch (err) {
       console.error(`Error fetching service definition with ID ${id}:`, err);
@@ -762,10 +727,7 @@ export const DataProvider = ({ children }) => {
   // ---------- CREATE SERVICE DEFINITION ----------
   const createServiceDefinition = async (serviceData) => {
     try {
-      const res = await axios.post(
-        `${API_URL}/services/service_definitions/create`,
-        serviceData,
-      );
+      const res = await axios.post(`${API_URL}/services/service_definitions/create`, serviceData);
       await fetchServiceDefinitions();
       await fetchServiceRoles();
       return res.data;
@@ -778,10 +740,7 @@ export const DataProvider = ({ children }) => {
   // ---------- UPDATE SERVICE DEFINITION ----------
   const updateServiceDefinition = async (id, serviceData) => {
     try {
-      const res = await axios.put(
-        `${API_URL}/services/service_definitions/${id}`,
-        serviceData,
-      );
+      const res = await axios.put(`${API_URL}/services/service_definitions/${id}`, serviceData);
       await fetchServiceDefinitions(); // refresh after update
       return res.data;
     } catch (err) {
@@ -833,12 +792,9 @@ export const DataProvider = ({ children }) => {
 
   const createServiceTransaction = async (payload) => {
     try {
-
-      const res = await axios.post(
-        `${API_URL}/services/service_transactions`,
-        payload,
-        { withCredentials: true },
-      );
+      const res = await axios.post(`${API_URL}/services/service_transactions`, payload, {
+        withCredentials: true,
+      });
 
       await Promise.all([fetchServiceTransactionsApp(), refreshActiveReport()]);
 
@@ -852,10 +808,7 @@ export const DataProvider = ({ children }) => {
   // ---------- UPDATE ----------
   const updateServiceTransactionById = async (id, payload) => {
     try {
-      const res = await axios.put(
-        `${API_URL}/services/service_transactions/${id}`,
-        payload,
-      );
+      const res = await axios.put(`${API_URL}/services/service_transactions/${id}`, payload);
       await Promise.all([fetchServiceTransactionsApp(), refreshActiveReport()]);
       return res.data;
     } catch (err) {
@@ -902,22 +855,17 @@ export const DataProvider = ({ children }) => {
     }
   };
 
-  const fetchAppointmentAvailability = async (date, time) => {
-    const res = await axios.get(
-      `${API_URL}/services/appointment-availability`,
-      {
-        params: { date, time },
-      },
-    );
+  const fetchAppointmentAvailability = async (date, time, serviceDefinitionId = null) => {
+    const res = await axios.get(`${API_URL}/services/appointment-availability`, {
+      params: { date, time, service_definition_id: serviceDefinitionId || undefined },
+    });
     return res.data?.data?.busyEmployeeIds ?? [];
   };
 
   // ---------- FETCH SINGLE ----------
   const fetchServiceTransactionById = async (id) => {
     try {
-      const res = await axios.get(
-        `${API_URL}/services/service_transactions/${id}`,
-      );
+      const res = await axios.get(`${API_URL}/services/service_transactions/${id}`);
       return res.data.data;
     } catch (err) {
       console.error("Error fetching transaction by ID:", err);
@@ -1127,6 +1075,12 @@ export const DataProvider = ({ children }) => {
       setFinanceUpdateVersion((version) => version + 1);
     });
 
+    socket.on("payment:changed", () => {
+      void Promise.all([fetchServiceTransactionsApp(), fetchExpenses(), refreshActiveReport()]).catch((err) => {
+        console.error("Unable to refresh after a payment update:", err);
+      });
+    });
+
     const loadRoleData = async () => {
       try {
         if (["owner", "manager", "cashier"].includes(user.role)) {
@@ -1134,8 +1088,7 @@ export const DataProvider = ({ children }) => {
           const sessionIsOpen = Array.isArray(salonSession)
             ? salonSession.some((session) => session?.status === "open")
             : salonSession?.status === "open";
-          if (["manager", "cashier"].includes(user.role) && !sessionIsOpen)
-            return;
+          if (["manager", "cashier"].includes(user.role) && !sessionIsOpen) return;
         }
 
         await Promise.all([
@@ -1158,9 +1111,7 @@ export const DataProvider = ({ children }) => {
     };
 
     void loadRoleData();
-    const sessionRefreshInterval = ["owner", "manager", "cashier"].includes(
-      user.role,
-    )
+    const sessionRefreshInterval = ["owner", "manager", "cashier"].includes(user.role)
       ? setInterval(fetchSessions, 60 * 1000)
       : null;
 
@@ -1176,7 +1127,8 @@ export const DataProvider = ({ children }) => {
   useEffect(() => {
     const applicationName = "Salehish Beauty Parlour & Spa";
     const attentionRoles = new Set(["owner", "manager", "cashier", "customer"]);
-    const showAttention = attentionRoles.has(String(user?.role || "").toLowerCase()) && pendingCount > 0;
+    const showAttention =
+      attentionRoles.has(String(user?.role || "").toLowerCase()) && pendingCount > 0;
     document.title = showAttention ? `(${pendingCount}) ${applicationName}` : applicationName;
 
     let favicon = document.querySelector("link[rel~='icon']");

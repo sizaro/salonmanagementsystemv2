@@ -9,6 +9,7 @@ import CashierIncomeReview from "../../pages/cashier/CashierIncomeReview.jsx";
 import EmployeeFinanceWorkspace from "../../pages/finance/EmployeeFinanceWorkspace.jsx";
 import EmployeeProfilePage from "../../pages/employees/EmployeeProfilePage.jsx";
 import StaffFinanceSnapshot from "../../pages/finance/StaffFinanceSnapshot.jsx";
+import ExternalPaymentsLedger from "../../pages/payments/ExternalPaymentsLedger.jsx";
 // import CashierIncomeReport from "../../pages/cashier/CashierIncomeReport.jsx";
 // import CashierExpensesReport from "../../pages/cashier/CashierExpensesReport.jsx";
 // import CashierEmployees from "../../pages/cashier/CashierEmployees.jsx";
@@ -18,45 +19,48 @@ import StaffFinanceSnapshot from "../../pages/finance/StaffFinanceSnapshot.jsx";
 
 const CashierLayout = () => {
   return (
-    <SalonOpeningGate><div className="dashboard-shell">
-      <CashierSidebar />
+    <SalonOpeningGate>
+      <div className="dashboard-shell">
+        <CashierSidebar />
 
-      <main className="dashboard-main">
-        <Routes>
-          {/* Dashboard */}
-          <Route index element={<CashierDashboard />} />
-          <Route path="dashboard" element={<CashierDashboard />} />
-          <Route path="staff-payments" element={<EmployeeFinanceWorkspace />} />
-          <Route path="staff-finance" element={<StaffFinanceSnapshot />} />
-          <Route path="employees/:id" element={<EmployeeProfilePage />} />
-          <Route path="income-review" element={<CashierIncomeReview />} />
+        <main className="dashboard-main">
+          <Routes>
+            {/* Dashboard */}
+            <Route index element={<CashierDashboard />} />
+            <Route path="dashboard" element={<CashierDashboard />} />
+            <Route path="staff-payments" element={<EmployeeFinanceWorkspace />} />
+            <Route path="payments" element={<ExternalPaymentsLedger />} />
+            <Route path="staff-finance" element={<StaffFinanceSnapshot />} />
+            <Route path="employees/:id" element={<EmployeeProfilePage />} />
+            <Route path="income-review" element={<CashierIncomeReview />} />
 
-          {/* Income Reports
+            {/* Income Reports
           <Route
             path="income-report"
             element={<CashierIncomeReport />}
           /> */}
 
-          {/* Expenses Reports
+            {/* Expenses Reports
           <Route
             path="expenses-report"
             element={<CashierExpensesReport />}
           /> */}
 
-          {/* Late Fees Reports */}
-          {/* <Route
+            {/* Late Fees Reports */}
+            {/* <Route
             path="late-fees-report"
             element={<CashierLateFeesReport />}
           /> */}
 
-          {/* Tag Fees Reports */}
-          {/* <Route
+            {/* Tag Fees Reports */}
+            {/* <Route
             path="tag-fees-report"
             element={<CashierTagFeesReport />}
           /> */}
-        </Routes>
-      </main>
-    </div></SalonOpeningGate>
+          </Routes>
+        </main>
+      </div>
+    </SalonOpeningGate>
   );
 };
 

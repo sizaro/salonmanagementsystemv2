@@ -24,6 +24,83 @@ const normalizeRoleId = (performer) => {
   return normalizeOptionalId(performer?.role_id ?? performer?.service_role_id);
 };
 
+const appointmentDefaults = {
+  timezone: "Africa/Kampala",
+  opening_time: "08:00:00",
+  closing_time: "23:30:00",
+  slot_interval_minutes: 30,
+  minimum_notice_minutes: 60,
+  maximum_booking_days: 90,
+  customer_cancellation_notice_minutes: 0,
+  allow_unassigned_confirmation: true,
+};
+
+export const fetchAppointmentSettingsModel = async (salonId, queryable = db) => {
+  const { rows } = await queryable.query(
+    `SELECT COALESCE(NULLIF(s.timezone, ''), $2) AS timezone,
+            COALESCE(a.opening_time, $3::time)::text AS opening_time,
+            COALESCE(a.closing_time, $4::time)::text AS closing_time,
+            COALESCE(a.slot_interval_minutes, $5)::int AS slot_interval_minutes,
+            COALESCE(a.minimum_notice_minutes, $6)::int AS minimum_notice_minutes,
+            COALESCE(a.maximum_booking_days, $7)::int AS maximum_booking_days,
+            COALESCE(a.customer_cancellation_notice_minutes, $8)::int AS customer_cancellation_notice_minutes,
+            COALESCE(a.allow_unassigned_confirmation, $9)::boolean AS allow_unassigned_confirmation
+       FROM salons s
+       LEFT JOIN salon_appointment_settings a ON a.salon_id = s.id
+      WHERE s.id = $1`,
+    [salonId, appointmentDefaults.timezone, appointmentDefaults.opening_time, appointmentDefaults.closing_time,
+      appointmentDefaults.slot_interval_minutes, appointmentDefaults.minimum_notice_minutes,
+      appointmentDefaults.maximum_booking_days, appointmentDefaults.customer_cancellation_notice_minutes,
+      appointmentDefaults.allow_unassigned_confirmation],
+  );
+  if (!rows[0]) throw new Error("Salon not found");
+  return rows[0];
+};
+
+export const saveAppointmentSettingsModel = async (salonId, settings, queryable = db) => {
+  const { rows } = await queryable.query(
+    `INSERT INTO salon_appointment_settings (
+       salon_id, opening_time, closing_time, slot_interval_minutes, minimum_notice_minutes,
+       maximum_booking_days, customer_cancellation_notice_minutes, allow_unassigned_confirmation, updated_at
+     ) VALUES ($1,$2::time,$3::time,$4,$5,$6,$7,$8,NOW())
+     ON CONFLICT (salon_id) DO UPDATE SET
+       opening_time = EXCLUDED.opening_time,
+       closing_time = EXCLUDED.closing_time,
+       slot_interval_minutes = EXCLUDED.slot_interval_minutes,
+       minimum_notice_minutes = EXCLUDED.minimum_notice_minutes,
+       maximum_booking_days = EXCLUDED.maximum_booking_days,
+       customer_cancellation_notice_minutes = EXCLUDED.customer_cancellation_notice_minutes,
+       allow_unassigned_confirmation = EXCLUDED.allow_unassigned_confirmation,
+       updated_at = NOW()
+     RETURNING *`,
+    [salonId, settings.opening_time, settings.closing_time, settings.slot_interval_minutes,
+      settings.minimum_notice_minutes, settings.maximum_booking_days,
+      settings.customer_cancellation_notice_minutes, settings.allow_unassigned_confirmation],
+  );
+  return rows[0];
+};
+
+export const recordAppointmentEventModel = async ({
+  salonId,
+  transactionId,
+  actorUserId = null,
+  eventType,
+  fromStatus = null,
+  toStatus = null,
+  reason = null,
+  details = {},
+}, queryable = db) => {
+  const { rows } = await queryable.query(
+    `INSERT INTO appointment_events (
+       salon_id, service_transaction_id, actor_user_id, event_type,
+       from_status, to_status, reason, details
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
+     RETURNING *`,
+    [salonId, transactionId, actorUserId, eventType, fromStatus, toStatus, reason, JSON.stringify(details || {})],
+  );
+  return rows[0];
+};
+
 const getAppointmentEmployeeIds = (performers = []) =>
   [
     ...new Set(
@@ -546,6 +623,17 @@ export const validateAppointmentRequestModel = async ({
 
   queryable = db,
 }) => {
+  const { rows: definitionRows } = await queryable.query(
+    `SELECT appointment_duration_minutes FROM service_definitions WHERE id = $1 AND salon_id = $2`,
+    [service_definition_id, salon_id],
+  );
+  const requestedDurationMinutes = Number(definitionRows[0]?.appointment_duration_minutes || 60);
+  if (!definitionRows[0]) {
+    const error = new Error("The selected service is unavailable");
+    error.statusCode = 404;
+    throw error;
+  }
+
   const { rows: roleRows } = await queryable.query(
     `
     SELECT
@@ -751,6 +839,9 @@ export const validateAppointmentRequestModel = async ({
 
         FROM service_transactions st
 
+        JOIN service_definitions booked_definition
+          ON booked_definition.id = st.service_definition_id
+
         JOIN service_performers sp
           ON sp.service_transaction_id = st.id
 
@@ -763,9 +854,9 @@ export const validateAppointmentRequestModel = async ({
         WHERE st.salon_id = $1
 
           AND (st.appointment_date + st.appointment_time)
-              < ($2::date + $3::time + INTERVAL '1 hour')
+              < ($2::date + $3::time + make_interval(mins => $6::int))
 
-          AND (st.appointment_date + st.appointment_time + INTERVAL '1 hour')
+          AND (st.appointment_date + st.appointment_time + make_interval(mins => COALESCE(booked_definition.appointment_duration_minutes, 60)))
               > ($2::date + $3::time)
 
           AND LOWER(
@@ -794,6 +885,7 @@ export const validateAppointmentRequestModel = async ({
           appointment_time,
           appointmentEmployeeIds,
           normalizeOptionalId(exclude_transaction_id),
+          requestedDurationMinutes,
         ],
       );
 
@@ -839,6 +931,8 @@ export const saveServiceTransaction = async (data) => {
     service_source,
     collection_method = "CASH",
     collection_reference,
+    external_payment_intent_id = null,
+    appointment_idempotency_key = null,
     performers = [],
     salon_id,
   } = data;
@@ -934,6 +1028,8 @@ export const saveServiceTransaction = async (data) => {
         service_source,
         collection_method,
         collection_reference,
+        external_payment_intent_id,
+        appointment_idempotency_key,
         original_service_amount,
         charged_service_amount,
         discount_amount,
@@ -964,9 +1060,13 @@ export const saveServiceTransaction = async (data) => {
         $18,
         $19,
         $20,
+        $21,
+        $22,
         NOW()
       )
 
+      ON CONFLICT (salon_id, customer_id, appointment_idempotency_key)
+        WHERE appointment_idempotency_key IS NOT NULL DO NOTHING
       RETURNING *;
     `;
 
@@ -986,12 +1086,23 @@ export const saveServiceTransaction = async (data) => {
       service_source || null,
       collection_method,
       collection_reference || null,
+      external_payment_intent_id || null,
+      appointment_idempotency_key,
       originalServiceAmount,
       chargedServiceAmount,
       discountAmount,
       originalSalonAmount,
       chargedSalonAmount,
     ]);
+
+    if (!rows[0] && appointment_idempotency_key) {
+      const existing = await client.query(
+        `SELECT * FROM service_transactions
+         WHERE salon_id = $1 AND customer_id = $2 AND appointment_idempotency_key = $3`,
+        [salon_id, customer_id, appointment_idempotency_key],
+      );
+      return { ...existing.rows[0], appointment_already_exists: true };
+    }
 
     const transaction = rows[0];
 
@@ -1024,7 +1135,15 @@ export const fetchAppointmentBusyEmployeeIdsModel = async (
   salon_id,
   appointment_date,
   appointment_time,
+  service_definition_id = null,
 ) => {
+  const requestedDuration = service_definition_id
+    ? await db.query(
+        `SELECT appointment_duration_minutes FROM service_definitions WHERE id = $1 AND salon_id = $2`,
+        [service_definition_id, salon_id],
+      )
+    : { rows: [] };
+  const requestedDurationMinutes = Number(requestedDuration.rows[0]?.appointment_duration_minutes || 60);
   const { rows } = await db.query(
     `
     SELECT DISTINCT
@@ -1036,15 +1155,18 @@ export const fetchAppointmentBusyEmployeeIdsModel = async (
 
     FROM service_transactions st
 
+    JOIN service_definitions booked_definition
+      ON booked_definition.id = st.service_definition_id
+
     JOIN service_performers sp
       ON sp.service_transaction_id = st.id
 
     WHERE st.salon_id = $1
 
       AND (st.appointment_date + st.appointment_time)
-          < ($2::date + $3::time + INTERVAL '1 hour')
+          < ($2::date + $3::time + make_interval(mins => $4::int))
 
-      AND (st.appointment_date + st.appointment_time + INTERVAL '1 hour')
+      AND (st.appointment_date + st.appointment_time + make_interval(mins => COALESCE(booked_definition.appointment_duration_minutes, 60)))
           > ($2::date + $3::time)
 
       AND LOWER(
@@ -1062,7 +1184,7 @@ export const fetchAppointmentBusyEmployeeIdsModel = async (
         sp.preferred_employee_id
       ) IS NOT NULL
     `,
-    [salon_id, appointment_date, appointment_time],
+    [salon_id, appointment_date, appointment_time, requestedDurationMinutes],
   );
 
   return rows
@@ -1549,6 +1671,7 @@ export const updateServiceTransactionAppointmentModel = async (
     service_time,
     collection_method,
     collection_reference,
+    external_payment_intent_id,
     performers = null,
   } = updates;
 
@@ -1620,6 +1743,13 @@ export const updateServiceTransactionAppointmentModel = async (
             ELSE collection_reference
           END,
 
+        external_payment_intent_id =
+          CASE
+            WHEN LOWER(COALESCE($1, status)) = 'completed'
+            THEN COALESCE($9, external_payment_intent_id)
+            ELSE external_payment_intent_id
+          END,
+
         updated_at = NOW()
 
       WHERE id = $3
@@ -1637,6 +1767,7 @@ export const updateServiceTransactionAppointmentModel = async (
       service_time || null,
       collection_method || null,
       collection_reference || null,
+      external_payment_intent_id || null,
     ]);
 
     if (rows.length === 0) {
@@ -1850,4 +1981,10 @@ export default {
   validateAppointmentRequestModel,
 
   fetchAppointmentBusyEmployeeIdsModel,
+
+  fetchAppointmentSettingsModel,
+
+  saveAppointmentSettingsModel,
+
+  recordAppointmentEventModel,
 };

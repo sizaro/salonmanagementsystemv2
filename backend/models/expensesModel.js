@@ -7,13 +7,13 @@ const expenseSelect = `
   e.entry_type, e.backdate_reason, e.created_at
 `;
 
-export const saveExpense = async ({ name, amount, description, salon_id, expense_date, expense_time, entry_type, backdate_reason }) => {
+export const saveExpense = async ({ name, amount, description, salon_id, expense_date, expense_time, entry_type, backdate_reason, external_payment_intent_id = null }) => {
   const { rows } = await db.query(
-    `INSERT INTO expenses (name, amount, description, salon_id, expense_date, expense_time, entry_type, backdate_reason, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+    `INSERT INTO expenses (name, amount, description, salon_id, expense_date, expense_time, entry_type, backdate_reason, external_payment_intent_id, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
      RETURNING id, name, amount, description, salon_id, expense_date::text AS expense_date,
        expense_time::text AS expense_time, entry_type, backdate_reason, created_at`,
-    [name, amount, description || null, salon_id, expense_date, expense_time, entry_type, backdate_reason || null],
+    [name, amount, description || null, salon_id, expense_date, expense_time, entry_type, backdate_reason || null, external_payment_intent_id],
   );
   return rows[0];
 };

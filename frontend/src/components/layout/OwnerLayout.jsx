@@ -18,6 +18,7 @@ import OwnerIntelligence from "../../pages/owner/OwnerIntelligenceWorkspace.jsx"
 import StatisticsAnalytics from "../../pages/statistics/StatisticsAnalytics.jsx";
 import OwnerAppointments from "../../pages/owner/OwnerAppointments.jsx";
 import OwnerSalonSetup from "../../pages/owner/OwnerSalonSetup.jsx";
+import ExternalPaymentsLedger from "../../pages/payments/ExternalPaymentsLedger.jsx";
 
 const OwnerLayout = () => {
   return (
@@ -41,6 +42,7 @@ const OwnerLayout = () => {
           <Route path="employees" element={<EmployeeReport />} />
           <Route path="advances" element={<Advances />} />
           <Route path="finance" element={<EmployeeFinanceWorkspace />} />
+          <Route path="payments" element={<ExternalPaymentsLedger />} />
           <Route path="intelligence" element={<OwnerIntelligence />} />
           <Route path="statistics" element={<StatisticsAnalytics />} />
           <Route path="employees-management" element={<Employees />} />

@@ -9,12 +9,17 @@ const FINANCE_EMPLOYEE_ROLES = new Set(["employee", "manager", "cashier"]);
 const PAYMENT_METHODS = new Set([
   "CASH",
   "MOBILE_MONEY",
+  "MTN_MOMO",
+  "AIRTEL_MONEY",
   "BANK_TRANSFER",
   "OTHER",
 ]);
 const ADVANCE_SETTLEMENT_METHODS = new Set([
   "PAYROLL_DEDUCTION",
   "CASH_REPAYMENT",
+  "MTN_MOMO",
+  "AIRTEL_MONEY",
+  "BANK_TRANSFER",
   "WAIVED",
 ]);
 
@@ -391,6 +396,7 @@ export const disburseAdvanceRequest = async ({
   actorId,
   actorRole,
   requestId,
+  externalPaymentIntentId = null,
 }) => {
   assertRole(actorRole, STAFF_ROLES, "Only salon finance staff may disburse an advance");
   return db.transaction(async (client) => {
@@ -433,10 +439,11 @@ export const disburseAdvanceRequest = async ({
            acknowledged_by = NULL,
            acknowledged_at = NULL,
            receipt_number = $3,
+           external_payment_intent_id = $5,
            updated_at = NOW()
        WHERE id = $4
        RETURNING *`,
-      [advanceRows[0].id, actorId, receipt, requestId],
+      [advanceRows[0].id, actorId, receipt, requestId, externalPaymentIntentId],
     );
     await client.query(
       `INSERT INTO employee_finance_receipts (
@@ -590,12 +597,13 @@ export const settleAdvanceRequest = async ({
   settlementMethod,
   notes,
   settlementSignatureDataUrl,
+  externalPaymentIntentId = null,
 }) => {
   assertRole(actorRole, REVIEWER_ROLES, "Only an owner or manager may settle an advance");
   const requestedAmount = positiveAmount(amount, "Settlement amount");
   const method = String(settlementMethod || "").trim().toUpperCase();
   if (!ADVANCE_SETTLEMENT_METHODS.has(method)) {
-    throw financeError("Choose payroll deduction, cash repayment, or waiver");
+    throw financeError("Choose payroll deduction, cash repayment, verified external repayment, or waiver");
   }
   if (method === "WAIVED" && String(actorRole || "").toLowerCase() !== "owner") {
     throw financeError("Only the owner may waive an employee advance", 403);
@@ -608,6 +616,14 @@ export const settleAdvanceRequest = async ({
     : await prepareSignature(settlementSignatureDataUrl);
 
   return db.transaction(async (client) => {
+    if (externalPaymentIntentId) {
+      const existing = await client.query(
+        `SELECT * FROM employee_advance_settlements
+          WHERE salon_id = $1 AND external_payment_intent_id = $2`,
+        [salonId, externalPaymentIntentId],
+      );
+      if (existing.rows[0]) return { ...existing.rows[0], amount: Number(existing.rows[0].amount || 0) };
+    }
     const { rows: advanceRows } = await client.query(
       `SELECT *
        FROM employee_advance_requests
@@ -640,8 +656,9 @@ export const settleAdvanceRequest = async ({
       `INSERT INTO employee_advance_settlements (
          salon_id, advance_request_id, employee_id, amount,
          settlement_method, notes, receipt_number, settled_by, workflow_status,
-         settled_by_signature_url, settled_by_signature_hash, settled_by_declaration
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         settled_by_signature_url, settled_by_signature_hash, settled_by_declaration,
+         external_payment_intent_id
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         salonId,
@@ -656,8 +673,9 @@ export const settleAdvanceRequest = async ({
         managementSignature?.signatureUrl || null,
         managementSignature?.signatureHash || null,
         managementSignature
-          ? `${String(actorRole || "management").replace(/^./, (letter) => letter.toUpperCase())} confirms that UGX ${requestedAmount.toLocaleString("en-UG")} was ${method === "WAIVED" ? "waived" : "received in cash"} to settle advance ${receipt}.`
+          ? `${String(actorRole || "management").replace(/^./, (letter) => letter.toUpperCase())} confirms that UGX ${requestedAmount.toLocaleString("en-UG")} was ${method === "WAIVED" ? "waived" : ["MTN_MOMO", "AIRTEL_MONEY", "BANK_TRANSFER"].includes(method) ? "received and verified electronically" : "received in cash"} to settle advance ${receipt}.`
           : null,
+        externalPaymentIntentId || null,
       ],
     );
     return {
@@ -1029,7 +1047,7 @@ export const decideEmployeePayment = async ({
   });
 };
 
-export const disburseEmployeePayment = async ({ salonId, actorId, actorRole, paymentId }) => {
+export const disburseEmployeePayment = async ({ salonId, actorId, actorRole, paymentId, externalPaymentIntentId = null }) => {
   assertRole(actorRole, STAFF_ROLES, "Only salon finance staff may disburse a payment");
   return db.transaction(async (client) => {
     const { rows: paymentRows } = await client.query(
@@ -1062,10 +1080,11 @@ export const disburseEmployeePayment = async ({ salonId, actorId, actorRole, pay
            acknowledged_by = NULL,
            acknowledged_at = NULL,
            receipt_number = $2,
+           external_payment_intent_id = $4,
            updated_at = NOW()
        WHERE id = $3
        RETURNING *`,
-      [actorId, receipt, paymentId],
+      [actorId, receipt, paymentId, externalPaymentIntentId],
     );
     await client.query(
       `INSERT INTO employee_finance_receipts (
