@@ -122,7 +122,7 @@ const Employees = () => {
             onSubmit={handleModalSubmit}
             onClose={() => {
                 setShowModal(false);
-                setEditingService(null);
+                setEditingEmployee(null);
             }}
             />
         )}

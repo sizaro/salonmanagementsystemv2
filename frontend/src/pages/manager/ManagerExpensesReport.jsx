@@ -96,7 +96,6 @@ const ManagerExpensesReport = () => {
     const handleDayChange = (e) => {
     setSelectedDate(e.target.value);
     fetchDailyData(e.target.value);
-    fetchUsers();
   };
   
   const handleWeekChange = (e) => {
@@ -122,7 +121,6 @@ const ManagerExpensesReport = () => {
       `${monday.toLocaleDateString("en-US")} → ${sunday.toLocaleDateString("en-US")}`
     );
     fetchWeeklyData(monday, sunday);
-    fetchUsers();
   };
   
   const handleMonthChange = (e) => {
@@ -138,7 +136,6 @@ const ManagerExpensesReport = () => {
         })}`
       );
       fetchMonthlyData(year, month);
-      fetchUsers()
   };
   
   const handleYearChange = (e) => {

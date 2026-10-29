@@ -3,7 +3,6 @@ import { useData } from "../context/DataContext";
 
 export default function AdvanceForm({
   onSubmit,
-  onClose,
   advanceData,
   entryType = "current",
 }) {

@@ -99,7 +99,7 @@ export default function UserForm({ user, onSubmit, onClose, role = "employee" })
     if (candidateStep === 0) {
       if (!formData.first_name.trim() || !formData.last_name.trim() || !formData.email.trim()) return "First name, last name, and email are required.";
       if (!user && !formData.password) return "Create a password for this employee.";
-      if (formData.password && !/^(?=.*[0-9])(?=.*[!@#$%^&*(),.?\":{}|<>]).{8,}$/.test(formData.password)) return "Password must have at least 8 characters, one number, and one special character.";
+      if (formData.password && !/^(?=.*[0-9])(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/.test(formData.password)) return "Password must have at least 8 characters, one number, and one special character.";
     }
     if (candidateStep === 1) {
       if (!formData.national_id_number.trim()) return "Enter the employee's National ID number.";

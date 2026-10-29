@@ -1,9 +1,8 @@
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useData } from "../context/DataContext";
 
 export default function SalonGate({ children }) {
   const { salon } = useData();
-  const { slug } = useParams();
 
   // still loading salon info
   if (!salon) return null;
