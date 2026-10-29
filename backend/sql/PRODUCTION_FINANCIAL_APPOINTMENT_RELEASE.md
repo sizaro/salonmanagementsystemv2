@@ -40,7 +40,8 @@ do not continue with later scripts.
 6. `appointment_flow_upgrade.sql` *(only if the original appointment upgrade
    is not already present)*
 7. `20261027_appointment_production_hardening.sql`
-8. `20261029_financial_appointment_post_deployment_verification.sql`
+8. `20261029_financial_audit_foundation.sql`
+9. `20261029_financial_appointment_post_deployment_verification.sql`
    *(read-only verification; always run this last)*
 
 If this is a newly provisioned database, apply the earlier schema and employee

@@ -27,6 +27,7 @@ import {
   saveAppointmentSettingsModel,
   recordAppointmentEventModel,
 } from "../models/servicesModel.js";
+import { appendAuditEvent } from "../models/auditModel.js";
 
 const APPOINTMENT_TRANSITIONS = {
   pending: new Set(["confirmed", "cancelled"]),
@@ -1367,6 +1368,38 @@ export const deleteServiceTransaction = async (req, res) => {
     const { id } = req.params;
 
     const salon_id = req.user?.salon_id || process.env.DEFAULT_SALON_ID;
+    const existing = await fetchServiceTransactionById(id, salon_id);
+
+    if (!existing) {
+      return res.status(404).json({ success: false, message: "Transaction not found" });
+    }
+
+    const isFinancialRecord = String(existing.status || "").toLowerCase() === "completed"
+      || Boolean(existing.external_payment_intent_id);
+    if (isFinancialRecord) {
+      await appendAuditEvent({
+        salonId: salon_id,
+        actorUserId: req.user?.id,
+        actorRole: req.user?.role,
+        action: "PERMANENT_DELETE_BLOCKED",
+        module: "SERVICES",
+        recordType: "SERVICE_TRANSACTION",
+        recordId: id,
+        previousValues: {
+          status: existing.status,
+          collection_method: existing.collection_method,
+          external_payment_intent_id: existing.external_payment_intent_id,
+        },
+        reason: "Completed or externally paid service transactions must be preserved.",
+        requestId: req.requestId,
+        outcome: "BLOCKED",
+      });
+      return res.status(409).json({
+        success: false,
+        code: "FINANCIAL_RECORD_PRESERVED",
+        message: "Completed or paid services cannot be permanently deleted. Record an authorized correction instead.",
+      });
+    }
 
     const deleted = await DeleteServiceTransaction(id, salon_id);
 

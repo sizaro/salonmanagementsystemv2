@@ -21,7 +21,8 @@
     "db:service-collection-methods": "node scripts/applyServiceCollectionMethods.js",
     "db:employee-finance-cutover": "node scripts/applyEmployeeFinanceCutover.js",
     "db:advance-settlement-attestation": "node scripts/applyAdvanceSettlementAttestation.js",
-    "db:payment-engine-foundation": "node scripts/applyPaymentEngineFoundation.js"
+    "db:payment-engine-foundation": "node scripts/applyPaymentEngineFoundation.js",
+    "db:financial-audit-foundation": "node scripts/applyFinancialAuditFoundation.js"
   },
   "author": "",
   "license": "ISC",

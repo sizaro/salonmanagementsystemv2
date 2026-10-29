@@ -3,8 +3,8 @@ import {
   fetchAdvanceById,
   isFinanceWorkflowAdvance,
   UpdateAdvanceById,
-  DeleteAdvanceById,
 } from "../models/advancesModel.js";
+import { appendAuditEvent } from "../models/auditModel.js";
 
 const getSalonId = (req) => Number(req.salon_id || req.user?.salon_id);
 
@@ -121,17 +121,26 @@ export const deleteAdvanceById = async (req, res) => {
   try {
     const { id } = req.params;
     const salon_id = getSalonId(req);
+    const existing = await fetchAdvanceById(id, salon_id);
+    if (!existing) return res.status(404).json({ error: "Advance not found" });
 
-    if (await isFinanceWorkflowAdvance(id, salon_id)) {
-      return res.status(409).json({
-        error: "This advance was issued through the employee finance workflow and cannot be deleted.",
-      });
-    }
-
-    const deleted = await DeleteAdvanceById(id, salon_id);
-    if (!deleted) return res.status(404).json({ error: "Advance not found" });
-
-    res.status(200).json({ message: "Advance deleted successfully" });
+    await appendAuditEvent({
+      salonId: salon_id,
+      actorUserId: req.user?.id,
+      actorRole: req.user?.role,
+      action: "PERMANENT_DELETE_BLOCKED",
+      module: "EMPLOYEE_FINANCE",
+      recordType: "ADVANCE",
+      recordId: id,
+      previousValues: { employee_id: existing.employee_id, amount: existing.amount, advance_date: existing.advance_date },
+      reason: "Advance records must be preserved for settlement and financial history.",
+      requestId: req.requestId,
+      outcome: "BLOCKED",
+    });
+    return res.status(409).json({
+      code: "FINANCIAL_RECORD_PRESERVED",
+      error: "Advance records cannot be permanently deleted. Record an authorized correction instead.",
+    });
   } catch (err) {
     console.error("Error deleting advance:", err);
     res.status(500).json({ error: "Failed to delete advance" });

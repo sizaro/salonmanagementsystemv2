@@ -101,6 +101,16 @@ WITH required_checks AS (
   UNION ALL SELECT 'REQUIRED', 'appointment completion idempotency index',
          to_regclass('public.service_transactions_customer_booking_idempotency_unique') IS NOT NULL,
          'One appointment completion cannot create duplicate service records.'
+  UNION ALL SELECT 'REQUIRED', 'append-only audit events table',
+         to_regclass('public.audit_events') IS NOT NULL,
+         'Sensitive-action audit evidence is available.'
+  UNION ALL SELECT 'REQUIRED', 'append-only audit protection trigger',
+         EXISTS (
+           SELECT 1 FROM pg_trigger
+           WHERE tgrelid = to_regclass('public.audit_events')
+             AND tgname = 'audit_events_immutable' AND NOT tgisinternal
+         ),
+         'Audit events cannot be updated or deleted through the runtime database role.'
 ),
 operational_observations AS (
   SELECT 'OBSERVATION'::text AS severity,

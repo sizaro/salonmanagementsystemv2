@@ -51,6 +51,7 @@ import publicCampaignRoutes from "./routes/publicCampaignRoutes.js";
 import statisticsRoutes from "./routes/statisticsRoutes.js";
 import paymentsRoutes from "./routes/paymentsRoutes.js";
 import bankNotificationsRoutes from "./routes/bankNotificationsRoutes.js";
+import auditRoutes from "./routes/auditRoutes.js";
 import { recoverConfirmedPayments, reconcileUnmatchedBankCredits, resumePendingMockPayments } from "./payments/paymentEngine.js";
 import {
   requireAuth,
@@ -201,6 +202,13 @@ app.use(
   requireSalonContext,
   requireOpenSalon,
   paymentsRoutes,
+);
+
+app.use(
+  "/api/audit-events",
+  requireAuth,
+  requireSalonContext,
+  auditRoutes,
 );
 
 app.use(

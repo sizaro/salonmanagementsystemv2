@@ -15,6 +15,7 @@ import {
 import { isProduction } from "../config/environment.js";
 import db from "../models/database.js";
 import { createBankAdapter } from "../payments/bankProvider.js";
+import { appendAuditEvent } from "../models/auditModel.js";
 
 const actor = (req) => ({ id: Number(req.user.id), role: req.user.role });
 
@@ -167,9 +168,10 @@ export const saveBankAccount = async (req, res) => {
       return res.status(400).json({ error: "Bank name, account name, account number, and currency are required." });
     }
     const created = await db.transaction(async (client) => {
-      await client.query(
+      const deactivated = await client.query(
         `UPDATE salon_bank_accounts SET is_active = FALSE, updated_at = NOW(), updated_by = $2
-         WHERE salon_id = $1 AND currency = $3 AND is_active = TRUE`,
+         WHERE salon_id = $1 AND currency = $3 AND is_active = TRUE
+         RETURNING id, bank_name, account_name, account_number, currency, branch_name, verification_mode`,
         [Number(req.salon_id), Number(req.user.id), currency],
       );
       const { rows } = await client.query(
@@ -178,6 +180,28 @@ export const saveBankAccount = async (req, res) => {
         ) VALUES ($1,$2,$3,$4,$5,$6,$7,TRUE,$8,$8) RETURNING *`,
         [Number(req.salon_id), bankName, accountName, accountNumber, currency, String(req.body?.branch_name || "").trim() || null, verificationMode, Number(req.user.id)],
       );
+      await appendAuditEvent({
+        client,
+        salonId: req.salon_id,
+        actorUserId: req.user.id,
+        actorRole: req.user.role,
+        action: "BANK_ACCOUNT_CONFIGURED",
+        module: "PAYMENTS",
+        recordType: "SALON_BANK_ACCOUNT",
+        recordId: rows[0].id,
+        previousValues: deactivated.rows[0] || null,
+        newValues: {
+          id: rows[0].id,
+          bank_name: rows[0].bank_name,
+          account_name: rows[0].account_name,
+          account_number: rows[0].account_number,
+          currency: rows[0].currency,
+          branch_name: rows[0].branch_name,
+          verification_mode: rows[0].verification_mode,
+          is_active: rows[0].is_active,
+        },
+        requestId: req.requestId,
+      });
       return rows[0];
     });
     return res.status(201).json({ account: created });

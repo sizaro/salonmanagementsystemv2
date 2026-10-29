@@ -4,6 +4,7 @@ import { DateTime } from "luxon";
 import { isProduction } from "../config/environment.js";
 import { getProviderAdapter, normalizeProvider } from "./paymentProviders.js";
 import { makeBankPaymentReference, makeIntentReference } from "./paymentReferences.js";
+import { appendAuditEvent } from "../models/auditModel.js";
 import {
   fetchServiceTransactionById,
   saveServiceTransaction,
@@ -135,12 +136,29 @@ const validateCounterparty = ({ provider, payload }) => {
   return identifier;
 };
 
-const insertAudit = async (client, intentId, actorId, action, details = {}) => {
+const insertAudit = async (client, intentId, actorId, action, details = {}, actorRole = null) => {
   await client.query(
     `INSERT INTO payment_audit_logs (payment_intent_id, actor_user_id, action, details)
      VALUES ($1, $2, $3, $4::jsonb)`,
     [intentId, actorId || null, action, JSON.stringify(details)],
   );
+  const { rows } = await client.query(
+    "SELECT salon_id, intent_reference FROM payment_intents WHERE id = $1",
+    [intentId],
+  );
+  if (rows[0]) {
+    await appendAuditEvent({
+      client,
+      salonId: rows[0].salon_id,
+      actorUserId: actorId,
+      actorRole,
+      action: `PAYMENT_${action}`,
+      module: "PAYMENTS",
+      recordType: "PAYMENT_INTENT",
+      recordId: intentId,
+      newValues: { intent_reference: rows[0].intent_reference, ...details },
+    });
+  }
 };
 
 const serializeIntent = (row) => ({
@@ -280,7 +298,7 @@ export const createServiceCollectionIntent = async ({ actor, salonId, payload, a
         JSON.stringify({ mode: adapter.mode, status: adapterResult.status }),
       ],
     );
-    await insertAudit(client, created.id, actor.id, "PAYMENT_INITIATED", { provider, amount });
+    await insertAudit(client, created.id, actor.id, "PAYMENT_INITIATED", { provider, amount }, actor.role);
     return created;
   });
 
@@ -376,7 +394,7 @@ export const createAdvanceRepaymentIntent = async ({ actor, salonId, payload, ap
         JSON.stringify({ direction: "COLLECTION", amount: requestedAmount, currency: "UGX" }),
         JSON.stringify({ mode: adapter.mode, status: adapterResult.status })],
     );
-    await insertAudit(client, created.id, actor.id, "ADVANCE_REPAYMENT_INITIATED", { provider, amount: requestedAmount, requestId });
+    await insertAudit(client, created.id, actor.id, "ADVANCE_REPAYMENT_INITIATED", { provider, amount: requestedAmount, requestId }, actor.role);
     return created;
   });
   emitPaymentChange(app, intent);
@@ -467,7 +485,7 @@ export const createExternalDisbursementIntent = async ({ actor, salonId, payload
     }
     const created = rows[0];
     await client.query(`INSERT INTO payment_attempts (payment_intent_id, attempt_number, provider, provider_reference, attempt_status, request_metadata, response_metadata) VALUES ($1,1,$2,$3,'PENDING',$4::jsonb,$5::jsonb)`, [created.id, provider, adapterResult.providerReference, JSON.stringify({ direction: "DISBURSEMENT", amount, currency: "UGX" }), JSON.stringify({ mode: adapter.mode, status: adapterResult.status })]);
-    await insertAudit(client, created.id, actor.id, "PAYOUT_INITIATED", { provider, amount, originType });
+    await insertAudit(client, created.id, actor.id, "PAYOUT_INITIATED", { provider, amount, originType }, actor.role);
     return created;
   });
   emitPaymentChange(app, intent);
@@ -495,7 +513,7 @@ export const verifyManualBankDisbursement = async ({ app, salonId, actor, refere
       [safeTransactionId, String(verificationNote || '').trim() || null, actor.id, salonId, reference],
     );
     if (!rows[0]) throw paymentError('This bank payout is unavailable for manual verification.', 409);
-    await insertAudit(client, rows[0].id, actor.id, 'MANUAL_BANK_PAYOUT_VERIFIED', { bankTransactionId: safeTransactionId });
+    await insertAudit(client, rows[0].id, actor.id, 'MANUAL_BANK_PAYOUT_VERIFIED', { bankTransactionId: safeTransactionId }, actor.role);
     return rows[0];
   });
   return finalizeConfirmedPayment({ app, intentId: verified.id });
@@ -826,7 +844,7 @@ export const recordBankTransferInquiry = async ({ app, salonId, actorId, actorRo
     [salonId, reference, actorId, ["owner", "manager"].includes(String(actorRole || "").toLowerCase())],
   );
   if (!rows[0]) throw paymentError("Bank transfer request not found.", 404);
-  await db.transaction((client) => insertAudit(client, rows[0].id, actorId, "BANK_TRANSFER_INQUIRY", { mode: "mock" }));
+  await db.transaction((client) => insertAudit(client, rows[0].id, actorId, "BANK_TRANSFER_INQUIRY", { mode: "mock" }, actorRole));
   let resolved = await recoverUnmatchedBankCredit({ app, intent: rows[0] });
 
   // Development convenience only: the cashier's declaration is translated into
