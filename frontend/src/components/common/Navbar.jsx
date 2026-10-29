@@ -42,8 +42,7 @@ export default function Navbar() {
   }, [location.pathname]);
   useEffect(() => {
     const close = (event) => {
-      if (accountRef.current && !accountRef.current.contains(event.target))
-        setAccountOpen(false);
+      if (accountRef.current && !accountRef.current.contains(event.target)) setAccountOpen(false);
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
@@ -62,10 +61,7 @@ export default function Navbar() {
       setLoginOpen(true);
       return undefined;
     }
-    const timer = window.setTimeout(
-      () => setRegistrationCountdown((value) => value - 1),
-      1000,
-    );
+    const timer = window.setTimeout(() => setRegistrationCountdown((value) => value - 1), 1000);
     return () => window.clearTimeout(timer);
   }, [registrationCountdown]);
 
@@ -86,8 +82,7 @@ export default function Navbar() {
       navigate(routes[response.role] || "/");
     } catch (error) {
       setLoginError(
-        error?.response?.data?.message ||
-          "Sign in failed. Check your details and try again.",
+        error?.response?.data?.message || "Sign in failed. Check your details and try again.",
       );
     } finally {
       setLoading(false);
@@ -101,9 +96,7 @@ export default function Navbar() {
       setRegistrationCountdown(5);
     } catch (error) {
       setToast({
-        message:
-          error?.response?.data?.error ||
-          "Account creation failed. Please try again.",
+        message: error?.response?.data?.error || "Account creation failed. Please try again.",
         type: "error",
       });
       throw error;
@@ -148,17 +141,13 @@ export default function Navbar() {
             aria-label="Salehish home"
           >
             <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--salon-ink)] transition group-hover:rotate-6">
-              <img
-                src="/salehishicon.webp"
-                alt="Salehish"
-                className="h-full w-full object-cover"
-              />
+              <img src="/salehishicon.webp" alt="Salehish" className="h-full w-full object-cover" />
             </span>
             <span className="min-w-0">
               <span className="block truncate font-serif text-xl font-semibold text-[var(--salon-ink)]">
                 Salehish
               </span>
-              <span className="block truncate text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--salon-copper)]">
+              <span className="block truncate text-[10px] font-bold tracking-[0.22em] text-[var(--salon-copper)] uppercase">
                 Beauty Parlour & Spa
               </span>
             </span>
@@ -218,21 +207,19 @@ export default function Navbar() {
         </div>
       </nav>
 
-      <button
-        type="button"
-        aria-label="Close navigation"
-        onClick={() => setMenuOpen(false)}
-        className={`fixed inset-0 z-[60] bg-slate-950/55 backdrop-blur-sm transition xl:hidden ${menuOpen ? "visible opacity-100" : "invisible opacity-0"}`}
-      />
-      <aside
-        className={`fixed inset-y-0 right-0 z-[70] flex w-[min(88vw,390px)] flex-col overflow-y-auto bg-[var(--salon-cream)] p-6 shadow-2xl transition-transform duration-500 xl:hidden ${menuOpen ? "translate-x-0" : "translate-x-full"}`}
-      >
+      {menuOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close navigation"
+            onClick={() => setMenuOpen(false)}
+            className="fixed inset-0 z-[60] bg-slate-950/55 backdrop-blur-sm xl:hidden"
+          />
+          <aside className="fixed inset-y-0 right-0 z-[70] flex w-[min(88vw,390px)] flex-col overflow-y-auto bg-[var(--salon-cream)] p-6 shadow-2xl xl:hidden">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Sparkles className="text-[var(--salon-copper)]" />
-            <span className="font-serif text-xl font-semibold">
-              Explore Salehish
-            </span>
+            <span className="font-serif text-xl font-semibold">Explore Salehish</span>
           </div>
           <button
             onClick={() => setMenuOpen(false)}
@@ -251,31 +238,25 @@ export default function Navbar() {
                 `rounded-2xl px-5 py-4 text-lg font-semibold transition ${isActive ? "bg-[var(--salon-ink)] text-white" : "hover:bg-stone-200/70"}`
               }
             >
-              <span className="mr-4 text-xs text-[var(--salon-copper)]">
-                0{index + 1}
-              </span>
+              <span className="mr-4 text-xs text-[var(--salon-copper)]">0{index + 1}</span>
               {link.label}
             </NavLink>
           ))}
         </div>
         <div className="mt-auto grid gap-3">
-          <button
-            onClick={openLogin}
-            className="salon-button-primary justify-center"
-          >
+          <button onClick={openLogin} className="salon-button-primary justify-center">
             Sign in to portal
           </button>
-          <button
-            onClick={openRegister}
-            className="salon-button-secondary justify-center"
-          >
+          <button onClick={openRegister} className="salon-button-secondary justify-center">
             Create account
           </button>
           <p className="text-center text-xs text-slate-500">
             Professional beauty, grooming and wellness in one welcoming space.
           </p>
         </div>
-      </aside>
+          </aside>
+        </>
+      )}
 
       <Modal isOpen={loginOpen} onClose={() => setLoginOpen(false)}>
         {authForm === "login" ? (
@@ -297,11 +278,7 @@ export default function Navbar() {
         )}
       </Modal>
       <Modal isOpen={registerOpen} onClose={() => setRegisterOpen(false)}>
-        <UserForm
-          role="customer"
-          onSubmit={register}
-          onClose={() => setRegisterOpen(false)}
-        />
+        <UserForm role="customer" onSubmit={register} onClose={() => setRegisterOpen(false)} />
       </Modal>
       <Modal isOpen={registrationCountdown !== null} onClose={() => {}}>
         <div className="mx-auto max-w-md p-6 text-center">
@@ -312,8 +289,8 @@ export default function Navbar() {
             Account created successfully
           </h2>
           <p className="mt-3 leading-7 text-slate-600">
-            Your customer account is ready. Redirecting you to sign in in{" "}
-            {registrationCountdown} second
+            Your customer account is ready. Redirecting you to sign in in {registrationCountdown}{" "}
+            second
             {registrationCountdown === 1 ? "" : "s"}.
           </p>
           <button

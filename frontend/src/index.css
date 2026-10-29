@@ -1589,3 +1589,12 @@ html {
   .analytics-workspace, .finance-workspace, .employee-profile-workspace { padding-inline: 1rem; }
   .finance-workspace > section:first-of-type article { min-height: 0; }
 }
+
+/* `dvh` is not recognised by some older tablet browsers. Keep a viewport-height
+   fallback so forms retain a usable internal scroll area there. */
+.app-modal-surface {
+  height: calc(100vh - 1rem);
+  height: calc(100dvh - 1rem);
+  max-height: calc(100vh - 1rem);
+  max-height: calc(100dvh - 1rem);
+}
