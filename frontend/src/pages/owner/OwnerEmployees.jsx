@@ -7,20 +7,11 @@ import { useNavigate } from "react-router-dom";
 import EmployeeDirectoryTable from "../../components/workspace/EmployeeDirectoryTable.jsx";
 
 const OwnerEmployees = () => {
-  const {
-    users = [],
-    fetchUsers,
-    fetchUserById,
-    createUser,
-    updateUser,
-    deleteUser,
-  } = useData();
+  const { users = [], fetchUsers, fetchUserById, createUser, updateUser, deleteUser } = useData();
   const navigate = useNavigate();
 
   // Filter out 'Saleh Ntege' and customers
-  const employees = users.filter(
-    (user) =>user.role !== "customer"
-  );
+  const employees = users.filter((user) => user.role !== "customer");
 
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -36,9 +27,8 @@ const OwnerEmployees = () => {
   }, []);
 
   const handleAdd = () => {
-     setAddingUser("employee")
-     setShowModal(true);
-    
+    setAddingUser("employee");
+    setShowModal(true);
   };
 
   const handleEdit = async (userId) => {
@@ -68,8 +58,7 @@ const OwnerEmployees = () => {
     await fetchUsers();
   };
 
-
-  const handleModalEdit = async ( id, userData) => {
+  const handleModalEdit = async (id, userData) => {
     await updateUser(id, userData);
     setShowModal(false);
     setEditingUser(null);
@@ -84,14 +73,17 @@ const OwnerEmployees = () => {
           <h1>Employees</h1>
           <p>View employee details, update permitted records, and keep the salon team organised.</p>
         </div>
-        <button
-          onClick={handleAdd}
-          className="workspace-primary-action"
-        >
+        <button onClick={handleAdd} className="workspace-primary-action">
           Add Employee
         </button>
       </header>
-      <EmployeeDirectoryTable employees={employees} onView={(id) => navigate(`/owner/employees/${id}`)} onEdit={handleEdit} onDelete={handleDelete} allowManage />
+      <EmployeeDirectoryTable
+        employees={employees}
+        onView={(id) => navigate(`/owner/employees/${id}`)}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        allowManage
+      />
 
       {/* Add / Edit Modal */}
 
@@ -102,7 +94,7 @@ const OwnerEmployees = () => {
           setEditingUser(null);
         }}
       >
-        {(editingUser) && (
+        {editingUser && (
           <UserForm
             role="employee"
             user={editingUser}
@@ -114,7 +106,7 @@ const OwnerEmployees = () => {
           />
         )}
 
-        {(addingUser) && (
+        {addingUser && (
           <UserForm
             role="employee"
             user={null}
@@ -125,8 +117,6 @@ const OwnerEmployees = () => {
             }}
           />
         )}
-
-
       </Modal>
 
       {/* Confirm Delete Modal */}

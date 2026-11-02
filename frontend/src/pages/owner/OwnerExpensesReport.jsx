@@ -6,37 +6,33 @@ import ExpenseForm from "../../components/ExpenseForm.jsx";
 import ConfirmModal from "../../components/ConfirmModal.jsx";
 
 const OwnerExpensesReport = () => {
-  const {
-    fetchExpenseById,
-    updateExpense,
-    deleteExpense
-  } = useData();
-  const { report, fetchDailyData, fetchWeeklyData, fetchMonthlyData, fetchYearlyData } = useOwnerReport();
+  const { fetchExpenseById, updateExpense, deleteExpense } = useData();
+  const { report, fetchDailyData, fetchWeeklyData, fetchMonthlyData, fetchYearlyData } =
+    useOwnerReport();
   const expenses = report?.expenses ?? [];
 
   const toYMD = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
   const today = new Date();
   const options = {
-  weekday: "long",
-  year: "numeric",
-  month: "long",
-  day: "numeric",
-  timeZone: "Africa/Kampala",
-};;
-  
-    const [liveDuration, setLiveDuration] = useState("");
-    const [selectedDate, setSelectedDate] = useState(toYMD(today));
-    const [reportLabel, setReportLabel] = useState("");
-    const [week, setWeek] = useState({ start: null, end: null });
-    const [monthYear, setMonthYear] = useState("");
-    const [year, setYear] = useState(new Date().getFullYear());
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "Africa/Kampala",
+  };
+
+  const [liveDuration, setLiveDuration] = useState("");
+  const [selectedDate, setSelectedDate] = useState(toYMD(today));
+  const [reportLabel, setReportLabel] = useState("");
+  const [week, setWeek] = useState({ start: null, end: null });
+  const [monthYear, setMonthYear] = useState("");
+  const [year, setYear] = useState(new Date().getFullYear());
   const [showModal, setShowModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
@@ -96,152 +92,135 @@ const OwnerExpensesReport = () => {
     day: "numeric",
   });
 
-  const totalExpenses = expenses.reduce(
-    (sum, exp) => sum + (parseInt(exp.amount, 10) || 0),
-    0
-  );
+  const totalExpenses = expenses.reduce((sum, exp) => sum + (parseInt(exp.amount, 10) || 0), 0);
 
-  
-    const handleDayChange = (e) => {
+  const handleDayChange = (e) => {
     setSelectedDate(e.target.value);
     fetchDailyData(e.target.value);
   };
-  
+
   const handleWeekChange = (e) => {
     const weekString = e.target.value;
-  
+
     if (!weekString) return;
-  
+
     const [year, week] = weekString.split("-W").map(Number);
-  
+
     const firstDayOfYear = new Date(year, 0, 1);
     const day = firstDayOfYear.getDay();
     const firstMonday = new Date(firstDayOfYear);
     const diff = day <= 4 ? day - 1 : day - 8;
     firstMonday.setDate(firstDayOfYear.getDate() - diff);
-  
+
     const monday = new Date(firstMonday);
     monday.setDate(firstMonday.getDate() + (week - 1) * 7);
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
-  
+
     setWeek({ start: monday, end: sunday });
-    setReportLabel(
-      `${monday.toLocaleDateString("en-US")} → ${sunday.toLocaleDateString("en-US")}`
-    );
+    setReportLabel(`${monday.toLocaleDateString("en-US")} → ${sunday.toLocaleDateString("en-US")}`);
     fetchWeeklyData(monday, sunday);
   };
-  
+
   const handleMonthChange = (e) => {
     const value = e.target.value;
-      if (!value) return;
-  
-      const [year, month] = value.split("-").map(Number);
-      setMonthYear(value);
-      setReportLabel(
-        `${new Date(year, month - 1, 1).toLocaleDateString("en-US", {
-          month: "long",
-          year: "numeric",
-        })}`
-      );
-      fetchMonthlyData(year, month);
+    if (!value) return;
+
+    const [year, month] = value.split("-").map(Number);
+    setMonthYear(value);
+    setReportLabel(
+      `${new Date(year, month - 1, 1).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      })}`,
+    );
+    fetchMonthlyData(year, month);
   };
-  
+
   const handleYearChange = (e) => {
     const selectedYear = parseInt(e.target.value, 10);
-      setYear(selectedYear);
-      setReportLabel(`Year ${selectedYear}`);
-      fetchYearlyData(selectedYear)
+    setYear(selectedYear);
+    setReportLabel(`Year ${selectedYear}`);
+    fetchYearlyData(selectedYear);
   };
-  
+
   // ---- Generate year options ----
-    const generateYearOptions = () => {
-      const currentYear = new Date().getFullYear();
-      const years = [];
-      for (let y = currentYear; y >= currentYear - 10; y--) {
-        years.push(y);
-      }
-      return years;
-    };
-  
-    useEffect(() => {
-      fetchDailyData(selectedDate);
-    }, []);
-  
+  const generateYearOptions = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let y = currentYear; y >= currentYear - 10; y--) {
+      years.push(y);
+    }
+    return years;
+  };
+
+  useEffect(() => {
+    fetchDailyData(selectedDate);
+  }, []);
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
-      <h1 className="text-3xl font-bold text-center mb-6 text-gray-800">
+    <div className="mx-auto max-w-4xl p-4">
+      <h1 className="mb-6 text-center text-3xl font-bold text-gray-800">
         {reportDate} Expenses Report
       </h1>
 
       {/* Date Picker */}
-      <div className="mb-6 flex flex-wrap gap-4 items-end">
-  {/* Day Picker */}
-  <div>
-    <label className="block font-medium mb-1">Day:</label>
-    <input
-      type="date"
-      value={selectedDate}
-      onChange={handleDayChange}
-      className="border rounded p-2"
-    />
-  </div>
+      <div className="mb-6 flex flex-wrap items-end gap-4">
+        {/* Day Picker */}
+        <div>
+          <label className="mb-1 block font-medium">Day:</label>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={handleDayChange}
+            className="rounded border p-2"
+          />
+        </div>
 
-  {/* Week Picker */}
-  <div>
-    <label className="block font-medium mb-1">Week:</label>
-    <input
-      type="week"
-      onChange={handleWeekChange}
-      className="border rounded p-2"
-    />
-  </div>
+        {/* Week Picker */}
+        <div>
+          <label className="mb-1 block font-medium">Week:</label>
+          <input type="week" onChange={handleWeekChange} className="rounded border p-2" />
+        </div>
 
-  {/* Month Picker */}
-  <div>
-    <label className="block font-medium mb-1">Month:</label>
-    <input
-      type="month"
-      value={monthYear}
-      onChange={handleMonthChange}
-      className="border rounded p-2"
-    />
-  </div>
+        {/* Month Picker */}
+        <div>
+          <label className="mb-1 block font-medium">Month:</label>
+          <input
+            type="month"
+            value={monthYear}
+            onChange={handleMonthChange}
+            className="rounded border p-2"
+          />
+        </div>
 
-  {/* Year Picker */}
-  <div>
-    <label className="block font-medium mb-1">Year:</label>
-    <select
-      
-      onChange={handleYearChange}
-      className="border rounded p-2"
-    >
-
-      <option value="" disabled selected>
-      Select Year
-    </option>
-      {generateYearOptions().map((y) => (
-        <option key={y} value={y}>
-          {y}
-        </option>
-      ))}
-    </select>
-  </div>
-</div>
+        {/* Year Picker */}
+        <div>
+          <label className="mb-1 block font-medium">Year:</label>
+          <select onChange={handleYearChange} className="rounded border p-2">
+            <option value="" disabled selected>
+              Select Year
+            </option>
+            {generateYearOptions().map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       {/* Summary */}
-      <section className="bg-white shadow-md rounded-lg p-4 mb-6 w-full max-w-4xl">
-        <h2 className="text-xl font-semibold text-blue-700 mb-2">Summary</h2>
+      <section className="mb-6 w-full max-w-4xl rounded-lg bg-white p-4 shadow-md">
+        <h2 className="mb-2 text-xl font-semibold text-blue-700">Summary</h2>
         <p>
-          <span className="font-medium">Total Expenses:</span>{" "}
-          {totalExpenses.toLocaleString()} UGX
+          <span className="font-medium">Total Expenses:</span> {totalExpenses.toLocaleString()} UGX
         </p>
       </section>
 
       {/* Expenses Table */}
-      <section className="bg-white shadow-md rounded-lg p-4 mb-6">
-        <h2 className="text-xl font-semibold text-blue-700 mb-4">Expenses List</h2>
+      <section className="mb-6 rounded-lg bg-white p-4 shadow-md">
+        <h2 className="mb-4 text-xl font-semibold text-blue-700">Expenses List</h2>
         {expenses.length === 0 ? (
           <p className="text-center text-gray-600">No expenses recorded yet</p>
         ) : (
@@ -264,18 +243,16 @@ const OwnerExpensesReport = () => {
                     <td className="p-2">{exp.name}</td>
                     <td className="p-2">{parseInt(exp.amount, 10).toLocaleString()}</td>
                     <td className="p-2">{exp.description}</td>
-                    <td className="p-2">
-                      {formatEAT(exp.created_at)}
-                    </td>
-                    <td className="p-2 space-x-1">
+                    <td className="p-2">{formatEAT(exp.created_at)}</td>
+                    <td className="space-x-1 p-2">
                       <button
-                        className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded"
+                        className="rounded bg-blue-500 px-2 py-1 text-white hover:bg-blue-600"
                         onClick={() => handleEditClick(exp.id)}
                       >
                         Edit
                       </button>
                       <button
-                        className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded"
+                        className="rounded bg-red-500 px-2 py-1 text-white hover:bg-red-600"
                         onClick={() => handleDelete(exp.id)}
                       >
                         Delete

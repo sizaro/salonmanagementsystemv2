@@ -2,19 +2,13 @@ import React, { useState, useEffect } from "react";
 import { useData } from "../../context/DataContext.jsx";
 
 const ManagerExpensesYearlyReport = () => {
-  const {
-    expenses,
-    fetchYearlyData,
-  } = useData();
+  const { expenses, fetchYearlyData } = useData();
 
   const [year, setYear] = useState(new Date().getFullYear()); // default to current year
   const [reportLabel, setReportLabel] = useState("");
 
   // ---- Calculate total expenses ----
-  const totalExpenses = expenses.reduce(
-    (sum, e) => sum + (parseInt(e.amount, 10) || 0),
-    0
-  );
+  const totalExpenses = expenses.reduce((sum, e) => sum + (parseInt(e.amount, 10) || 0), 0);
 
   // ---- Format UTC date strings to EAT ----
   const formatEAT = (dateString) => {
@@ -54,19 +48,13 @@ const ManagerExpensesYearlyReport = () => {
   }, []);
 
   return (
-    <div className="income-page max-w-6xl mx-auto p-4 overflow-y-hidden">
-      <h1 className="text-3xl font-bold text-center mb-6 text-gray-800">
-        Yearly Expenses Report
-      </h1>
+    <div className="income-page mx-auto max-w-6xl overflow-y-hidden p-4">
+      <h1 className="mb-6 text-center text-3xl font-bold text-gray-800">Yearly Expenses Report</h1>
 
       {/* Year Picker */}
       <div className="mb-4">
-        <label className="block mb-2 font-medium">Pick a year:</label>
-        <select
-          value={year}
-          onChange={handleYearChange}
-          className="border rounded p-2"
-        >
+        <label className="mb-2 block font-medium">Pick a year:</label>
+        <select value={year} onChange={handleYearChange} className="rounded border p-2">
           {generateYearOptions().map((y) => (
             <option key={y} value={y}>
               {y}
@@ -77,22 +65,19 @@ const ManagerExpensesYearlyReport = () => {
       </div>
 
       {/* Summary Section */}
-      <section className="bg-white shadow-md rounded-lg p-4 mb-6">
-        <h2 className="text-xl font-semibold text-blue-700 mb-2">Summary</h2>
+      <section className="mb-6 rounded-lg bg-white p-4 shadow-md">
+        <h2 className="mb-2 text-xl font-semibold text-blue-700">Summary</h2>
         <p>
-          <span className="font-medium">Total Expenses:</span>{" "}
-          {totalExpenses.toLocaleString()} UGX
+          <span className="font-medium">Total Expenses:</span> {totalExpenses.toLocaleString()} UGX
         </p>
       </section>
 
       {/* Expenses Table */}
-      <section className="bg-white shadow-md rounded-lg p-4">
-        <h2 className="text-xl font-semibold text-blue-700 mb-4">
-          Expenses List
-        </h2>
-        <div className="w-full overflow-x-auto max-h-[60vh] overflow-y-auto border border-gray-300 rounded">
+      <section className="rounded-lg bg-white p-4 shadow-md">
+        <h2 className="mb-4 text-xl font-semibold text-blue-700">Expenses List</h2>
+        <div className="max-h-[60vh] w-full overflow-x-auto overflow-y-auto rounded border border-gray-300">
           <table className="min-w-full border-collapse text-sm">
-            <thead className="bg-blue-700 text-white sticky top-0 z-10">
+            <thead className="sticky top-0 z-10 bg-blue-700 text-white">
               <tr>
                 <th className="px-3 py-2 text-left">No.</th>
                 <th className="px-3 py-2 text-left">Expense Name</th>
@@ -102,10 +87,7 @@ const ManagerExpensesYearlyReport = () => {
             </thead>
             <tbody>
               {expenses.map((exp, index) => (
-                <tr
-                  key={exp.id || index}
-                  className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}
-                >
+                <tr key={exp.id || index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
                   <td className="px-3 py-2">{index + 1}</td>
                   <td className="px-3 py-2">{exp.name}</td>
                   <td className="px-3 py-2">{parseInt(exp.amount, 10).toLocaleString()}</td>

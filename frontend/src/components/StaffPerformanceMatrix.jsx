@@ -19,12 +19,9 @@ const toClockDateTime = (clock, type) => {
 
   if (!date || !time) return null;
 
-  const parsed = DateTime.fromISO(
-    `${String(date).slice(0, 10)}T${String(time)}`,
-    {
-      zone: TIMEZONE,
-    },
-  );
+  const parsed = DateTime.fromISO(`${String(date).slice(0, 10)}T${String(time)}`, {
+    zone: TIMEZONE,
+  });
 
   return parsed.isValid ? parsed : null;
 };
@@ -44,8 +41,7 @@ const formatHours = (minutes) => {
 const formatMoney = (value) => Number(value || 0).toLocaleString();
 
 const getEmployeeName = (employee) =>
-  `${employee.first_name || ""} ${employee.last_name || ""}`.trim() ||
-  "Unnamed staff";
+  `${employee.first_name || ""} ${employee.last_name || ""}`.trim() || "Unnamed staff";
 
 const getGender = (employee) =>
   String(employee.gender || "")
@@ -54,10 +50,7 @@ const getGender = (employee) =>
 
 const getServiceDefinitionId = (service) =>
   String(
-    service.service_definition_id ??
-      service.definition_id ??
-      service.service_name ??
-      "unknown",
+    service.service_definition_id ?? service.definition_id ?? service.service_name ?? "unknown",
   );
 
 const getServiceLabel = (service) =>
@@ -104,9 +97,7 @@ const StaffPerformanceMatrix = ({
       const employeeId = Number(employee.id);
 
       const empServices = (services || []).filter((service) =>
-        service.performers?.some(
-          (performer) => Number(performer.employee_id) === employeeId,
-        ),
+        service.performers?.some((performer) => Number(performer.employee_id) === employeeId),
       );
 
       const serviceCounts = empServices.reduce((acc, service) => {
@@ -118,16 +109,13 @@ const StaffPerformanceMatrix = ({
       }, {});
 
       const totalSalary = empServices.reduce((sum, service) => {
-        const employeeRoleAmount = (service.performers || []).reduce(
-          (roleSum, performer) => {
-            if (Number(performer.employee_id) === employeeId) {
-              return roleSum + Number(performer.role_amount || 0);
-            }
+        const employeeRoleAmount = (service.performers || []).reduce((roleSum, performer) => {
+          if (Number(performer.employee_id) === employeeId) {
+            return roleSum + Number(performer.role_amount || 0);
+          }
 
-            return roleSum;
-          },
-          0,
-        );
+          return roleSum;
+        }, 0);
 
         return sum + employeeRoleAmount;
       }, 0);
@@ -153,14 +141,10 @@ const StaffPerformanceMatrix = ({
         .filter((clock) => clock.clockIn)
         .sort((a, b) => a.clockIn.toMillis() - b.clockIn.toMillis());
 
-      const completedClockings = employeeClockings.filter(
-        (clock) => clock.clockOut,
-      );
+      const completedClockings = employeeClockings.filter((clock) => clock.clockOut);
 
       const totalMinutes = completedClockings.reduce(
-        (sum, clock) =>
-          sum +
-          Math.max(0, clock.clockOut.diff(clock.clockIn, "minutes").minutes),
+        (sum, clock) => sum + Math.max(0, clock.clockOut.diff(clock.clockIn, "minutes").minutes),
         0,
       );
 
@@ -170,8 +154,7 @@ const StaffPerformanceMatrix = ({
 
       const totalHours = formatHours(totalMinutes);
 
-      const netSalary =
-        totalSalary - totalAdvances - totalTagFees - totalLateFees;
+      const netSalary = totalSalary - totalAdvances - totalTagFees - totalLateFees;
 
       /*
        * Prefer a unique customer count when the data contains
@@ -183,10 +166,7 @@ const StaffPerformanceMatrix = ({
       const customerIds = empServices
         .map((service) => service.customer_id ?? service.customerId ?? null)
         .filter(
-          (customerId) =>
-            customerId !== null &&
-            customerId !== undefined &&
-            customerId !== "",
+          (customerId) => customerId !== null && customerId !== undefined && customerId !== "",
         )
         .map(Number)
         .filter(Number.isFinite);
@@ -197,10 +177,8 @@ const StaffPerformanceMatrix = ({
 
       const totalClients = hasCustomerIds
         ? uniqueCustomerCount +
-          empServices.filter(
-            (service) =>
-              service.customer_id == null && service.customerId == null,
-          ).length
+          empServices.filter((service) => service.customer_id == null && service.customerId == null)
+            .length
         : empServices.length;
 
       return {
@@ -271,8 +249,7 @@ const StaffPerformanceMatrix = ({
           getServiceDefinitionId(service) === definition.id &&
           (service.performers || []).some((performer) =>
             visibleEmployees.some(
-              (employee) =>
-                Number(employee.id) === Number(performer.employee_id),
+              (employee) => Number(employee.id) === Number(performer.employee_id),
             ),
           ),
       ).length;
@@ -282,25 +259,13 @@ const StaffPerformanceMatrix = ({
   }, [metricDefinitions, services, visibleEmployees]);
 
   const totals = useMemo(() => {
-    const totalClients = employeeStats.reduce(
-      (sum, employee) => sum + employee.totalClients,
-      0,
-    );
+    const totalClients = employeeStats.reduce((sum, employee) => sum + employee.totalClients, 0);
 
-    const totalSalary = employeeStats.reduce(
-      (sum, employee) => sum + employee.totalSalary,
-      0,
-    );
+    const totalSalary = employeeStats.reduce((sum, employee) => sum + employee.totalSalary, 0);
 
-    const totalAdvances = employeeStats.reduce(
-      (sum, employee) => sum + employee.totalAdvances,
-      0,
-    );
+    const totalAdvances = employeeStats.reduce((sum, employee) => sum + employee.totalAdvances, 0);
 
-    const totalNetSalary = employeeStats.reduce(
-      (sum, employee) => sum + employee.netSalary,
-      0,
-    );
+    const totalNetSalary = employeeStats.reduce((sum, employee) => sum + employee.netSalary, 0);
 
     const totalServices = metricDefinitions.reduce(
       (sum, definition) => sum + Number(serviceTotals[definition.id] || 0),
@@ -323,13 +288,9 @@ const StaffPerformanceMatrix = ({
           👥
         </div>
 
-        <h3 className="mt-4 text-lg font-bold text-slate-800">
-          No staff available
-        </h3>
+        <h3 className="mt-4 text-lg font-bold text-slate-800">No staff available</h3>
 
-        <p className="mt-1 text-sm text-slate-500">
-          No staff are available for this report yet.
-        </p>
+        <p className="mt-1 text-sm text-slate-500">No staff are available for this report yet.</p>
       </div>
     );
   }
@@ -342,21 +303,17 @@ const StaffPerformanceMatrix = ({
       <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-900 px-5 py-6 text-white sm:px-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="mb-2 inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-indigo-100">
+            <div className="mb-2 inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-semibold tracking-[0.16em] text-indigo-100 uppercase">
               Performance overview
             </div>
 
             <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
 
-            <p className="mt-1 text-sm text-slate-300">
-              {periodLabel || "Current period"}
-            </p>
+            <p className="mt-1 text-sm text-slate-300">{periodLabel || "Current period"}</p>
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-center backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-              Staff
-            </p>
+            <p className="text-xs font-semibold tracking-wider text-slate-300 uppercase">Staff</p>
 
             <p className="mt-1 text-3xl font-bold">{visibleEmployees.length}</p>
           </div>
@@ -367,14 +324,14 @@ const StaffPerformanceMatrix = ({
       ========================================================== */}
         <section className="bg-slate-900 px-5 py-6">
           <div className="mx-auto flex max-w-xl flex-col items-center text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+            <p className="text-xs font-bold tracking-[0.18em] text-slate-400 uppercase">
               View staff by gender
             </p>
 
             <select
               value={genderFilter}
               onChange={(event) => setGenderFilter(event.target.value)}
-              className="mt-3 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/30"
+              className="mt-3 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-bold text-white transition outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/30"
             >
               <option value="all">All Staff</option>
 
@@ -384,9 +341,8 @@ const StaffPerformanceMatrix = ({
             </select>
 
             <p className="mt-3 text-xs text-slate-400">
-              Selecting a gender filters the service, salary and client views
-              above. Clocking and attendance remain represented once in the
-              report.
+              Selecting a gender filters the service, salary and client views above. Clocking and
+              attendance remain represented once in the report.
             </p>
           </div>
         </section>
@@ -398,9 +354,7 @@ const StaffPerformanceMatrix = ({
       <section className="border-b border-slate-200">
         <div className="flex flex-col gap-3 border-b border-indigo-100 bg-indigo-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-lg font-bold text-indigo-950">
-              Service Performance
-            </h3>
+            <h3 className="text-lg font-bold text-indigo-950">Service Performance</h3>
 
             <p className="mt-0.5 text-sm text-indigo-700/80">
               Services performed by each staff member
@@ -408,21 +362,19 @@ const StaffPerformanceMatrix = ({
           </div>
 
           <div className="rounded-xl bg-white px-4 py-2 text-right shadow-sm ring-1 ring-indigo-100">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-indigo-500">
+            <p className="text-[10px] font-bold tracking-[0.16em] text-indigo-500 uppercase">
               Total services
             </p>
 
-            <p className="text-2xl font-black text-indigo-700">
-              {totals.totalServices}
-            </p>
+            <p className="text-2xl font-black text-indigo-700">{totals.totalServices}</p>
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-[1100px] w-full border-collapse text-sm">
+          <table className="w-full min-w-[1100px] border-collapse text-sm">
             <thead>
               <tr className="bg-slate-100 text-left">
-                <th className="sticky left-0 z-20 border-b border-r border-slate-200 bg-slate-100 px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-600">
+                <th className="sticky left-0 z-20 border-r border-b border-slate-200 bg-slate-100 px-4 py-4 text-xs font-bold tracking-wider text-slate-600 uppercase">
                   Service
                 </th>
 
@@ -438,7 +390,7 @@ const StaffPerformanceMatrix = ({
                         {employee.name}
                       </div>
 
-                      <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      <div className="mt-1 text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
                         Staff
                       </div>
                     </div>
@@ -446,7 +398,7 @@ const StaffPerformanceMatrix = ({
                 ))}
 
                 <th className="border-b border-slate-200 bg-indigo-100 px-4 py-4 text-center">
-                  <div className="text-xs font-black uppercase tracking-wider text-indigo-700">
+                  <div className="text-xs font-black tracking-wider text-indigo-700 uppercase">
                     Total
                   </div>
                 </th>
@@ -460,11 +412,9 @@ const StaffPerformanceMatrix = ({
                 return (
                   <tr
                     key={definition.id}
-                    className={
-                      rowIndex % 2 === 0 ? "bg-white" : "bg-slate-50/70"
-                    }
+                    className={rowIndex % 2 === 0 ? "bg-white" : "bg-slate-50/70"}
                   >
-                    <td className="sticky left-0 z-10 border-b border-r border-slate-100 bg-inherit px-4 py-4 font-semibold text-slate-800">
+                    <td className="sticky left-0 z-10 border-r border-b border-slate-100 bg-inherit px-4 py-4 font-semibold text-slate-800">
                       {definition.label}
                     </td>
 
@@ -478,9 +428,7 @@ const StaffPerformanceMatrix = ({
                         >
                           <span
                             className={`inline-flex min-w-10 items-center justify-center rounded-xl px-2.5 py-1.5 text-base font-black ${
-                              count > 0
-                                ? "bg-indigo-100 text-indigo-700"
-                                : "text-slate-300"
+                              count > 0 ? "bg-indigo-100 text-indigo-700" : "text-slate-300"
                             }`}
                           >
                             {count}
@@ -499,25 +447,18 @@ const StaffPerformanceMatrix = ({
               })}
 
               <tr className="bg-slate-900">
-                <td className="sticky left-0 z-10 border-r border-slate-700 bg-slate-900 px-4 py-4 text-xs font-black uppercase tracking-wider text-white">
+                <td className="sticky left-0 z-10 border-r border-slate-700 bg-slate-900 px-4 py-4 text-xs font-black tracking-wider text-white uppercase">
                   Total Services
                 </td>
 
                 {employeeStats.map((employee) => (
-                  <td
-                    key={`${employee.id}-services-total`}
-                    className="px-4 py-4 text-center"
-                  >
-                    <span className="text-xl font-black text-white">
-                      {employee.totalServices}
-                    </span>
+                  <td key={`${employee.id}-services-total`} className="px-4 py-4 text-center">
+                    <span className="text-xl font-black text-white">{employee.totalServices}</span>
                   </td>
                 ))}
 
                 <td className="bg-indigo-600 px-4 py-4 text-center">
-                  <span className="text-xl font-black text-white">
-                    {totals.totalServices}
-                  </span>
+                  <span className="text-xl font-black text-white">{totals.totalServices}</span>
                 </td>
               </tr>
 
@@ -565,10 +506,7 @@ const StaffPerformanceMatrix = ({
                 </td>
 
                 {employeeStats.map((employee) => (
-                  <td
-                    key={`${employee.id}-net`}
-                    className="px-4 py-4 text-center"
-                  >
+                  <td key={`${employee.id}-net`} className="px-4 py-4 text-center">
                     <span className="text-base font-black text-emerald-800">
                       {formatMoney(employee.netSalary)} UGX
                     </span>
@@ -591,43 +529,31 @@ const StaffPerformanceMatrix = ({
       ========================================================== */}
       <section className="grid gap-4 border-b border-slate-200 bg-slate-50 p-5 sm:grid-cols-3">
         <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-indigo-500">
+          <p className="text-xs font-bold tracking-wider text-indigo-500 uppercase">
             Total services
           </p>
 
-          <p className="mt-2 text-3xl font-black text-indigo-800">
-            {totals.totalServices}
-          </p>
+          <p className="mt-2 text-3xl font-black text-indigo-800">{totals.totalServices}</p>
 
           <p className="mt-1 text-xs text-indigo-600">Across selected staff</p>
         </div>
 
         <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-sky-500">
-            Staff clients
-          </p>
+          <p className="text-xs font-bold tracking-wider text-sky-500 uppercase">Staff clients</p>
 
-          <p className="mt-2 text-3xl font-black text-sky-800">
-            {totals.totalClients}
-          </p>
+          <p className="mt-2 text-3xl font-black text-sky-800">{totals.totalClients}</p>
 
-          <p className="mt-1 text-xs text-sky-600">
-            Client/service records attributed to staff
-          </p>
+          <p className="mt-1 text-xs text-sky-600">Client/service records attributed to staff</p>
         </div>
 
         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-emerald-500">
-            Net salary
-          </p>
+          <p className="text-xs font-bold tracking-wider text-emerald-500 uppercase">Net salary</p>
 
           <p className="mt-2 text-3xl font-black text-emerald-800">
             {formatMoney(totals.totalNetSalary)} UGX
           </p>
 
-          <p className="mt-1 text-xs text-emerald-600">
-            After advances and applicable fees
-          </p>
+          <p className="mt-1 text-xs text-emerald-600">After advances and applicable fees</p>
         </div>
       </section>
 
@@ -636,9 +562,7 @@ const StaffPerformanceMatrix = ({
       ========================================================== */}
       <section className="border-b border-slate-200">
         <div className="border-b border-blue-100 bg-blue-50 px-5 py-4">
-          <h3 className="text-lg font-bold text-blue-950">
-            Clock In / Clock Out
-          </h3>
+          <h3 className="text-lg font-bold text-blue-950">Clock In / Clock Out</h3>
 
           <p className="mt-0.5 text-sm text-blue-700/80">
             Attendance times for the selected period
@@ -653,29 +577,23 @@ const StaffPerformanceMatrix = ({
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate font-bold text-slate-800">
-                    {employee.name}
-                  </p>
+                  <p className="truncate font-bold text-slate-800">{employee.name}</p>
 
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  <p className="mt-1 text-xs font-semibold tracking-wider text-slate-400 uppercase">
                     Attendance
                   </p>
                 </div>
 
                 <div className="rounded-xl bg-blue-50 px-3 py-2 text-center">
-                  <p className="text-[10px] font-bold uppercase text-blue-500">
-                    Hours
-                  </p>
+                  <p className="text-[10px] font-bold text-blue-500 uppercase">Hours</p>
 
-                  <p className="text-sm font-black text-blue-800">
-                    {employee.totalHours}
-                  </p>
+                  <p className="text-sm font-black text-blue-800">{employee.totalHours}</p>
                 </div>
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <div className="rounded-xl bg-emerald-50 p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">
+                  <p className="text-[10px] font-bold tracking-wider text-emerald-500 uppercase">
                     Clock in
                   </p>
 
@@ -685,7 +603,7 @@ const StaffPerformanceMatrix = ({
                 </div>
 
                 <div className="rounded-xl bg-rose-50 p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-rose-500">
+                  <p className="text-[10px] font-bold tracking-wider text-rose-500 uppercase">
                     Clock out
                   </p>
 
@@ -704,13 +622,9 @@ const StaffPerformanceMatrix = ({
       ========================================================== */}
       <section className="border-b border-slate-200">
         <div className="border-b border-violet-100 bg-violet-50 px-5 py-4">
-          <h3 className="text-lg font-bold text-violet-950">
-            Attendance Summary
-          </h3>
+          <h3 className="text-lg font-bold text-violet-950">Attendance Summary</h3>
 
-          <p className="mt-0.5 text-sm text-violet-700/80">
-            Total recorded working time
-          </p>
+          <p className="mt-0.5 text-sm text-violet-700/80">Total recorded working time</p>
         </div>
 
         <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -720,18 +634,14 @@ const StaffPerformanceMatrix = ({
               className="rounded-2xl border border-violet-100 bg-white p-4 shadow-sm"
             >
               <div className="flex items-center justify-between gap-3">
-                <p className="truncate font-semibold text-slate-700">
-                  {employee.name}
-                </p>
+                <p className="truncate font-semibold text-slate-700">{employee.name}</p>
 
                 <span className="rounded-lg bg-violet-100 px-2 py-1 text-xs font-bold text-violet-700">
                   Hours
                 </span>
               </div>
 
-              <p className="mt-3 text-3xl font-black text-violet-800">
-                {employee.totalHours}
-              </p>
+              <p className="mt-3 text-3xl font-black text-violet-800">{employee.totalHours}</p>
             </div>
           ))}
         </div>
@@ -763,17 +673,12 @@ const StaffPerformanceMatrix = ({
             const color = cardColors[index % cardColors.length];
 
             return (
-              <div
-                key={employee.id}
-                className={`rounded-3xl border p-5 shadow-sm ${color}`}
-              >
+              <div key={employee.id} className={`rounded-3xl border p-5 shadow-sm ${color}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-base font-black">
-                      {employee.name}
-                    </p>
+                    <p className="truncate text-base font-black">{employee.name}</p>
 
-                    <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] opacity-60">
+                    <p className="mt-1 text-[10px] font-bold tracking-[0.16em] uppercase opacity-60">
                       Clients served
                     </p>
                   </div>
@@ -783,9 +688,7 @@ const StaffPerformanceMatrix = ({
                   </div>
                 </div>
 
-                <p className="mt-5 text-5xl font-black tracking-tight">
-                  {employee.totalClients}
-                </p>
+                <p className="mt-5 text-5xl font-black tracking-tight">{employee.totalClients}</p>
 
                 <p className="mt-2 text-xs font-semibold opacity-70">
                   {employee.totalServices} service

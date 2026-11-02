@@ -73,11 +73,7 @@ export default function AddPastService({
       performers: [],
     }));
 
-    setServices(
-      (Services || []).filter(
-        (service) => Number(service.section_id) === Number(id),
-      ),
-    );
+    setServices((Services || []).filter((service) => Number(service.section_id) === Number(id)));
 
     setRoles([]);
     setServiceAmount("");
@@ -135,9 +131,7 @@ export default function AddPastService({
 
     setRoles(matchingRoles);
 
-    setServiceAmount(
-      Number(serviceObj?.service_amount || serviceObj?.full_amount || 0),
-    );
+    setServiceAmount(Number(serviceObj?.service_amount || serviceObj?.full_amount || 0));
 
     setSubmitError("");
   };
@@ -187,9 +181,7 @@ export default function AddPastService({
     }
 
     if (!form.service_date || !form.service_time) {
-      setSubmitError(
-        "Select the date and time when the service was performed.",
-      );
+      setSubmitError("Select the date and time when the service was performed.");
       return;
     }
 
@@ -207,9 +199,7 @@ export default function AddPastService({
       if (isSalon) return false;
 
       return !form.performers.find(
-        (performer) =>
-          Number(performer.role_id) === Number(role.id) &&
-          performer.employee_id,
+        (performer) => Number(performer.role_id) === Number(role.id) && performer.employee_id,
       );
     });
 
@@ -247,8 +237,7 @@ export default function AddPastService({
       performers: form.performers.map((performer) => ({
         role_id: performer.role_id,
 
-        employee_id:
-          performer.employee_id === "" ? null : performer.employee_id,
+        employee_id: performer.employee_id === "" ? null : performer.employee_id,
 
         earned_amount: performer.earned_amount,
       })),
@@ -312,7 +301,7 @@ export default function AddPastService({
       <div className="border-b border-stone-100 px-1 pb-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--salon-copper)]">
+            <p className="text-xs font-semibold tracking-[0.18em] text-[var(--salon-copper)] uppercase">
               Historical service
             </p>
 
@@ -321,9 +310,8 @@ export default function AddPastService({
             </h2>
 
             <p className="mt-1 max-w-xl text-sm leading-6 text-stone-500">
-              Record a service that was performed earlier, assign the
-              professionals who handled it, and enter the original service date
-              and time.
+              Record a service that was performed earlier, assign the professionals who handled it,
+              and enter the original service date and time.
             </p>
           </div>
 
@@ -340,13 +328,11 @@ export default function AddPastService({
 
         <section className="rounded-2xl border border-stone-200 bg-stone-50/50 p-4 sm:p-5">
           <div className="mb-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+            <p className="text-xs font-semibold tracking-[0.16em] text-stone-400 uppercase">
               Step 1
             </p>
 
-            <h3 className="mt-1 text-base font-semibold text-stone-900">
-              Service Details
-            </h3>
+            <h3 className="mt-1 text-base font-semibold text-stone-900">Service Details</h3>
 
             <p className="mt-1 text-sm text-stone-500">
               Choose the salon section and the service that was performed.
@@ -362,9 +348,7 @@ export default function AddPastService({
               <select
                 required
                 value={form.section_id}
-                onChange={(event) =>
-                  handleSectionSelect(Number(event.target.value))
-                }
+                onChange={(event) => handleSectionSelect(Number(event.target.value))}
                 className={fieldClass}
               >
                 <option value="">Select section</option>
@@ -412,9 +396,7 @@ export default function AddPastService({
             <div className="mt-4 rounded-xl border border-stone-200 bg-white p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-stone-400">
-                    Selected service
-                  </p>
+                  <p className="text-xs tracking-wide text-stone-400 uppercase">Selected service</p>
 
                   <p className="mt-1 font-semibold text-stone-900">
                     {selectedService.service_name}
@@ -440,13 +422,11 @@ export default function AddPastService({
         {roles.length > 0 && (
           <section className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
             <div className="mb-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+              <p className="text-xs font-semibold tracking-[0.16em] text-stone-400 uppercase">
                 Step 2
               </p>
 
-              <h3 className="mt-1 text-base font-semibold text-stone-900">
-                Assign Professionals
-              </h3>
+              <h3 className="mt-1 text-base font-semibold text-stone-900">Assign Professionals</h3>
 
               <p className="mt-1 text-sm text-stone-500">
                 Select the employee who performed each role for this service.
@@ -488,9 +468,7 @@ export default function AddPastService({
                     <select
                       required
                       value={performer?.employee_id || ""}
-                      onChange={(event) =>
-                        updatePerformer(role.id, event.target.value)
-                      }
+                      onChange={(event) => updatePerformer(role.id, event.target.value)}
                       className={fieldClass}
                     >
                       <option value="">Select employee</option>
@@ -514,13 +492,11 @@ export default function AddPastService({
 
         <section className="rounded-2xl border border-stone-200 bg-stone-50/50 p-4 sm:p-5">
           <div className="mb-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+            <p className="text-xs font-semibold tracking-[0.16em] text-stone-400 uppercase">
               Step 3
             </p>
 
-            <h3 className="mt-1 text-base font-semibold text-stone-900">
-              When Was It Performed?
-            </h3>
+            <h3 className="mt-1 text-base font-semibold text-stone-900">When Was It Performed?</h3>
 
             <p className="mt-1 text-sm text-stone-500">
               Enter the original date and time for this service.
@@ -573,10 +549,16 @@ export default function AddPastService({
 
           <div className="mt-4">
             <label className={labelClass}>Why is this being recorded late?</label>
-            <textarea required rows={3} value={form.backdate_reason}
-              onChange={(event) => setForm((current) => ({ ...current, backdate_reason: event.target.value }))}
+            <textarea
+              required
+              rows={3}
+              value={form.backdate_reason}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, backdate_reason: event.target.value }))
+              }
               placeholder="Explain why this historical service is being entered now"
-              className={`${fieldClass} resize-none`} />
+              className={`${fieldClass} resize-none`}
+            />
           </div>
         </section>
 
@@ -586,13 +568,11 @@ export default function AddPastService({
 
         <section className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
           <div className="mb-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+            <p className="text-xs font-semibold tracking-[0.16em] text-stone-400 uppercase">
               Additional details
             </p>
 
-            <h3 className="mt-1 text-base font-semibold text-stone-900">
-              Service Notes
-            </h3>
+            <h3 className="mt-1 text-base font-semibold text-stone-900">Service Notes</h3>
           </div>
 
           <label className={labelClass}>Additional Information</label>
@@ -612,7 +592,7 @@ export default function AddPastService({
 
         {form.service_definition_id && (
           <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
+            <p className="text-xs font-semibold tracking-[0.16em] text-emerald-700 uppercase">
               Record Summary
             </p>
 
@@ -641,13 +621,8 @@ export default function AddPastService({
         ================================================== */}
 
         {submitError && (
-          <div
-            role="alert"
-            className="rounded-xl border border-red-200 bg-red-50 p-4"
-          >
-            <p className="text-sm font-semibold text-red-800">
-              Unable to save service
-            </p>
+          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4">
+            <p className="text-sm font-semibold text-red-800">Unable to save service</p>
 
             <p className="mt-1 text-sm text-red-700">{submitError}</p>
           </div>
@@ -664,24 +639,7 @@ export default function AddPastService({
                 type="button"
                 onClick={onClose}
                 disabled={submitting}
-                className="
-                  inline-flex
-                  items-center
-                  justify-center
-                  rounded-xl
-                  border
-                  border-stone-200
-                  bg-white
-                  px-5
-                  py-2.5
-                  text-sm
-                  font-semibold
-                  text-stone-700
-                  transition
-                  hover:bg-stone-50
-                  disabled:cursor-not-allowed
-                  disabled:opacity-50
-                "
+                className="inline-flex items-center justify-center rounded-xl border border-stone-200 bg-white px-5 py-2.5 text-sm font-semibold text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -690,28 +648,7 @@ export default function AddPastService({
             <button
               type="submit"
               disabled={submitting}
-              className="
-                inline-flex
-                min-w-44
-                items-center
-                justify-center
-                rounded-xl
-                bg-[var(--salon-copper)]
-                px-6
-                py-2.5
-                text-sm
-                font-semibold
-                text-white
-                shadow-sm
-                transition
-                hover:opacity-90
-                focus:outline-none
-                focus:ring-2
-                focus:ring-[var(--salon-copper)]
-                focus:ring-offset-2
-                disabled:cursor-not-allowed
-                disabled:opacity-60
-              "
+              className="inline-flex min-w-44 items-center justify-center rounded-xl bg-[var(--salon-copper)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 focus:ring-2 focus:ring-[var(--salon-copper)] focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? "Saving..." : "Save Past Service"}
             </button>

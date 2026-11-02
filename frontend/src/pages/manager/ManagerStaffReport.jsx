@@ -32,14 +32,14 @@ export default function ManagerStaffReport() {
   // Only employees/managers
   const filteredUsers = useMemo(
     () => users.filter((u) => u.role === "employee" || u.role === "manager"),
-    [users]
+    [users],
   );
 
   // Map services with materials
   const servicesWithMaterials = useMemo(() => {
     return services.map((service) => {
       const matchedMaterials = serviceMaterials.filter(
-        (m) => m.service_definition_id === service.service_definition_id
+        (m) => m.service_definition_id === service.service_definition_id,
       );
       return {
         ...service,
@@ -54,7 +54,7 @@ export default function ManagerStaffReport() {
   const employeeTotals = useMemo(() => {
     return filteredUsers.map((user) => {
       const empServices = servicesWithMaterials.filter((s) =>
-        s.performers?.some((p) => p.employee_id === user.id)
+        s.performers?.some((p) => p.employee_id === user.id),
       );
 
       // SALARY
@@ -87,9 +87,7 @@ export default function ManagerStaffReport() {
       const clockOut = clockings.find((c) => c.employee_id === user.id)?.clock_out || null;
 
       const totalHours =
-        clockIn && clockOut
-          ? ((new Date(clockOut) - new Date(clockIn)) / 36e5).toFixed(2)
-          : "-";
+        clockIn && clockOut ? ((new Date(clockOut) - new Date(clockIn)) / 36e5).toFixed(2) : "-";
 
       const netSalary = totalSalary - totalAdvances - totalTagFees - totalLateFees;
 
@@ -112,14 +110,7 @@ export default function ManagerStaffReport() {
         clientsCount,
       };
     });
-  }, [
-    filteredUsers,
-    servicesWithMaterials,
-    advances,
-    tagFees,
-    lateFees,
-    clockings,
-  ]);
+  }, [filteredUsers, servicesWithMaterials, advances, tagFees, lateFees, clockings]);
 
   // -------------------------
   // HANDLERS
@@ -148,11 +139,7 @@ export default function ManagerStaffReport() {
     sunday.setDate(monday.getDate() + 6);
 
     setWeek({ start: monday, end: sunday });
-    setReportLabel(
-      `${monday.toLocaleDateString("en-US")} → ${sunday.toLocaleDateString(
-        "en-US"
-      )}`
-    );
+    setReportLabel(`${monday.toLocaleDateString("en-US")} → ${sunday.toLocaleDateString("en-US")}`);
 
     fetchWeeklyData(monday, sunday);
     fetchUsers();
@@ -168,7 +155,7 @@ export default function ManagerStaffReport() {
       `${new Date(year, month - 1, 1).toLocaleDateString("en-US", {
         month: "long",
         year: "numeric",
-      })}`
+      })}`,
     );
 
     fetchMonthlyData(year, month);
@@ -201,41 +188,41 @@ export default function ManagerStaffReport() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-6">Employees Report</h1>
+      <h1 className="mb-6 text-2xl font-semibold">Employees Report</h1>
 
       {/* PERIOD PICKERS */}
-      <div className="mb-6 flex flex-wrap gap-4 items-end">
+      <div className="mb-6 flex flex-wrap items-end gap-4">
         <div>
-          <label className="block font-medium mb-1">Day:</label>
+          <label className="mb-1 block font-medium">Day:</label>
           <input
             type="date"
             value={selectedDate}
             onChange={handleDayChange}
-            className="border rounded p-2"
+            className="rounded border p-2"
           />
         </div>
 
         <div>
-          <label className="block font-medium mb-1">Week:</label>
-          <input type="week" onChange={handleWeekChange} className="border rounded p-2" />
+          <label className="mb-1 block font-medium">Week:</label>
+          <input type="week" onChange={handleWeekChange} className="rounded border p-2" />
         </div>
 
         <div>
-          <label className="block font-medium mb-1">Month:</label>
+          <label className="mb-1 block font-medium">Month:</label>
           <input
             type="month"
             value={monthYear}
             onChange={handleMonthChange}
-            className="border rounded p-2"
+            className="rounded border p-2"
           />
         </div>
 
         <div>
-          <label className="block font-medium mb-1">Year:</label>
-          <select onChange={handleYearChange} className="border rounded p-2">
+          <label className="mb-1 block font-medium">Year:</label>
+          <select onChange={handleYearChange} className="rounded border p-2">
             <option value="" disabled selected>
-      Select Year
-    </option>
+              Select Year
+            </option>
             {generateYearOptions().map((y) => (
               <option key={y} value={y}>
                 {y}
@@ -268,9 +255,7 @@ export default function ManagerStaffReport() {
             <tr key={idx} className="hover:bg-gray-50">
               <td className="border px-4 py-2">{idx + 1}</td>
               <td className="border px-4 py-2">{emp.name}</td>
-              <td className="border px-4 py-2 text-right font-semibold">
-                {emp.clientsCount}
-              </td>
+              <td className="border px-4 py-2 text-right font-semibold">{emp.clientsCount}</td>
               <td className="border px-4 py-2">
                 {emp.clockIn ? emp.clockIn.toLocaleTimeString() : "-"}
               </td>

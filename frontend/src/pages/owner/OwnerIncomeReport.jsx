@@ -219,21 +219,17 @@ const OwnerIncomeReport = () => {
 
   const servicesWithMaterials = useMemo(() => {
     return completedServices.map((service) => {
-      const existingMaterials = Array.isArray(service.materials)
-        ? service.materials
-        : [];
+      const existingMaterials = Array.isArray(service.materials) ? service.materials : [];
 
       const matchedMaterials = (serviceMaterials || []).filter(
         (material) =>
-          Number(material.service_definition_id) ===
-          Number(service.service_definition_id),
+          Number(material.service_definition_id) === Number(service.service_definition_id),
       );
 
       return {
         ...service,
 
-        materials:
-          existingMaterials.length > 0 ? existingMaterials : matchedMaterials,
+        materials: existingMaterials.length > 0 ? existingMaterials : matchedMaterials,
       };
     });
   }, [completedServices, serviceMaterials]);
@@ -264,8 +260,7 @@ const OwnerIncomeReport = () => {
   // SESSION
   // =======================================================
 
-  const session =
-    Array.isArray(sessions) && sessions.length > 0 ? sessions[0] : null;
+  const session = Array.isArray(sessions) && sessions.length > 0 ? sessions[0] : null;
 
   // =======================================================
   // SERVICE MERGE
@@ -280,9 +275,7 @@ const OwnerIncomeReport = () => {
       section_name: detail?.section_name || summary?.section_name || "",
 
       definition_section_id:
-        detail?.definition_section_id ??
-        summary?.definition_section_id ??
-        summary?.section_id,
+        detail?.definition_section_id ?? summary?.definition_section_id ?? summary?.section_id,
 
       performers:
         Array.isArray(detail?.performers) && detail.performers.length > 0
@@ -319,18 +312,14 @@ const OwnerIncomeReport = () => {
 
     try {
       const summary = servicesWithMaterials.find(
-        (service) =>
-          Number(service.transaction_id ?? service.id) === Number(id),
+        (service) => Number(service.transaction_id ?? service.id) === Number(id),
       );
 
       const detail = await fetchServiceTransactionById(id);
 
       setViewingService(mergeServiceRecord(summary, detail));
     } catch (error) {
-      console.error(
-        "Failed to load service details:",
-        error?.response?.data || error.message,
-      );
+      console.error("Failed to load service details:", error?.response?.data || error.message);
     }
   };
 
@@ -347,52 +336,44 @@ const OwnerIncomeReport = () => {
 
     try {
       const summary = servicesWithMaterials.find(
-        (service) =>
-          Number(service.transaction_id ?? service.id) === Number(id),
+        (service) => Number(service.transaction_id ?? service.id) === Number(id),
       );
 
-      const [
-        detail,
-        loadedSections,
-        loadedDefinitions,
-        loadedRoles,
-        loadedUsers,
-      ] = await Promise.all([
-        fetchServiceTransactionById(id),
+      const [detail, loadedSections, loadedDefinitions, loadedRoles, loadedUsers] =
+        await Promise.all([
+          fetchServiceTransactionById(id),
 
-        fetchSections(),
+          fetchSections(),
 
-        fetchServiceDefinitions(),
+          fetchServiceDefinitions(),
 
-        fetchServiceRoles(),
+          fetchServiceRoles(),
 
-        fetchUsers(),
-      ]);
+          fetchUsers(),
+        ]);
 
-      const employeeOptions = (
-        Array.isArray(loadedUsers) ? loadedUsers : Employees
-      ).filter((user) => {
-        if (!user) {
-          return false;
-        }
+      const employeeOptions = (Array.isArray(loadedUsers) ? loadedUsers : Employees).filter(
+        (user) => {
+          if (!user) {
+            return false;
+          }
 
-        const role = String(user.role || "")
-          .trim()
-          .toLowerCase();
+          const role = String(user.role || "")
+            .trim()
+            .toLowerCase();
 
-        const status = String(user.status || "active")
-          .trim()
-          .toLowerCase();
+          const status = String(user.status || "active")
+            .trim()
+            .toLowerCase();
 
-        return role !== "customer" && status !== "inactive";
-      });
+          return role !== "customer" && status !== "inactive";
+        },
+      );
 
       setEditOptions({
         sections: Array.isArray(loadedSections) ? loadedSections : sections,
 
-        services: Array.isArray(loadedDefinitions)
-          ? loadedDefinitions
-          : serviceDefinitions,
+        services: Array.isArray(loadedDefinitions) ? loadedDefinitions : serviceDefinitions,
 
         roles: Array.isArray(loadedRoles) ? loadedRoles : serviceRoles,
 
@@ -403,10 +384,7 @@ const OwnerIncomeReport = () => {
 
       setShowModal(true);
     } catch (error) {
-      console.error(
-        "Failed to open service editor:",
-        error?.response?.data || error.message,
-      );
+      console.error("Failed to open service editor:", error?.response?.data || error.message);
     }
   };
 
@@ -416,7 +394,6 @@ const OwnerIncomeReport = () => {
 
   const handleEditServiceSubmit = async (id, updatedService) => {
     try {
-
       await updateServiceTransactionById(id, updatedService);
 
       await refreshActiveReport();
@@ -427,10 +404,7 @@ const OwnerIncomeReport = () => {
 
       setEditOptions(null);
     } catch (error) {
-      console.error(
-        "Failed to update service:",
-        error?.response?.data || error.message,
-      );
+      console.error("Failed to update service:", error?.response?.data || error.message);
 
       throw error;
     }
@@ -456,10 +430,7 @@ const OwnerIncomeReport = () => {
 
       await refreshActiveReport();
     } catch (error) {
-      console.error(
-        "Failed to delete service:",
-        error?.response?.data || error.message,
-      );
+      console.error("Failed to delete service:", error?.response?.data || error.message);
     } finally {
       setConfirmModalOpen(false);
 
@@ -540,17 +511,12 @@ const OwnerIncomeReport = () => {
       .toLowerCase();
 
     return servicesWithMaterials.filter((service) => {
-      const serviceSectionId = String(
-        service.definition_section_id ?? service.section_id ?? "",
-      )
+      const serviceSectionId = String(service.definition_section_id ?? service.section_id ?? "")
         .trim()
         .toLowerCase();
 
       const serviceSectionName = String(
-        service.section_name ||
-          service.section?.section_name ||
-          service.section?.name ||
-          "",
+        service.section_name || service.section?.section_name || service.section?.name || "",
       )
         .trim()
         .toLowerCase();
@@ -561,11 +527,7 @@ const OwnerIncomeReport = () => {
       }
 
       // Fall back to exact name comparison.
-      if (
-        sectionName &&
-        serviceSectionName &&
-        sectionName === serviceSectionName
-      ) {
+      if (sectionName && serviceSectionName && sectionName === serviceSectionName) {
         return true;
       }
 
@@ -594,12 +556,7 @@ const OwnerIncomeReport = () => {
       }
 
       const amount =
-        parseFloat(
-          performer.role_amount ??
-            performer.earned_amount ??
-            performer.amount ??
-            0,
-        ) || 0;
+        parseFloat(performer.role_amount ?? performer.earned_amount ?? performer.amount ?? 0) || 0;
 
       return sum + amount;
     }, 0);
@@ -615,8 +572,7 @@ const OwnerIncomeReport = () => {
     }
 
     return service.materials.reduce((sum, material) => {
-      const cost =
-        parseFloat(material.material_cost ?? material.cost ?? 0) || 0;
+      const cost = parseFloat(material.material_cost ?? material.cost ?? 0) || 0;
 
       return sum + cost;
     }, 0);
@@ -628,9 +584,7 @@ const OwnerIncomeReport = () => {
 
   const calculateSectionTotals = (sectionServices) => {
     const gross = sectionServices.reduce(
-      (sum, service) =>
-        sum +
-        (parseFloat(service.full_amount ?? service.service_amount ?? 0) || 0),
+      (sum, service) => sum + (parseFloat(service.full_amount ?? service.service_amount ?? 0) || 0),
       0,
     );
 
@@ -687,21 +641,37 @@ const OwnerIncomeReport = () => {
   // employee-finance ledger. This prevents a raw advance, tag fee, or late
   // fee from silently reducing the salary earned from completed work.
   const fallbackFinancialSummary = useMemo(() => {
-    const serviceRevenue = servicesWithMaterials.reduce((sum, service) => sum + (Number(service.full_amount ?? service.service_amount) || 0), 0);
-    const employeeEarnings = servicesWithMaterials.reduce((sum, service) => sum + serviceEmployeeSalary(service), 0);
-    const configuredMaterialCostEstimate = servicesWithMaterials.reduce((sum, service) => sum + serviceMaterialsTotal(service), 0);
-    const businessExpenses = expenses.reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
+    const serviceRevenue = servicesWithMaterials.reduce(
+      (sum, service) => sum + (Number(service.full_amount ?? service.service_amount) || 0),
+      0,
+    );
+    const employeeEarnings = servicesWithMaterials.reduce(
+      (sum, service) => sum + serviceEmployeeSalary(service),
+      0,
+    );
+    const configuredMaterialCostEstimate = servicesWithMaterials.reduce(
+      (sum, service) => sum + serviceMaterialsTotal(service),
+      0,
+    );
+    const businessExpenses = expenses.reduce(
+      (sum, expense) => sum + (Number(expense.amount) || 0),
+      0,
+    );
     return {
       activity: {
         service_revenue: serviceRevenue,
         employee_earnings: employeeEarnings,
         configured_material_cost_estimate: configuredMaterialCostEstimate,
         business_expenses: businessExpenses,
-        operating_margin: serviceRevenue - employeeEarnings - configuredMaterialCostEstimate - businessExpenses,
+        operating_margin:
+          serviceRevenue - employeeEarnings - configuredMaterialCostEstimate - businessExpenses,
       },
       finance_movements: {
         employee_payments_disbursed: 0,
-        advances_disbursed: advances.reduce((sum, advance) => sum + (Number(advance.amount) || 0), 0),
+        advances_disbursed: advances.reduce(
+          (sum, advance) => sum + (Number(advance.amount) || 0),
+          0,
+        ),
         effective_payroll_deductions: 0,
         cash_advance_repayments: 0,
         advance_waivers: 0,
@@ -720,9 +690,15 @@ const OwnerIncomeReport = () => {
         cash_received_from_services: serviceRevenue,
         cash_advance_repayments: 0,
         cash_paid_to_employees: 0,
-        cash_advances_disbursed: advances.reduce((sum, advance) => sum + (Number(advance.amount) || 0), 0),
+        cash_advances_disbursed: advances.reduce(
+          (sum, advance) => sum + (Number(advance.amount) || 0),
+          0,
+        ),
         cash_business_expenses: businessExpenses,
-        net_cash_movement: serviceRevenue - businessExpenses - advances.reduce((sum, advance) => sum + (Number(advance.amount) || 0), 0),
+        net_cash_movement:
+          serviceRevenue -
+          businessExpenses -
+          advances.reduce((sum, advance) => sum + (Number(advance.amount) || 0), 0),
       },
       closing_balances: { employee_earnings_payable: 0, advances_outstanding: 0 },
     };
@@ -730,10 +706,13 @@ const OwnerIncomeReport = () => {
 
   const reportFinance = financialSummary || fallbackFinancialSummary;
   const activity = reportFinance.activity || fallbackFinancialSummary.activity;
-  const financeMovements = reportFinance.finance_movements || fallbackFinancialSummary.finance_movements;
-  const customerCollections = reportFinance.customer_collections || fallbackFinancialSummary.customer_collections;
+  const financeMovements =
+    reportFinance.finance_movements || fallbackFinancialSummary.finance_movements;
+  const customerCollections =
+    reportFinance.customer_collections || fallbackFinancialSummary.customer_collections;
   const cashPosition = reportFinance.cash_position || fallbackFinancialSummary.cash_position;
-  const closingBalances = reportFinance.closing_balances || fallbackFinancialSummary.closing_balances;
+  const closingBalances =
+    reportFinance.closing_balances || fallbackFinancialSummary.closing_balances;
 
   // =======================================================
   // FORMAT SESSION TIME
@@ -752,7 +731,13 @@ const OwnerIncomeReport = () => {
     if (!moment) {
       return "N/A";
     }
-    return moment.toLocaleString("en-UG", { timeZone: "Africa/Kampala", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" });
+    return moment.toLocaleString("en-UG", {
+      timeZone: "Africa/Kampala",
+      hour: "2-digit",
+      minute: "2-digit",
+      day: "2-digit",
+      month: "short",
+    });
   };
 
   // =======================================================
@@ -791,7 +776,14 @@ const OwnerIncomeReport = () => {
     }
 
     const updateDuration = () => {
-      setLiveDuration(calculateDuration(session.open_date, session.open_time, session.close_date, session.close_time));
+      setLiveDuration(
+        calculateDuration(
+          session.open_date,
+          session.open_time,
+          session.close_date,
+          session.close_time,
+        ),
+      );
     };
 
     updateDuration();
@@ -872,9 +864,7 @@ const OwnerIncomeReport = () => {
 
     setYear("");
 
-    const [selectedYear, selectedWeekNumber] = weekString
-      .split("-W")
-      .map(Number);
+    const [selectedYear, selectedWeekNumber] = weekString.split("-W").map(Number);
 
     const januaryFourth = new Date(Date.UTC(selectedYear, 0, 4));
 
@@ -882,15 +872,11 @@ const OwnerIncomeReport = () => {
 
     const firstWeekMonday = new Date(januaryFourth);
 
-    firstWeekMonday.setUTCDate(
-      januaryFourth.getUTCDate() - januaryFourthDay + 1,
-    );
+    firstWeekMonday.setUTCDate(januaryFourth.getUTCDate() - januaryFourthDay + 1);
 
     const monday = new Date(firstWeekMonday);
 
-    monday.setUTCDate(
-      firstWeekMonday.getUTCDate() + (selectedWeekNumber - 1) * 7,
-    );
+    monday.setUTCDate(firstWeekMonday.getUTCDate() + (selectedWeekNumber - 1) * 7);
 
     const sunday = new Date(monday);
 
@@ -1034,10 +1020,7 @@ const OwnerIncomeReport = () => {
           fetchServiceMaterials(),
         ]);
       } catch (error) {
-        console.error(
-          "Failed to load income report data:",
-          error?.response?.data || error.message,
-        );
+        console.error("Failed to load income report data:", error?.response?.data || error.message);
       }
     };
 
@@ -1070,10 +1053,7 @@ const OwnerIncomeReport = () => {
   // PAGINATION
   // =======================================================
 
-  const totalServicePages = Math.max(
-    1,
-    Math.ceil(servicesWithMaterials.length / servicePageSize),
-  );
+  const totalServicePages = Math.max(1, Math.ceil(servicesWithMaterials.length / servicePageSize));
 
   const currentServicePage = Math.min(servicePage, totalServicePages);
 
@@ -1106,13 +1086,14 @@ const OwnerIncomeReport = () => {
     return "Walk-in";
   };
 
-  const getCollectionMethodLabel = (service) => ({
-    CASH: "Cash",
-    MTN_MOMO: "MTN MoMo",
-    AIRTEL_MONEY: "Airtel Money",
-    BANK_TRANSFER: "Bank transfer",
-    OTHER: "Other",
-  }[String(service?.collection_method || "CASH").toUpperCase()] || "Other");
+  const getCollectionMethodLabel = (service) =>
+    ({
+      CASH: "Cash",
+      MTN_MOMO: "MTN MoMo",
+      AIRTEL_MONEY: "Airtel Money",
+      BANK_TRANSFER: "Bank transfer",
+      OTHER: "Other",
+    })[String(service?.collection_method || "CASH").toUpperCase()] || "Other";
 
   // =======================================================
   // ACTUAL PERFORMERS
@@ -1124,8 +1105,7 @@ const OwnerIncomeReport = () => {
     }
 
     return service.performers.filter(
-      (performer) =>
-        performer?.employee_id && (performer.first_name || performer.last_name),
+      (performer) => performer?.employee_id && (performer.first_name || performer.last_name),
     );
   };
 
@@ -1152,13 +1132,11 @@ const OwnerIncomeReport = () => {
       =================================================== */}
 
       <div className="mb-7 text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
+        <p className="text-xs font-semibold tracking-[0.18em] text-blue-700 uppercase">
           Salon Income Report
         </p>
 
-        <h1 className="mt-1 text-3xl font-extrabold text-gray-800">
-          {reportLabel}
-        </h1>
+        <h1 className="mt-1 text-3xl font-extrabold text-gray-800">{reportLabel}</h1>
 
         <p className="mt-2 text-sm text-gray-500">
           Income is calculated from completed services only.
@@ -1170,17 +1148,12 @@ const OwnerIncomeReport = () => {
       =================================================== */}
 
       {reportError && (
-        <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">
-          {reportError}
-        </p>
+        <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{reportError}</p>
       )}
 
       {reportLoading && report && (
         <div className="mb-5">
-          <ReportLoadingState
-            compact
-            message="Updating the report for the selected period..."
-          />
+          <ReportLoadingState compact message="Updating the report for the selected period..." />
         </div>
       )}
 
@@ -1192,16 +1165,12 @@ const OwnerIncomeReport = () => {
         <div className="mb-4">
           <h2 className="font-semibold text-gray-800">Reporting Period</h2>
 
-          <p className="mt-1 text-sm text-gray-500">
-            Select a day, week, month or year.
-          </p>
+          <p className="mt-1 text-sm text-gray-500">Select a day, week, month or year.</p>
         </div>
 
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Day
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Day</label>
 
             <input
               type="date"
@@ -1212,9 +1181,7 @@ const OwnerIncomeReport = () => {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Week
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Week</label>
 
             <input
               type="week"
@@ -1225,9 +1192,7 @@ const OwnerIncomeReport = () => {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Month
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Month</label>
 
             <input
               type="month"
@@ -1238,9 +1203,7 @@ const OwnerIncomeReport = () => {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Year
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Year</label>
 
             <select
               value={year}
@@ -1265,9 +1228,7 @@ const OwnerIncomeReport = () => {
 
       {session ? (
         <section className="mb-6 rounded-lg bg-white p-4 shadow">
-          <h2 className="mb-3 text-xl font-semibold text-blue-700">
-            Salon Session
-          </h2>
+          <h2 className="mb-3 text-xl font-semibold text-blue-700">Salon Session</h2>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
@@ -1308,9 +1269,7 @@ const OwnerIncomeReport = () => {
       =================================================== */}
 
       <section className="mb-6">
-        <h2 className="mb-3 text-lg font-semibold text-gray-700">
-          Section Summaries
-        </h2>
+        <h2 className="mb-3 text-lg font-semibold text-gray-700">Section Summaries</h2>
 
         {dynamicSectionSummaries.length === 0 ? (
           <p className="text-gray-500">No section summary data available.</p>
@@ -1318,7 +1277,7 @@ const OwnerIncomeReport = () => {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {dynamicSectionSummaries.map((section) => (
               <div key={section.id} className="rounded-lg bg-white p-4 shadow">
-                <h3 className="mb-3 text-md font-semibold text-blue-700">
+                <h3 className="text-md mb-3 font-semibold text-blue-700">
                   {section.name} Section Summary
                 </h3>
 
@@ -1326,15 +1285,11 @@ const OwnerIncomeReport = () => {
                   <div className="rounded border bg-blue-50 p-3">
                     <div className="text-sm text-gray-700">Completed-service revenue</div>
 
-                    <div className="text-xl font-bold">
-                      {formatMoney(section.totals.gross)} UGX
-                    </div>
+                    <div className="text-xl font-bold">{formatMoney(section.totals.gross)} UGX</div>
                   </div>
 
                   <div className="rounded border bg-blue-50 p-3">
-                    <div className="text-sm text-gray-700">
-                      Employee earnings
-                    </div>
+                    <div className="text-sm text-gray-700">Employee earnings</div>
 
                     <div className="text-xl font-bold">
                       {formatMoney(section.totals.employeeSalary)} UGX
@@ -1373,49 +1328,134 @@ const OwnerIncomeReport = () => {
 
       <section className="mb-6 rounded-lg bg-white p-4 shadow">
         <h2 className="text-xl font-semibold text-blue-700">Financial summary</h2>
-        <p className="mt-1 text-sm text-gray-500">Revenue is recognised only for completed services. Advances, fees, and employee payments are displayed separately and do not silently reduce earnings.</p>
+        <p className="mt-1 text-sm text-gray-500">
+          Revenue is recognised only for completed services. Advances, fees, and employee payments
+          are displayed separately and do not silently reduce earnings.
+        </p>
 
-        <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-gray-600">Operating activity</h3>
+        <h3 className="mt-5 text-sm font-semibold tracking-wide text-gray-600 uppercase">
+          Operating activity
+        </h3>
         <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {[
             { label: "Completed-service revenue", value: activity.service_revenue },
             { label: "Employee earnings created", value: activity.employee_earnings },
-            { label: "Configured material estimate", value: activity.configured_material_cost_estimate },
+            {
+              label: "Configured material estimate",
+              value: activity.configured_material_cost_estimate,
+            },
             { label: "Business expenses", value: activity.business_expenses },
             { label: "Operating margin", value: activity.operating_margin, accent: true },
-          ].map((item) => <div key={item.label} className={`rounded border p-3 ${item.accent ? "bg-emerald-50" : "bg-slate-50"}`}><div className="text-sm text-gray-600">{item.label}</div><div className="mt-1 text-lg font-bold">{formatMoney(item.value)} UGX</div></div>)}
+          ].map((item) => (
+            <div
+              key={item.label}
+              className={`rounded border p-3 ${item.accent ? "bg-emerald-50" : "bg-slate-50"}`}
+            >
+              <div className="text-sm text-gray-600">{item.label}</div>
+              <div className="mt-1 text-lg font-bold">{formatMoney(item.value)} UGX</div>
+            </div>
+          ))}
         </div>
 
-        <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-gray-600">Finance movements during this period</h3>
+        <h3 className="mt-5 text-sm font-semibold tracking-wide text-gray-600 uppercase">
+          Finance movements during this period
+        </h3>
         <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { label: "Employee payments disbursed", value: financeMovements.employee_payments_disbursed },
+            {
+              label: "Employee payments disbursed",
+              value: financeMovements.employee_payments_disbursed,
+            },
             { label: "Advances disbursed", value: financeMovements.advances_disbursed },
-            { label: "Effective payroll deductions", value: financeMovements.effective_payroll_deductions },
+            {
+              label: "Effective payroll deductions",
+              value: financeMovements.effective_payroll_deductions,
+            },
             { label: "Cash advance repayments", value: financeMovements.cash_advance_repayments },
             { label: "Advance waivers", value: financeMovements.advance_waivers },
             { label: "Tag fees recorded", value: financeMovements.tag_fees_recorded },
             { label: "Late fees recorded", value: financeMovements.late_fees_recorded },
-          ].map((item) => <div key={item.label} className="rounded border bg-slate-50 p-3"><div className="text-sm text-gray-600">{item.label}</div><div className="mt-1 text-lg font-bold">{formatMoney(item.value)} UGX</div></div>)}
+          ].map((item) => (
+            <div key={item.label} className="rounded border bg-slate-50 p-3">
+              <div className="text-sm text-gray-600">{item.label}</div>
+              <div className="mt-1 text-lg font-bold">{formatMoney(item.value)} UGX</div>
+            </div>
+          ))}
         </div>
 
-        <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-gray-600">Customer collections and cash movement</h3>
+        <h3 className="mt-5 text-sm font-semibold tracking-wide text-gray-600 uppercase">
+          Customer collections and cash movement
+        </h3>
         <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <div className="rounded border bg-emerald-50 p-3"><div className="text-sm text-gray-600">Cash service receipts</div><div className="mt-1 text-lg font-bold">{formatMoney(customerCollections.cash)} UGX</div></div>
-          <div className="rounded border bg-slate-50 p-3"><div className="text-sm text-gray-600">MTN MoMo receipts</div><div className="mt-1 text-lg font-bold">{formatMoney(customerCollections.mtn_mobile_money)} UGX</div></div>
-          <div className="rounded border bg-slate-50 p-3"><div className="text-sm text-gray-600">Airtel Money receipts</div><div className="mt-1 text-lg font-bold">{formatMoney(customerCollections.airtel_money)} UGX</div></div>
-          <div className="rounded border bg-slate-50 p-3"><div className="text-sm text-gray-600">Bank and other receipts</div><div className="mt-1 text-lg font-bold">{formatMoney(Number(customerCollections.bank_transfer || 0) + Number(customerCollections.other || 0))} UGX</div></div>
-          <div className="rounded border bg-emerald-100 p-3"><div className="text-sm text-gray-600">Net cash movement</div><div className="mt-1 text-lg font-bold">{formatMoney(cashPosition.net_cash_movement)} UGX</div></div>
+          <div className="rounded border bg-emerald-50 p-3">
+            <div className="text-sm text-gray-600">Cash service receipts</div>
+            <div className="mt-1 text-lg font-bold">
+              {formatMoney(customerCollections.cash)} UGX
+            </div>
+          </div>
+          <div className="rounded border bg-slate-50 p-3">
+            <div className="text-sm text-gray-600">MTN MoMo receipts</div>
+            <div className="mt-1 text-lg font-bold">
+              {formatMoney(customerCollections.mtn_mobile_money)} UGX
+            </div>
+          </div>
+          <div className="rounded border bg-slate-50 p-3">
+            <div className="text-sm text-gray-600">Airtel Money receipts</div>
+            <div className="mt-1 text-lg font-bold">
+              {formatMoney(customerCollections.airtel_money)} UGX
+            </div>
+          </div>
+          <div className="rounded border bg-slate-50 p-3">
+            <div className="text-sm text-gray-600">Bank and other receipts</div>
+            <div className="mt-1 text-lg font-bold">
+              {formatMoney(
+                Number(customerCollections.bank_transfer || 0) +
+                  Number(customerCollections.other || 0),
+              )}{" "}
+              UGX
+            </div>
+          </div>
+          <div className="rounded border bg-emerald-100 p-3">
+            <div className="text-sm text-gray-600">Net cash movement</div>
+            <div className="mt-1 text-lg font-bold">
+              {formatMoney(cashPosition.net_cash_movement)} UGX
+            </div>
+          </div>
         </div>
 
-        <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-gray-600">Balances at the end of this period</h3>
+        <h3 className="mt-5 text-sm font-semibold tracking-wide text-gray-600 uppercase">
+          Balances at the end of this period
+        </h3>
         <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded border bg-amber-50 p-3"><div className="text-sm text-gray-600">Employee earnings payable</div><div className="mt-1 text-lg font-bold">{formatMoney(closingBalances.employee_earnings_payable)} UGX</div></div>
-          <div className="rounded border bg-amber-50 p-3"><div className="text-sm text-gray-600">Outstanding employee advances</div><div className="mt-1 text-lg font-bold">{formatMoney(closingBalances.advances_outstanding)} UGX</div></div>
-          <div className="rounded border border-dashed bg-slate-50 p-3"><div className="text-sm font-medium text-gray-700">Cash at counter — period movement</div><div className="mt-1 text-lg font-bold">{formatMoney(cashPosition.net_cash_movement)} UGX</div><p className="mt-1 text-sm text-gray-500">This is the cash received and spent during the selected period. A true drawer balance also needs a recorded opening cash balance and a verified closing count.</p></div>
+          <div className="rounded border bg-amber-50 p-3">
+            <div className="text-sm text-gray-600">Employee earnings payable</div>
+            <div className="mt-1 text-lg font-bold">
+              {formatMoney(closingBalances.employee_earnings_payable)} UGX
+            </div>
+          </div>
+          <div className="rounded border bg-amber-50 p-3">
+            <div className="text-sm text-gray-600">Outstanding employee advances</div>
+            <div className="mt-1 text-lg font-bold">
+              {formatMoney(closingBalances.advances_outstanding)} UGX
+            </div>
+          </div>
+          <div className="rounded border border-dashed bg-slate-50 p-3">
+            <div className="text-sm font-medium text-gray-700">
+              Cash at counter — period movement
+            </div>
+            <div className="mt-1 text-lg font-bold">
+              {formatMoney(cashPosition.net_cash_movement)} UGX
+            </div>
+            <p className="mt-1 text-sm text-gray-500">
+              This is the cash received and spent during the selected period. A true drawer balance
+              also needs a recorded opening cash balance and a verified closing count.
+            </p>
+          </div>
         </div>
 
-        <p className="mt-4 text-md font-bold text-gray-700">Total completed services: {totalServicesCount}</p>
+        <p className="text-md mt-4 font-bold text-gray-700">
+          Total completed services: {totalServicesCount}
+        </p>
       </section>
 
       {/* ===================================================
@@ -1423,24 +1463,17 @@ const OwnerIncomeReport = () => {
       =================================================== */}
 
       <section className="mb-6 rounded-lg bg-white p-4 shadow">
-        <h2 className="mb-3 text-lg font-semibold text-gray-700">
-          Completed Service Counts
-        </h2>
+        <h2 className="mb-3 text-lg font-semibold text-gray-700">Completed Service Counts</h2>
 
         {serviceNameCounts.length === 0 ? (
           <p className="text-gray-500">No completed services recorded.</p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {serviceNameCounts.map(([name, count]) => (
-              <div
-                key={name}
-                className="rounded border bg-purple-50 p-3 shadow-sm"
-              >
+              <div key={name} className="rounded border bg-purple-50 p-3 shadow-sm">
                 <div className="font-bold text-gray-800">{name}</div>
 
-                <div className="mt-1 text-lg font-semibold text-blue-700">
-                  {count}
-                </div>
+                <div className="mt-1 text-lg font-semibold text-blue-700">{count}</div>
               </div>
             ))}
           </div>
@@ -1453,13 +1486,10 @@ const OwnerIncomeReport = () => {
 
       <section className="mb-6 rounded-lg bg-white p-4 shadow">
         <div className="mb-4">
-          <h2 className="text-lg font-semibold text-gray-700">
-            Completed Service Details
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-700">Completed Service Details</h2>
 
           <p className="mt-1 text-sm text-gray-500">
-            Only completed walk-in and online-booking services appear in the
-            income report.
+            Only completed walk-in and online-booking services appear in the income report.
           </p>
         </div>
 
@@ -1498,8 +1528,8 @@ const OwnerIncomeReport = () => {
             =============================================== */}
 
             <div className="max-h-[520px] overflow-auto rounded-lg border border-gray-200">
-              <table className="min-w-[1120px] w-full border-collapse text-sm">
-                <thead className="sticky top-0 z-10 bg-gray-100 text-left text-xs uppercase tracking-wide text-gray-600">
+              <table className="w-full min-w-[1120px] border-collapse text-sm">
+                <thead className="sticky top-0 z-10 bg-gray-100 text-left text-xs tracking-wide text-gray-600 uppercase">
                   <tr>
                     <th className="px-4 py-3">Date & Time</th>
 
@@ -1517,9 +1547,7 @@ const OwnerIncomeReport = () => {
 
                     <th className="px-4 py-3 text-right">Salon Amount</th>
 
-                    <th className="sticky right-0 bg-gray-100 px-4 py-3 text-center">
-                      Actions
-                    </th>
+                    <th className="sticky right-0 bg-gray-100 px-4 py-3 text-center">Actions</th>
                   </tr>
                 </thead>
 
@@ -1535,14 +1563,13 @@ const OwnerIncomeReport = () => {
                       <tr key={transactionId} className="hover:bg-blue-50/50">
                         {/* DATE / TIME */}
 
-                        <td className="whitespace-nowrap px-4 py-3 text-gray-600">
+                        <td className="px-4 py-3 whitespace-nowrap text-gray-600">
                           <div className="font-medium text-gray-800">
                             {service.service_date || "—"}
                           </div>
 
                           <div className="text-xs">
-                            {String(service.service_time || "").slice(0, 8) ||
-                              "—"}
+                            {String(service.service_time || "").slice(0, 8) || "—"}
                           </div>
                         </td>
 
@@ -1579,7 +1606,10 @@ const OwnerIncomeReport = () => {
                             {getCollectionMethodLabel(service)}
                           </div>
                           {service.collection_reference && (
-                            <div className="mt-1 max-w-36 truncate text-xs text-gray-500" title={service.collection_reference}>
+                            <div
+                              className="mt-1 max-w-36 truncate text-xs text-gray-500"
+                              title={service.collection_reference}
+                            >
                               {service.collection_reference}
                             </div>
                           )}
@@ -1587,9 +1617,7 @@ const OwnerIncomeReport = () => {
 
                         {/* SECTION */}
 
-                        <td className="px-4 py-3 text-gray-700">
-                          {service.section_name || "—"}
-                        </td>
+                        <td className="px-4 py-3 text-gray-700">{service.section_name || "—"}</td>
 
                         {/* ACTUAL PERFORMERS */}
 
@@ -1616,24 +1644,19 @@ const OwnerIncomeReport = () => {
                               ))}
                             </div>
                           ) : (
-                            <span className="text-gray-400">
-                              No employee recorded
-                            </span>
+                            <span className="text-gray-400">No employee recorded</span>
                           )}
                         </td>
 
                         {/* FULL AMOUNT */}
 
-                        <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-gray-900">
-                          {formatMoney(
-                            service.full_amount ?? service.service_amount ?? 0,
-                          )}{" "}
-                          UGX
+                        <td className="px-4 py-3 text-right font-semibold whitespace-nowrap text-gray-900">
+                          {formatMoney(service.full_amount ?? service.service_amount ?? 0)} UGX
                         </td>
 
                         {/* SALON AMOUNT */}
 
-                        <td className="whitespace-nowrap px-4 py-3 text-right text-gray-700">
+                        <td className="px-4 py-3 text-right whitespace-nowrap text-gray-700">
                           {formatMoney(service.salon_amount || 0)} UGX
                         </td>
 
@@ -1697,11 +1720,7 @@ const OwnerIncomeReport = () => {
               <button
                 type="button"
                 disabled={currentServicePage >= totalServicePages}
-                onClick={() =>
-                  setServicePage((page) =>
-                    Math.min(totalServicePages, page + 1),
-                  )
-                }
+                onClick={() => setServicePage((page) => Math.min(totalServicePages, page + 1))}
                 className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Next
@@ -1775,7 +1794,7 @@ const OwnerIncomeReport = () => {
             {/* HEADER */}
 
             <div className="mb-5 border-b pb-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-blue-700">
+              <p className="text-xs font-bold tracking-wide text-blue-700 uppercase">
                 Service transaction
               </p>
 
@@ -1784,8 +1803,7 @@ const OwnerIncomeReport = () => {
               </h2>
 
               <p className="mt-1 text-sm text-gray-500">
-                Transaction #
-                {viewingService.transaction_id ?? viewingService.id}
+                Transaction #{viewingService.transaction_id ?? viewingService.id}
               </p>
             </div>
 
@@ -1807,40 +1825,22 @@ const OwnerIncomeReport = () => {
                   "Service Amount",
 
                   `${formatMoney(
-                    viewingService.full_amount ??
-                      viewingService.service_amount ??
-                      0,
+                    viewingService.full_amount ?? viewingService.service_amount ?? 0,
                   )} UGX`,
                 ],
 
-                [
-                  "Salon Amount",
-
-                  `${formatMoney(viewingService.salon_amount || 0)} UGX`,
-                ],
+                ["Salon Amount", `${formatMoney(viewingService.salon_amount || 0)} UGX`],
 
                 ["Entry Type", viewingService.entry_type],
 
-                [
-                  "Recorded By",
+                ["Recorded By", viewingService.recorded_by_name || viewingService.created_by],
 
-                  viewingService.recorded_by_name || viewingService.created_by,
-                ],
-
-                [
-                  "Customer",
-
-                  viewingService.customer_name || viewingService.customer_id,
-                ],
+                ["Customer", viewingService.customer_name || viewingService.customer_id],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-lg bg-gray-50 p-3">
-                  <div className="text-xs font-semibold uppercase text-gray-500">
-                    {label}
-                  </div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase">{label}</div>
 
-                  <div className="mt-1 font-medium text-gray-900">
-                    {value || "—"}
-                  </div>
+                  <div className="mt-1 font-medium text-gray-900">{value || "—"}</div>
                 </div>
               ))}
             </div>
@@ -1851,36 +1851,26 @@ const OwnerIncomeReport = () => {
               {/* EMPLOYEES */}
 
               <div>
-                <h3 className="font-bold text-gray-900">
-                  Actual Employees and Roles
-                </h3>
+                <h3 className="font-bold text-gray-900">Actual Employees and Roles</h3>
 
                 <div className="mt-2 space-y-2">
                   {getActualPerformers(viewingService).length > 0 ? (
-                    getActualPerformers(viewingService).map(
-                      (performer, index) => (
-                        <div
-                          key={performer.role_id || index}
-                          className="rounded-lg border p-3 text-sm"
-                        >
-                          <div className="font-semibold">
-                            {[performer.first_name, performer.last_name]
-                              .filter(Boolean)
-                              .join(" ") || "Employee"}
-                          </div>
-
-                          <div className="mt-1 text-gray-500">
-                            {performer.role_name || "Role not specified"} ·{" "}
-                            {formatMoney(
-                              performer.role_amount ??
-                                performer.earned_amount ??
-                                0,
-                            )}{" "}
-                            UGX
-                          </div>
+                    getActualPerformers(viewingService).map((performer, index) => (
+                      <div
+                        key={performer.role_id || index}
+                        className="rounded-lg border p-3 text-sm"
+                      >
+                        <div className="font-semibold">
+                          {[performer.first_name, performer.last_name].filter(Boolean).join(" ") ||
+                            "Employee"}
                         </div>
-                      ),
-                    )
+
+                        <div className="mt-1 text-gray-500">
+                          {performer.role_name || "Role not specified"} ·{" "}
+                          {formatMoney(performer.role_amount ?? performer.earned_amount ?? 0)} UGX
+                        </div>
+                      </div>
+                    ))
                   ) : (
                     <p className="text-sm text-gray-500">
                       No actual employee performers were recorded.
@@ -1906,18 +1896,11 @@ const OwnerIncomeReport = () => {
                           {material.material_name || "Material"}
                         </span>
 
-                        <span>
-                          {formatMoney(
-                            material.material_cost ?? material.cost ?? 0,
-                          )}{" "}
-                          UGX
-                        </span>
+                        <span>{formatMoney(material.material_cost ?? material.cost ?? 0)} UGX</span>
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm text-gray-500">
-                      No materials recorded for this service.
-                    </p>
+                    <p className="text-sm text-gray-500">No materials recorded for this service.</p>
                   )}
                 </div>
               </div>
@@ -1926,23 +1909,15 @@ const OwnerIncomeReport = () => {
             {/* CUSTOMER PREFERENCE */}
 
             {Array.isArray(viewingService.performers) &&
-              viewingService.performers.some(
-                (performer) => performer.preferred_employee_id,
-              ) && (
+              viewingService.performers.some((performer) => performer.preferred_employee_id) && (
                 <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
-                  <h3 className="font-bold text-gray-900">
-                    Original Customer Preference
-                  </h3>
+                  <h3 className="font-bold text-gray-900">Original Customer Preference</h3>
 
                   <div className="mt-2 space-y-1">
                     {viewingService.performers
                       .filter((performer) => performer.preferred_employee_id)
                       .map((performer, index) => {
-                        const name = [
-                          performer.preferred_first_name,
-
-                          performer.preferred_last_name,
-                        ]
+                        const name = [performer.preferred_first_name, performer.preferred_last_name]
                           .filter(Boolean)
                           .join(" ");
 
@@ -1968,9 +1943,7 @@ const OwnerIncomeReport = () => {
               <div className="mt-5 rounded-lg bg-yellow-50 p-4">
                 <h3 className="font-bold text-gray-900">Service Note</h3>
 
-                <p className="mt-1 text-sm text-gray-700">
-                  {viewingService.customer_note}
-                </p>
+                <p className="mt-1 text-sm text-gray-700">{viewingService.customer_note}</p>
               </div>
             )}
           </div>

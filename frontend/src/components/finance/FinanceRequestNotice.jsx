@@ -8,11 +8,16 @@ const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 const financePathForRole = (role) => {
   switch (role) {
-    case "owner": return "/owner/finance";
-    case "manager": return "/manager/finance";
-    case "cashier": return "/cashier/staff-payments";
-    case "employee": return "/employee/finance";
-    default: return null;
+    case "owner":
+      return "/owner/finance";
+    case "manager":
+      return "/manager/finance";
+    case "cashier":
+      return "/cashier/staff-payments";
+    case "employee":
+      return "/employee/finance";
+    default:
+      return null;
   }
 };
 
@@ -28,7 +33,9 @@ export default function FinanceRequestNotice() {
   const { user, financeUpdateVersion } = useData();
   const [records, setRecords] = useState({ advances: [], payments: [] });
 
-  const role = String(user?.role || "").trim().toLowerCase();
+  const role = String(user?.role || "")
+    .trim()
+    .toLowerCase();
   const financePath = financePathForRole(role);
 
   const load = useCallback(async () => {
@@ -48,7 +55,9 @@ export default function FinanceRequestNotice() {
     }
   }, [financePath, user?.id]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   useEffect(() => {
     if (financeUpdateVersion) void load();
@@ -56,23 +65,27 @@ export default function FinanceRequestNotice() {
 
   const notice = useMemo(() => {
     const own = (row) => Number(row?.employee_id) === Number(user?.id);
-    const reviews = role === "owner" || role === "manager"
-      ? [...records.advances, ...records.payments].filter((row) => {
-        if (!isStatus(row, "REQUESTED") || own(row)) return false;
-        return role === "owner" || String(row.employee_role || "").toLowerCase() !== "manager";
-      })
-      : [];
-    const disbursements = role === "cashier"
-      ? [...records.advances, ...records.payments].filter((row) => isStatus(row, "APPROVED"))
-      : [];
+    const reviews =
+      role === "owner" || role === "manager"
+        ? [...records.advances, ...records.payments].filter((row) => {
+            if (!isStatus(row, "REQUESTED") || own(row)) return false;
+            return role === "owner" || String(row.employee_role || "").toLowerCase() !== "manager";
+          })
+        : [];
+    const disbursements =
+      role === "cashier"
+        ? [...records.advances, ...records.payments].filter((row) => isStatus(row, "APPROVED"))
+        : [];
     const acknowledgements = ["employee", "manager", "cashier"].includes(role)
-      ? [...records.advances, ...records.payments].filter((row) => own(row) && isStatus(row, "DISBURSED"))
+      ? [...records.advances, ...records.payments].filter(
+          (row) => own(row) && isStatus(row, "DISBURSED"),
+        )
       : [];
     const consents = ["employee", "manager", "cashier"].includes(role)
       ? records.advances.reduce(
-        (total, row) => total + (own(row) ? (row.pending_payroll_deductions || []).length : 0),
-        0,
-      )
+          (total, row) => total + (own(row) ? (row.pending_payroll_deductions || []).length : 0),
+          0,
+        )
       : 0;
 
     const count = reviews.length + disbursements.length + acknowledgements.length + consents;
@@ -117,7 +130,7 @@ export default function FinanceRequestNotice() {
     <button
       type="button"
       onClick={() => navigate(`${financePath}?tab=${notice.tab}`)}
-      className={`group flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--salon-copper)] focus:ring-offset-2 ${notice.tone}`}
+      className={`group flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md focus:ring-2 focus:ring-[var(--salon-copper)] focus:ring-offset-2 focus:outline-none ${notice.tone}`}
     >
       <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/75 shadow-sm">
         <Icon size={19} strokeWidth={2} aria-hidden="true" />
@@ -130,7 +143,12 @@ export default function FinanceRequestNotice() {
         <span className="mt-0.5 block text-xs font-medium opacity-75">{notice.detail}</span>
       </span>
       <span className="inline-flex shrink-0 items-center gap-1 text-xs font-bold">
-        Open finance <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+        Open finance{" "}
+        <ArrowRight
+          size={15}
+          className="transition-transform group-hover:translate-x-0.5"
+          aria-hidden="true"
+        />
       </span>
     </button>
   );

@@ -3,7 +3,6 @@ import { useData } from "../context/DataContext";
 
 export default function SalonGate({ children }) {
   const { salon } = useData();
-
   // still loading salon info
   if (!salon) return null;
 

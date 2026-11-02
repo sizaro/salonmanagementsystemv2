@@ -1,11 +1,7 @@
 import { useState, useEffect } from "react";
 import { useData } from "../context/DataContext";
 
-export default function AdvanceForm({
-  onSubmit,
-  advanceData,
-  entryType = "current",
-}) {
+export default function AdvanceForm({ onSubmit, advanceData, entryType = "current" }) {
   const isPast = entryType === "past";
 
   const [form, setForm] = useState({
@@ -35,9 +31,7 @@ export default function AdvanceForm({
         amount: advanceData.amount || "",
         description: advanceData.description || "",
         advance_date: advanceData.advance_date || "",
-        advance_time: advanceData.advance_time
-          ? String(advanceData.advance_time).slice(0, 5)
-          : "",
+        advance_time: advanceData.advance_time ? String(advanceData.advance_time).slice(0, 5) : "",
         backdate_reason: advanceData.backdate_reason || "",
         created_at: advanceData.created_at || "",
       });
@@ -78,15 +72,11 @@ export default function AdvanceForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 p-4 bg-white rounded shadow-md max-w-md mx-auto"
+      className="mx-auto max-w-md space-y-4 rounded bg-white p-4 shadow-md"
     >
       <div>
         <h2 className="text-2xl font-bold text-gray-800">
-          {form.id
-            ? "Edit Advance"
-            : isPast
-              ? "Add Past Advance"
-              : "Give Advance"}
+          {form.id ? "Edit Advance" : isPast ? "Add Past Advance" : "Give Advance"}
         </h2>
 
         {isPast && (
@@ -104,7 +94,7 @@ export default function AdvanceForm({
           name="employee_id"
           value={form.employee_id}
           onChange={handleChange}
-          className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="rounded border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
           required
         >
           <option value="">Select Employee</option>
@@ -126,7 +116,7 @@ export default function AdvanceForm({
           name="amount"
           value={form.amount}
           onChange={handleChange}
-          className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="rounded border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
           placeholder="Enter amount"
           required
         />
@@ -140,7 +130,7 @@ export default function AdvanceForm({
           name="description"
           value={form.description}
           onChange={handleChange}
-          className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="rounded border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
           placeholder="Optional description"
         />
       </div>
@@ -149,53 +139,52 @@ export default function AdvanceForm({
       {isPast && (
         <>
           <div className="flex flex-col">
-            <label className="mb-1 font-medium text-gray-700">
-              Advance Date
-            </label>
+            <label className="mb-1 font-medium text-gray-700">Advance Date</label>
 
             <input
               type="date"
               name="advance_date"
               value={form.advance_date}
               onChange={handleChange}
-              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="rounded border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
               required
             />
           </div>
 
           <div className="flex flex-col">
-            <label className="mb-1 font-medium text-gray-700">
-              Advance Time
-            </label>
+            <label className="mb-1 font-medium text-gray-700">Advance Time</label>
 
             <input
               type="time"
               name="advance_time"
               value={form.advance_time}
               onChange={handleChange}
-              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="rounded border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
               required
             />
           </div>
 
           <div className="flex flex-col">
-            <label className="mb-1 font-medium text-gray-700">Why is this being recorded late?</label>
-            <textarea name="backdate_reason" value={form.backdate_reason} onChange={handleChange} required
+            <label className="mb-1 font-medium text-gray-700">
+              Why is this being recorded late?
+            </label>
+            <textarea
+              name="backdate_reason"
+              value={form.backdate_reason}
+              onChange={handleChange}
+              required
               placeholder="Explain why this historical advance is being entered now"
-              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+              className="rounded border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
+            />
           </div>
         </>
       )}
 
       <button
-        className="mt-4 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded w-full"
+        className="mt-4 w-full rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
         type="submit"
       >
-        {form.id
-          ? "Update Advance"
-          : isPast
-            ? "Save Past Advance"
-            : "Add Advance"}
+        {form.id ? "Update Advance" : isPast ? "Save Past Advance" : "Add Advance"}
       </button>
     </form>
   );

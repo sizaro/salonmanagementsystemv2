@@ -43,19 +43,10 @@ const getWeekRange = (weekString) => {
 };
 
 export default function OwnerStaffReport() {
-  const {
-    serviceDefinitions = [],
-    fetchUsers,
-    fetchServiceDefinitions,
-  } = useData();
+  const { serviceDefinitions = [], fetchUsers, fetchServiceDefinitions } = useData();
 
-  const {
-    report,
-    fetchDailyData,
-    fetchWeeklyData,
-    fetchMonthlyData,
-    fetchYearlyData,
-  } = useOwnerReport();
+  const { report, fetchDailyData, fetchWeeklyData, fetchMonthlyData, fetchYearlyData } =
+    useOwnerReport();
 
   const {
     employees: users = [],
@@ -74,9 +65,7 @@ export default function OwnerStaffReport() {
 
   const [year, setYear] = useState(new Date().getFullYear());
 
-  const [reportLabel, setReportLabel] = useState(
-    `Daily performance for ${formatDateLabel(today)}`,
-  );
+  const [reportLabel, setReportLabel] = useState(`Daily performance for ${formatDateLabel(today)}`);
 
   /*
    * The performance report is for people who can actually perform
@@ -96,10 +85,7 @@ export default function OwnerStaffReport() {
         .trim()
         .toLowerCase();
 
-      return (
-        ["employee", "manager", "cashier"].includes(role) &&
-        status !== "inactive"
-      );
+      return ["employee", "manager", "cashier"].includes(role) && status !== "inactive";
     });
   }, [users]);
 
@@ -136,9 +122,7 @@ export default function OwnerStaffReport() {
     const { monday, sunday } = getWeekRange(value);
 
     setReportLabel(
-      `Week: ${monday.toLocaleDateString(
-        "en-US",
-      )} → ${sunday.toLocaleDateString("en-US")}`,
+      `Week: ${monday.toLocaleDateString("en-US")} → ${sunday.toLocaleDateString("en-US")}`,
     );
 
     fetchWeeklyData(monday, sunday);
@@ -154,11 +138,7 @@ export default function OwnerStaffReport() {
 
     const [selectedYear, selectedMonth] = value.split("-").map(Number);
 
-    const monthName = new Date(
-      selectedYear,
-      selectedMonth - 1,
-      1,
-    ).toLocaleDateString("en-US", {
+    const monthName = new Date(selectedYear, selectedMonth - 1, 1).toLocaleDateString("en-US", {
       month: "long",
       year: "numeric",
     });
@@ -190,7 +170,7 @@ export default function OwnerStaffReport() {
       <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <div className="mb-2 inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-indigo-700">
+            <div className="mb-2 inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold tracking-[0.16em] text-indigo-700 uppercase">
               Staff report
             </div>
 
@@ -203,7 +183,7 @@ export default function OwnerStaffReport() {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <label className="mb-1.5 block text-xs font-semibold tracking-wide text-slate-500 uppercase">
                 Day
               </label>
 
@@ -211,24 +191,24 @@ export default function OwnerStaffReport() {
                 type="date"
                 value={selectedDate}
                 onChange={handleDayChange}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 transition outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <label className="mb-1.5 block text-xs font-semibold tracking-wide text-slate-500 uppercase">
                 Week
               </label>
 
               <input
                 type="week"
                 onChange={handleWeekChange}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 transition outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <label className="mb-1.5 block text-xs font-semibold tracking-wide text-slate-500 uppercase">
                 Month
               </label>
 
@@ -236,18 +216,18 @@ export default function OwnerStaffReport() {
                 type="month"
                 value={monthYear}
                 onChange={handleMonthChange}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 transition outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <label className="mb-1.5 block text-xs font-semibold tracking-wide text-slate-500 uppercase">
                 Year
               </label>
 
               <select
                 onChange={handleYearChange}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 transition outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                 value={year}
               >
                 <option value="" disabled>
@@ -283,11 +263,10 @@ export default function OwnerStaffReport() {
 
           <p className="mt-1">
             {unassignedGenderStaff.length} staff member
-            {unassignedGenderStaff.length === 1 ? "" : "s"} do not have gender
-            assigned. They remain visible under
-            <span className="font-semibold"> All Staff</span>, but will not
-            appear in the Male or Female filtered views until their gender is
-            assigned.
+            {unassignedGenderStaff.length === 1 ? "" : "s"} do not have gender assigned. They remain
+            visible under
+            <span className="font-semibold"> All Staff</span>, but will not appear in the Male or
+            Female filtered views until their gender is assigned.
           </p>
         </div>
       )}

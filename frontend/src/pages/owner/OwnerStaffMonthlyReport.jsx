@@ -19,7 +19,7 @@ export default function OwnerStaffMonthlyReport() {
       `${new Date(year, month - 1, 1).toLocaleDateString("en-US", {
         month: "long",
         year: "numeric",
-      })}`
+      })}`,
     );
 
     fetchMonthlyData(year, month);
@@ -33,9 +33,7 @@ export default function OwnerStaffMonthlyReport() {
     const value = `${year}-${month.toString().padStart(2, "0")}`;
 
     setMonthYear(value);
-    setReportLabel(
-      `${today.toLocaleString("en-US", { month: "long", year: "numeric" })}`
-    );
+    setReportLabel(`${today.toLocaleString("en-US", { month: "long", year: "numeric" })}`);
 
     fetchMonthlyData(year, month);
   }, []);
@@ -51,9 +49,12 @@ export default function OwnerStaffMonthlyReport() {
         if (s.barber === fullName) sum += parseInt(s.barber_amount) || 0;
         if (s.barber_assistant === fullName) sum += parseInt(s.barber_assistant_amount) || 0;
         if (s.scrubber_assistant === fullName) sum += parseInt(s.scrubber_assistant_amount) || 0;
-        if (s.black_shampoo_assistant === fullName) sum += parseInt(s.black_shampoo_assistant_amount) || 0;
-        if (s.super_black_assistant === fullName) sum += parseInt(s.super_black_assistant_amount) || 0;
-        if (s.black_mask_assistant === fullName) sum += parseInt(s.black_mask_assistant_amount) || 0;
+        if (s.black_shampoo_assistant === fullName)
+          sum += parseInt(s.black_shampoo_assistant_amount) || 0;
+        if (s.super_black_assistant === fullName)
+          sum += parseInt(s.super_black_assistant_amount) || 0;
+        if (s.black_mask_assistant === fullName)
+          sum += parseInt(s.black_mask_assistant_amount) || 0;
         return sum;
       }, 0);
 
@@ -73,9 +74,7 @@ export default function OwnerStaffMonthlyReport() {
   if (!services.length) {
     return (
       <section className="p-6">
-        <h2 className="text-xl font-bold text-center text-gray-700">
-          No Recorded Work Yet
-        </h2>
+        <h2 className="text-center text-xl font-bold text-gray-700">No Recorded Work Yet</h2>
       </section>
     );
   }
@@ -92,27 +91,25 @@ export default function OwnerStaffMonthlyReport() {
 
   // ---- Render ----
   return (
-    <section className="p-6 max-w-6xl mx-auto">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800">
-        Workers Monthly Report
-      </h2>
+    <section className="mx-auto max-w-6xl p-6">
+      <h2 className="mb-4 text-2xl font-bold text-gray-800">Workers Monthly Report</h2>
 
       {/* Month Picker */}
       <div className="mb-4">
-        <label className="block mb-2 font-medium">Pick a month:</label>
+        <label className="mb-2 block font-medium">Pick a month:</label>
         <input
           type="month"
           value={monthYear}
           onChange={handleMonthChange}
-          className="border rounded p-2"
+          className="rounded border p-2"
         />
         <p className="mt-2 text-gray-600">{reportLabel}</p>
       </div>
 
       {/* Employee Table */}
-      <div className="overflow-x-auto overflow-y-auto max-h-[60vh] border rounded">
+      <div className="max-h-[60vh] overflow-x-auto overflow-y-auto rounded border">
         <table className="min-w-full border-collapse">
-          <thead className="bg-gray-200 sticky top-0">
+          <thead className="sticky top-0 bg-gray-200">
             <tr>
               <th className="border px-4 py-2 text-left">#</th>
               <th className="border px-4 py-2 text-left">Employee</th>

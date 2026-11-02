@@ -5,8 +5,8 @@ export default function WorkDailyReport() {
   const { services, employees, advances, clockings, fetchDailyData } = useData();
 
   // Initialize date state to today (YYYY-MM-DD)
- const today = new Date().toLocaleDateString("en-CA");
-const [selectedDate, setSelectedDate] = useState(today);
+  const today = new Date().toLocaleDateString("en-CA");
+  const [selectedDate, setSelectedDate] = useState(today);
 
   // Fetch data on page load for today
   useEffect(() => {
@@ -20,7 +20,6 @@ const [selectedDate, setSelectedDate] = useState(today);
     fetchDailyData(newDate);
   };
 
-
   const employeeTotals = useMemo(() => {
     if (!employees.length) return [];
 
@@ -30,10 +29,8 @@ const [selectedDate, setSelectedDate] = useState(today);
       // Salaries
       const totalSalary = services.reduce((sum, s) => {
         if (s.barber === fullName) sum += parseInt(s.barber_amount) || 0;
-        if (s.barber_assistant === fullName)
-          sum += parseInt(s.barber_assistant_amount) || 0;
-        if (s.scrubber_assistant === fullName)
-          sum += parseInt(s.scrubber_assistant_amount) || 0;
+        if (s.barber_assistant === fullName) sum += parseInt(s.barber_assistant_amount) || 0;
+        if (s.scrubber_assistant === fullName) sum += parseInt(s.scrubber_assistant_amount) || 0;
         if (s.black_shampoo_assistant === fullName)
           sum += parseInt(s.black_shampoo_assistant_amount) || 0;
         if (s.super_black_assistant === fullName)
@@ -49,11 +46,11 @@ const [selectedDate, setSelectedDate] = useState(today);
         .reduce((sum, a) => sum + (parseInt(a.amount) || 0), 0);
 
       // Clocking
-const todayClock = clockings.find((c) => c.employee_names === fullName);
-const clockIn = todayClock ? new Date(todayClock.clock_in) : null;
-const clockOut = todayClock?.clock_out ? new Date(todayClock.clock_out) : null;
+      const todayClock = clockings.find((c) => c.employee_names === fullName);
+      const clockIn = todayClock ? new Date(todayClock.clock_in) : null;
+      const clockOut = todayClock?.clock_out ? new Date(todayClock.clock_out) : null;
 
-// Calculate total hours in hours + minutes format
+      // Calculate total hours in hours + minutes format
       let totalHours = null;
       if (clockIn && clockOut) {
         const diffMs = clockOut - clockIn; // difference in milliseconds
@@ -61,7 +58,6 @@ const clockOut = todayClock?.clock_out ? new Date(todayClock.clock_out) : null;
         const diffMins = Math.round((diffMs % (1000 * 60 * 60)) / (1000 * 60)); // remaining minutes
         totalHours = `${diffHrs} hrs ${diffMins} minutes`;
       }
-
 
       return {
         name: fullName,
@@ -78,17 +74,15 @@ const clockOut = todayClock?.clock_out ? new Date(todayClock.clock_out) : null;
   if (!services.length && !clockings.length) {
     return (
       <section className="p-6">
-        <h2 className="text-xl font-bold text-center text-gray-700">
-          No Recorded Work Yet
-        </h2>
+        <h2 className="text-center text-xl font-bold text-gray-700">No Recorded Work Yet</h2>
         {/* Date Picker */}
         <div className="mt-4 text-center">
-          <label className="font-medium mr-2">Select Date:</label>
+          <label className="mr-2 font-medium">Select Date:</label>
           <input
             type="date"
             value={selectedDate}
             onChange={handleDayChange}
-            className="border rounded px-2 py-1"
+            className="rounded border px-2 py-1"
           />
         </div>
       </section>
@@ -97,24 +91,22 @@ const clockOut = todayClock?.clock_out ? new Date(todayClock.clock_out) : null;
 
   return (
     <section className="p-6">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800">
-        Workers Daily Report
-      </h2>
+      <h2 className="mb-4 text-2xl font-bold text-gray-800">Workers Daily Report</h2>
 
       {/* Date Picker */}
       <div className="mb-4">
-        <label className="font-medium mr-2">Select Date:</label>
+        <label className="mr-2 font-medium">Select Date:</label>
         <input
           type="date"
           value={selectedDate}
           onChange={handleDayChange}
-          className="border rounded px-2 py-1"
+          className="rounded border px-2 py-1"
         />
       </div>
 
-      <div className="overflow-x-auto overflow-y-auto max-h-[60vh] border rounded">
+      <div className="max-h-[60vh] overflow-x-auto overflow-y-auto rounded border">
         <table className="min-w-full border-collapse">
-          <thead className="bg-gray-200 sticky top-0">
+          <thead className="sticky top-0 bg-gray-200">
             <tr>
               <th className="border px-4 py-2">#</th>
               <th className="border px-4 py-2">Employee</th>

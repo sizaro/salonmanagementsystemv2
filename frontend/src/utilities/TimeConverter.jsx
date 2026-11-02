@@ -8,4 +8,4 @@ const formatEAT = (dateString) => {
   });
 };
 
-export {formatEAT}
+export { formatEAT };

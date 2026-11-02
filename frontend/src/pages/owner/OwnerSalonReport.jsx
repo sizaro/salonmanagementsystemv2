@@ -149,10 +149,9 @@ const filterSessionsByDate = (sessions, startDate, endDate) => {
 // ===============================
 
 export default function OwnerSalonReport() {
-  const {
-    fetchSessions,
-  } = useData();
-  const { report, fetchDailyData, fetchWeeklyData, fetchMonthlyData, fetchYearlyData } = useOwnerReport();
+  const { fetchSessions } = useData();
+  const { report, fetchDailyData, fetchWeeklyData, fetchMonthlyData, fetchYearlyData } =
+    useOwnerReport();
   const sessions = report?.sessions ?? [];
 
   // ===============================
@@ -167,9 +166,7 @@ export default function OwnerSalonReport() {
 
   const [year, setYear] = useState(today.getFullYear());
 
-  const [reportLabel, setReportLabel] = useState(
-    `Salon report for ${formatDateLabel(today)}`,
-  );
+  const [reportLabel, setReportLabel] = useState(`Salon report for ${formatDateLabel(today)}`);
 
   const [reportSessions, setReportSessions] = useState(null);
 
@@ -184,10 +181,7 @@ export default function OwnerSalonReport() {
 
         setReportSessions(Array.isArray(data?.sessions) ? data.sessions : []);
       } catch (error) {
-        console.error(
-          "Failed to load default daily salon report sessions:",
-          error,
-        );
+        console.error("Failed to load default daily salon report sessions:", error);
 
         fetchSessions();
       }
@@ -228,11 +222,7 @@ export default function OwnerSalonReport() {
       return sessionsValue;
     }
 
-    if (
-      sessionsValue &&
-      typeof sessionsValue === "object" &&
-      sessionsValue.id
-    ) {
+    if (sessionsValue && typeof sessionsValue === "object" && sessionsValue.id) {
       return [sessionsValue];
     }
 
@@ -246,7 +236,6 @@ export default function OwnerSalonReport() {
 
     return normalizeSessions(sessions);
   }, [reportSessions, sessions]);
-
 
   // ===============================
   // ADDITIONAL FILTER STATES
@@ -388,11 +377,7 @@ export default function OwnerSalonReport() {
 
     const [selectedYear, selectedMonth] = value.split("-").map(Number);
 
-    const monthName = new Date(
-      selectedYear,
-      selectedMonth - 1,
-      1,
-    ).toLocaleDateString("en-UG", {
+    const monthName = new Date(selectedYear, selectedMonth - 1, 1).toLocaleDateString("en-UG", {
       month: "long",
       year: "numeric",
     });
@@ -455,9 +440,7 @@ export default function OwnerSalonReport() {
     }
 
     if (selectedPeriod === "day") {
-      return salonSessions.filter(
-        (session) => session.open_date === selectedDate,
-      );
+      return salonSessions.filter((session) => session.open_date === selectedDate);
     }
 
     if (selectedPeriod === "week" && selectedWeek) {
@@ -479,8 +462,7 @@ export default function OwnerSalonReport() {
         if (!sessionDate) return false;
 
         return (
-          sessionDate.getFullYear() === selectedYear &&
-          sessionDate.getMonth() + 1 === selectedMonth
+          sessionDate.getFullYear() === selectedYear && sessionDate.getMonth() + 1 === selectedMonth
         );
       });
     }
@@ -496,15 +478,7 @@ export default function OwnerSalonReport() {
     }
 
     return salonSessions;
-  }, [
-    salonSessions,
-    reportSessions,
-    selectedPeriod,
-    selectedDate,
-    selectedWeek,
-    monthYear,
-    year,
-  ]);
+  }, [salonSessions, reportSessions, selectedPeriod, selectedDate, selectedWeek, monthYear, year]);
 
   // ===============================
   // PROCESSED SESSION ROWS
@@ -551,18 +525,15 @@ export default function OwnerSalonReport() {
     );
 
     const openSessions = processedSessions.filter(
-      (session) =>
-        session.status === "open" && !session.close_date && !session.close_time,
+      (session) => session.status === "open" && !session.close_date && !session.close_time,
     );
 
-    const averageMinutes =
-      totalSessions > 0 ? Math.floor(totalMinutes / totalSessions) : 0;
+    const averageMinutes = totalSessions > 0 ? Math.floor(totalMinutes / totalSessions) : 0;
 
     const longestSession =
       processedSessions.length > 0
         ? processedSessions.reduce(
-            (longest, session) =>
-              session.totalMinutes > longest.totalMinutes ? session : longest,
+            (longest, session) => (session.totalMinutes > longest.totalMinutes ? session : longest),
             processedSessions[0],
           )
         : null;
@@ -598,35 +569,26 @@ export default function OwnerSalonReport() {
   // ===============================
 
   const averageOpeningTime = useMemo(() => {
-    const sessionsWithOpeningTimes = processedSessions.filter(
-      (session) => session.open_time,
-    );
+    const sessionsWithOpeningTimes = processedSessions.filter((session) => session.open_time);
 
     if (!sessionsWithOpeningTimes.length) {
       return "N/A";
     }
 
-    const totalOpeningMinutes = sessionsWithOpeningTimes.reduce(
-      (sum, session) => {
-        const [hours, minutes] = session.open_time.split(":").map(Number);
+    const totalOpeningMinutes = sessionsWithOpeningTimes.reduce((sum, session) => {
+      const [hours, minutes] = session.open_time.split(":").map(Number);
 
-        return sum + hours * 60 + minutes;
-      },
-      0,
-    );
+      return sum + hours * 60 + minutes;
+    }, 0);
 
-    const averageMinutes = Math.floor(
-      totalOpeningMinutes / sessionsWithOpeningTimes.length,
-    );
+    const averageMinutes = Math.floor(totalOpeningMinutes / sessionsWithOpeningTimes.length);
 
     const averageHours = Math.floor(averageMinutes / 60);
 
     const remainingMinutes = averageMinutes % 60;
 
     return formatTime12Hour(
-      `${String(averageHours).padStart(2, "0")}:${String(
-        remainingMinutes,
-      ).padStart(2, "0")}:00`,
+      `${String(averageHours).padStart(2, "0")}:${String(remainingMinutes).padStart(2, "0")}:00`,
     );
   }, [processedSessions]);
 
@@ -635,35 +597,26 @@ export default function OwnerSalonReport() {
   // ===============================
 
   const averageClosingTime = useMemo(() => {
-    const sessionsWithClosingTimes = processedSessions.filter(
-      (session) => session.close_time,
-    );
+    const sessionsWithClosingTimes = processedSessions.filter((session) => session.close_time);
 
     if (!sessionsWithClosingTimes.length) {
       return "N/A";
     }
 
-    const totalClosingMinutes = sessionsWithClosingTimes.reduce(
-      (sum, session) => {
-        const [hours, minutes] = session.close_time.split(":").map(Number);
+    const totalClosingMinutes = sessionsWithClosingTimes.reduce((sum, session) => {
+      const [hours, minutes] = session.close_time.split(":").map(Number);
 
-        return sum + hours * 60 + minutes;
-      },
-      0,
-    );
+      return sum + hours * 60 + minutes;
+    }, 0);
 
-    const averageMinutes = Math.floor(
-      totalClosingMinutes / sessionsWithClosingTimes.length,
-    );
+    const averageMinutes = Math.floor(totalClosingMinutes / sessionsWithClosingTimes.length);
 
     const averageHours = Math.floor(averageMinutes / 60);
 
     const remainingMinutes = averageMinutes % 60;
 
     return formatTime12Hour(
-      `${String(averageHours).padStart(2, "0")}:${String(
-        remainingMinutes,
-      ).padStart(2, "0")}:00`,
+      `${String(averageHours).padStart(2, "0")}:${String(remainingMinutes).padStart(2, "0")}:00`,
     );
   }, [processedSessions]);
 
@@ -673,15 +626,13 @@ export default function OwnerSalonReport() {
 
   const currentSession = useMemo(() => {
     return salonSessions.find(
-      (session) =>
-        session.status === "open" && !session.close_date && !session.close_time,
+      (session) => session.status === "open" && !session.close_date && !session.close_time,
     );
   }, [salonSessions]);
 
   const currentSessionDuration = useMemo(() => {
     return calculateSessionDuration(currentSession);
   }, [currentSession]);
-
 
   // ===============================
   // RENDER
@@ -693,13 +644,11 @@ export default function OwnerSalonReport() {
 
       <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+          <p className="text-sm font-semibold tracking-wide text-blue-600 uppercase">
             Salon operations
           </p>
 
-          <h1 className="text-2xl font-bold text-gray-900 md:text-3xl">
-            Salon Report
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900 md:text-3xl">Salon Report</h1>
 
           <p className="mt-1 text-sm text-gray-600">{reportLabel}</p>
         </div>
@@ -708,9 +657,7 @@ export default function OwnerSalonReport() {
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Day
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Day</label>
 
             <input
               type="date"
@@ -721,9 +668,7 @@ export default function OwnerSalonReport() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Week
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Week</label>
 
             <input
               type="week"
@@ -734,9 +679,7 @@ export default function OwnerSalonReport() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Month
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Month</label>
 
             <input
               type="month"
@@ -747,9 +690,7 @@ export default function OwnerSalonReport() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Year
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Year</label>
 
             <select
               value={year}
@@ -775,9 +716,7 @@ export default function OwnerSalonReport() {
               <div className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded-full bg-green-500" />
 
-                <h2 className="text-lg font-semibold text-green-900">
-                  Salon is currently open
-                </h2>
+                <h2 className="text-lg font-semibold text-green-900">Salon is currently open</h2>
               </div>
 
               <p className="mt-2 text-sm text-green-800">
@@ -787,13 +726,12 @@ export default function OwnerSalonReport() {
             </div>
 
             <div className="rounded-xl bg-white px-5 py-3 text-center shadow-sm">
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              <p className="text-xs font-medium tracking-wide text-gray-500 uppercase">
                 Current duration
               </p>
 
               <p className="mt-1 text-xl font-bold text-green-700">
-                {currentSessionDuration.hours} hrs{" "}
-                {currentSessionDuration.minutes} mins
+                {currentSessionDuration.hours} hrs {currentSessionDuration.minutes} mins
               </p>
             </div>
           </div>
@@ -806,13 +744,9 @@ export default function OwnerSalonReport() {
         <div className="rounded-2xl border bg-white p-5 shadow-sm">
           <p className="text-sm text-gray-500">Total Sessions</p>
 
-          <p className="mt-2 text-3xl font-bold text-gray-900">
-            {summary.totalSessions}
-          </p>
+          <p className="mt-2 text-3xl font-bold text-gray-900">{summary.totalSessions}</p>
 
-          <p className="mt-1 text-xs text-gray-500">
-            Sessions in selected period
-          </p>
+          <p className="mt-1 text-xs text-gray-500">Sessions in selected period</p>
         </div>
 
         <div className="rounded-2xl border bg-white p-5 shadow-sm">
@@ -822,9 +756,7 @@ export default function OwnerSalonReport() {
             {formatDuration(summary.totalMinutes)}
           </p>
 
-          <p className="mt-1 text-xs text-gray-500">
-            Combined session duration
-          </p>
+          <p className="mt-1 text-xs text-gray-500">Combined session duration</p>
         </div>
 
         <div className="rounded-2xl border bg-white p-5 shadow-sm">
@@ -834,21 +766,15 @@ export default function OwnerSalonReport() {
             {formatDuration(summary.averageMinutes)}
           </p>
 
-          <p className="mt-1 text-xs text-gray-500">
-            Average hours per opening
-          </p>
+          <p className="mt-1 text-xs text-gray-500">Average hours per opening</p>
         </div>
 
         <div className="rounded-2xl border bg-white p-5 shadow-sm">
           <p className="text-sm text-gray-500">Completed Sessions</p>
 
-          <p className="mt-2 text-3xl font-bold text-green-700">
-            {summary.completedSessionsCount}
-          </p>
+          <p className="mt-2 text-3xl font-bold text-green-700">{summary.completedSessionsCount}</p>
 
-          <p className="mt-1 text-xs text-gray-500">
-            {summary.openSessionsCount} still open
-          </p>
+          <p className="mt-1 text-xs text-gray-500">{summary.openSessionsCount} still open</p>
         </div>
       </section>
 
@@ -858,26 +784,20 @@ export default function OwnerSalonReport() {
         <div className="rounded-2xl border bg-white p-5 shadow-sm">
           <p className="text-sm text-gray-500">Average Opening Time</p>
 
-          <p className="mt-2 text-2xl font-bold text-gray-900">
-            {averageOpeningTime}
-          </p>
+          <p className="mt-2 text-2xl font-bold text-gray-900">{averageOpeningTime}</p>
         </div>
 
         <div className="rounded-2xl border bg-white p-5 shadow-sm">
           <p className="text-sm text-gray-500">Average Closing Time</p>
 
-          <p className="mt-2 text-2xl font-bold text-gray-900">
-            {averageClosingTime}
-          </p>
+          <p className="mt-2 text-2xl font-bold text-gray-900">{averageClosingTime}</p>
         </div>
 
         <div className="rounded-2xl border bg-white p-5 shadow-sm">
           <p className="text-sm text-gray-500">Longest Session</p>
 
           <p className="mt-2 text-2xl font-bold text-orange-700">
-            {summary.longestSession
-              ? formatDuration(summary.longestSession.totalMinutes)
-              : "N/A"}
+            {summary.longestSession ? formatDuration(summary.longestSession.totalMinutes) : "N/A"}
           </p>
 
           <p className="mt-1 text-xs text-gray-500">
@@ -891,9 +811,7 @@ export default function OwnerSalonReport() {
           <p className="text-sm text-gray-500">Shortest Session</p>
 
           <p className="mt-2 text-2xl font-bold text-cyan-700">
-            {summary.shortestSession
-              ? formatDuration(summary.shortestSession.totalMinutes)
-              : "N/A"}
+            {summary.shortestSession ? formatDuration(summary.shortestSession.totalMinutes) : "N/A"}
           </p>
 
           <p className="mt-1 text-xs text-gray-500">
@@ -908,9 +826,7 @@ export default function OwnerSalonReport() {
 
       <section className="rounded-2xl border bg-white p-4 shadow-sm md:p-6">
         <div className="mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Session History
-          </h2>
+          <h2 className="text-xl font-semibold text-gray-900">Session History</h2>
 
           <p className="mt-1 text-sm text-gray-500">
             Opening, closing and duration details for the selected period.
@@ -960,10 +876,7 @@ export default function OwnerSalonReport() {
                 <tbody>
                   {processedSessions.map((session, index) => (
                     <tr
-                      key={
-                        session.id ??
-                        `${session.open_date}-${session.open_time}-${index}`
-                      }
+                      key={session.id ?? `${session.open_date}-${session.open_time}-${index}`}
                       className="hover:bg-gray-50"
                     >
                       <td className="border px-4 py-3 text-sm">{index + 1}</td>
@@ -977,15 +890,11 @@ export default function OwnerSalonReport() {
                       </td>
 
                       <td className="border px-4 py-3 text-sm">
-                        {session.close_date
-                          ? formatSessionDate(session.close_date)
-                          : "Not closed"}
+                        {session.close_date ? formatSessionDate(session.close_date) : "Not closed"}
                       </td>
 
                       <td className="border px-4 py-3 text-sm">
-                        {session.close_time
-                          ? formatTime12Hour(session.close_time)
-                          : "Not closed"}
+                        {session.close_time ? formatTime12Hour(session.close_time) : "Not closed"}
                       </td>
 
                       <td className="border px-4 py-3 text-sm font-medium">

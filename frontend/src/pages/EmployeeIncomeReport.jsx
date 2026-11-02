@@ -21,8 +21,7 @@ const EmployeeIncomeReport = ({ employee }) => {
     fetchMonthlyData,
     fetchYearlyData,
     fetchServiceMaterials,
-    fetchServiceDefinitions
-
+    fetchServiceDefinitions,
   } = useData();
 
   const [selectedPeriod, setSelectedPeriod] = useState("day"); // day | week | month | year
@@ -35,9 +34,7 @@ const EmployeeIncomeReport = ({ employee }) => {
   // Filter services by employee
   const employeeServices = useMemo(() => {
     if (!services) return [];
-    return services.filter(s =>
-      s.performers?.some(p => p.employee_id === employee.id)
-    );
+    return services.filter((s) => s.performers?.some((p) => p.employee_id === employee.id));
   }, [services, employee.id]);
 
   // Filter all totals (expenses, advances, tagFees, lateFees) if needed
@@ -47,21 +44,55 @@ const EmployeeIncomeReport = ({ employee }) => {
   const employeeLateFees = useMemo(() => lateFees || [], [lateFees]);
 
   // Same helper functions as in OwnerIncomeDailyReport
-  const serviceEmployeeSalary = (s) => s.performers.reduce((sum, p) => sum + (parseFloat(p.role_amount || p.earned_amount || 0) || 0), 0);
-  const serviceMaterialsTotal = (s) => s.materials?.reduce((sum, m) => sum + (parseFloat(m.material_cost || 0) || 0), 0) || 0;
+  const serviceEmployeeSalary = (s) =>
+    s.performers.reduce(
+      (sum, p) => sum + (parseFloat(p.role_amount || p.earned_amount || 0) || 0),
+      0,
+    );
+  const serviceMaterialsTotal = (s) =>
+    s.materials?.reduce((sum, m) => sum + (parseFloat(m.material_cost || 0) || 0), 0) || 0;
 
   const calculateTotals = () => {
-    const grossIncome = employeeServices.reduce((sum, s) => sum + (parseFloat(s.full_amount || 0) || 0), 0);
+    const grossIncome = employeeServices.reduce(
+      (sum, s) => sum + (parseFloat(s.full_amount || 0) || 0),
+      0,
+    );
     const employeesSalary = employeeServices.reduce((sum, s) => sum + serviceEmployeeSalary(s), 0);
     const materialsTotal = employeeServices.reduce((sum, s) => sum + serviceMaterialsTotal(s), 0);
-    const totalExpenses = employeeExpenses.reduce((sum, e) => sum + (parseFloat(e.amount || 0) || 0), 0);
-    const totalAdvances = employeeAdvances.reduce((sum, a) => sum + (parseFloat(a.amount || 0) || 0), 0);
-    const totalLateFees = employeeLateFees.reduce((sum, l) => sum + (parseFloat(l.amount || 0) || 0), 0);
-    const totalTagFees = employeeTagFees.reduce((sum, t) => sum + (parseFloat(t.amount || 0) || 0), 0);
-    const netEmployeeSalary = Math.max(0, employeesSalary - (totalAdvances + totalLateFees + totalTagFees));
+    const totalExpenses = employeeExpenses.reduce(
+      (sum, e) => sum + (parseFloat(e.amount || 0) || 0),
+      0,
+    );
+    const totalAdvances = employeeAdvances.reduce(
+      (sum, a) => sum + (parseFloat(a.amount || 0) || 0),
+      0,
+    );
+    const totalLateFees = employeeLateFees.reduce(
+      (sum, l) => sum + (parseFloat(l.amount || 0) || 0),
+      0,
+    );
+    const totalTagFees = employeeTagFees.reduce(
+      (sum, t) => sum + (parseFloat(t.amount || 0) || 0),
+      0,
+    );
+    const netEmployeeSalary = Math.max(
+      0,
+      employeesSalary - (totalAdvances + totalLateFees + totalTagFees),
+    );
     const netIncome = grossIncome - (totalExpenses + materialsTotal + netEmployeeSalary);
     const cashAtHand = netIncome + netEmployeeSalary;
-    return { grossIncome, employeesSalary, materialsTotal, totalExpenses, totalAdvances, totalLateFees, totalTagFees, netEmployeeSalary, netIncome, cashAtHand };
+    return {
+      grossIncome,
+      employeesSalary,
+      materialsTotal,
+      totalExpenses,
+      totalAdvances,
+      totalLateFees,
+      totalTagFees,
+      netEmployeeSalary,
+      netIncome,
+      cashAtHand,
+    };
   };
 
   const totals = calculateTotals();
@@ -89,39 +120,59 @@ const EmployeeIncomeReport = ({ employee }) => {
 
   // ---------- Render ----------
   return (
-    <div className="income-page max-w-6xl mx-auto p-6">
-      <h1 className="text-3xl font-extrabold text-center mb-6 text-gray-800">
+    <div className="income-page mx-auto max-w-6xl p-6">
+      <h1 className="mb-6 text-center text-3xl font-extrabold text-gray-800">
         {employee.first_name} {employee.last_name} - Income Report
       </h1>
 
       {/* PERIOD PICKERS */}
       <div className="mb-6 flex flex-wrap gap-4">
         <div>
-          <label className="block mb-1 font-medium">Day:</label>
-          <input type="date" onChange={e => handlePeriodChange("day", e.target.value)} className="border rounded p-2" />
+          <label className="mb-1 block font-medium">Day:</label>
+          <input
+            type="date"
+            onChange={(e) => handlePeriodChange("day", e.target.value)}
+            className="rounded border p-2"
+          />
         </div>
         <div>
-          <label className="block mb-1 font-medium">Week:</label>
-          <input type="week" onChange={e => {
-            const [year, week] = e.target.value.split("-W");
-            handlePeriodChange("week", { start: getStartOfWeek(year, week), end: getEndOfWeek(year, week) });
-          }} className="border rounded p-2" />
+          <label className="mb-1 block font-medium">Week:</label>
+          <input
+            type="week"
+            onChange={(e) => {
+              const [year, week] = e.target.value.split("-W");
+              handlePeriodChange("week", {
+                start: getStartOfWeek(year, week),
+                end: getEndOfWeek(year, week),
+              });
+            }}
+            className="rounded border p-2"
+          />
         </div>
         <div>
-          <label className="block mb-1 font-medium">Month:</label>
-          <input type="month" onChange={e => {
-            const [year, month] = e.target.value.split("-");
-            handlePeriodChange("month", { year: parseInt(year), month: parseInt(month) });
-          }} className="border rounded p-2" />
+          <label className="mb-1 block font-medium">Month:</label>
+          <input
+            type="month"
+            onChange={(e) => {
+              const [year, month] = e.target.value.split("-");
+              handlePeriodChange("month", { year: parseInt(year), month: parseInt(month) });
+            }}
+            className="rounded border p-2"
+          />
         </div>
         <div>
-          <label className="block mb-1 font-medium">Year:</label>
-          <input type="number" placeholder="2025" onChange={e => handlePeriodChange("year", { year: parseInt(e.target.value) })} className="border rounded p-2 w-24" />
+          <label className="mb-1 block font-medium">Year:</label>
+          <input
+            type="number"
+            placeholder="2025"
+            onChange={(e) => handlePeriodChange("year", { year: parseInt(e.target.value) })}
+            className="w-24 rounded border p-2"
+          />
         </div>
       </div>
 
       {/* SUMMARY BOXES */}
-      <section className="bg-white shadow rounded-lg p-4 mb-6 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      <section className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-white p-4 shadow sm:grid-cols-3 lg:grid-cols-4">
         {[
           { label: "Gross Income", value: totals.grossIncome },
           { label: "Employees Salary", value: totals.employeesSalary },
@@ -134,16 +185,19 @@ const EmployeeIncomeReport = ({ employee }) => {
           { label: "Net Income", value: totals.netIncome },
           { label: "Cash at Hand", value: totals.cashAtHand },
         ].map((item, idx) => (
-          <div key={idx} className={`summary-box p-3 border rounded ${item.label.includes("Net") ? "bg-green-50" : ""} ${item.label === "Cash at Hand" ? "bg-green-100" : ""}`}>
+          <div
+            key={idx}
+            className={`summary-box rounded border p-3 ${item.label.includes("Net") ? "bg-green-50" : ""} ${item.label === "Cash at Hand" ? "bg-green-100" : ""}`}
+          >
             <div className="text-sm text-gray-600">{item.label}</div>
-            <div className="font-bold text-lg">{(item.value || 0).toLocaleString()} UGX</div>
+            <div className="text-lg font-bold">{(item.value || 0).toLocaleString()} UGX</div>
           </div>
         ))}
       </section>
 
       {/* SERVICE DETAILS TABLE */}
-      <section className="bg-white shadow rounded-lg p-4 mb-6">
-        <h2 className="text-lg font-semibold text-gray-700 mb-3">Service Details</h2>
+      <section className="mb-6 rounded-lg bg-white p-4 shadow">
+        <h2 className="mb-3 text-lg font-semibold text-gray-700">Service Details</h2>
         <table className="w-full border-collapse border">
           <thead>
             <tr className="bg-blue-50">
@@ -164,15 +218,21 @@ const EmployeeIncomeReport = ({ employee }) => {
                 <td className="border px-2 py-1">{(s.full_amount || 0).toLocaleString()}</td>
                 <td className="border px-2 py-1">{(s.salon_amount || 0).toLocaleString()}</td>
                 <td className="border px-2 py-1">
-                  {(s.performers || []).map(p => `${p.first_name} ${p.last_name} (${p.role_name} - ${p.role_amount?.toLocaleString()})`).join(", ")}
-                  {(s.materials || []).map(m => `${m.material_name} (${m.material_cost?.toLocaleString()})`).join(", ")}
+                  {(s.performers || [])
+                    .map(
+                      (p) =>
+                        `${p.first_name} ${p.last_name} (${p.role_name} - ${p.role_amount?.toLocaleString()})`,
+                    )
+                    .join(", ")}
+                  {(s.materials || [])
+                    .map((m) => `${m.material_name} (${m.material_cost?.toLocaleString()})`)
+                    .join(", ")}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </section>
-
     </div>
   );
 };

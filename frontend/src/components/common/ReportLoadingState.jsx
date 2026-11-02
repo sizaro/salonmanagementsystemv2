@@ -1,9 +1,21 @@
 import { LoaderCircle } from "lucide-react";
 import { TableSkeleton } from "../loading/DashboardSkeleton.jsx";
 
-export default function ReportLoadingState({ message = "Loading report data...", compact = false }) {
+export default function ReportLoadingState({
+  message = "Loading report data...",
+  compact = false,
+}) {
   if (!compact) {
-    return <section className="rounded-2xl border border-[rgba(137,72,111,.14)] bg-white/60 p-5 shadow-sm backdrop-blur-sm" role="status" aria-live="polite"><p className="mb-4 text-sm font-semibold text-[var(--salon-ink)]">{message}</p><TableSkeleton rows={5} /></section>;
+    return (
+      <section
+        className="rounded-2xl border border-[rgba(137,72,111,.14)] bg-white/60 p-5 shadow-sm backdrop-blur-sm"
+        role="status"
+        aria-live="polite"
+      >
+        <p className="mb-4 text-sm font-semibold text-[var(--salon-ink)]">{message}</p>
+        <TableSkeleton rows={5} />
+      </section>
+    );
   }
 
   return (

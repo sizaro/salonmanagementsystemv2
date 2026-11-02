@@ -5,7 +5,14 @@ import ConfirmModal from "../components/ConfirmModal.jsx";
 import Modal from "../components/Modal.jsx";
 
 const Employees = () => {
-  const { employees, fetchEmployees, fetchEmployeeById, createEmployee, updateEmployee, deleteEmployee } = useData();
+  const {
+    employees,
+    fetchEmployees,
+    fetchEmployeeById,
+    createEmployee,
+    updateEmployee,
+    deleteEmployee,
+  } = useData();
 
   const [showModal, setShowModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
@@ -53,29 +60,37 @@ const Employees = () => {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="flex justify-between items-center mb-6">
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-800">Employees</h1>
         <button
           onClick={handleAdd}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md shadow"
+          className="rounded-md bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700"
         >
           Add Employee
         </button>
       </div>
 
-      <div className="overflow-x-auto bg-white shadow rounded-lg">
+      <div className="overflow-x-auto rounded-lg bg-white shadow">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-100">
             <tr>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">First Name</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Middle Name</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
+                First Name
+              </th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
+                Middle Name
+              </th>
               <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Last Name</th>
               <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Email</th>
               <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Role</th>
               <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Phone</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Next of Kin</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Next of Kin Phone</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
+                Next of Kin
+              </th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
+                Next of Kin Phone
+              </th>
               <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Actions</th>
             </tr>
           </thead>
@@ -90,16 +105,16 @@ const Employees = () => {
                 <td className="px-4 py-2">{emp.phone}</td>
                 <td className="px-4 py-2">{emp.next_of_kin}</td>
                 <td className="px-4 py-2">{emp.next_of_kin_phone}</td>
-                <td className="px-4 py-2 flex gap-2">
+                <td className="flex gap-2 px-4 py-2">
                   <button
                     onClick={() => handleEdit(emp.id)}
-                    className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded-md text-sm"
+                    className="rounded-md bg-yellow-400 px-3 py-1 text-sm text-white hover:bg-yellow-500"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => handleDelete(emp.id)}
-                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm"
+                    className="rounded-md bg-red-500 px-3 py-1 text-sm text-white hover:bg-red-600"
                   >
                     Delete
                   </button>
@@ -109,32 +124,32 @@ const Employees = () => {
           </tbody>
         </table>
       </div>
-       <Modal
+      <Modal
         isOpen={showModal}
         onClose={() => {
-            setShowModal(false);
-            setEditingEmployee(null);
+          setShowModal(false);
+          setEditingEmployee(null);
         }}
-        >
+      >
         {editingEmployee && (
-            <EmployeeForm
+          <EmployeeForm
             employee={editingEmployee}
             onSubmit={handleModalSubmit}
             onClose={() => {
-                setShowModal(false);
-                setEditingEmployee(null);
+              setShowModal(false);
+              setEditingEmployee(null);
             }}
-            />
+          />
         )}
-        </Modal>     
+      </Modal>
 
       {/* Confirm Modal */}
       <ConfirmModal
-            isOpen={confirmModalOpen}
-            message="Are you sure you want to delete this employee?"
-            onConfirm={confirmDelete}
-            onClose={() => setConfirmModalOpen(false)}
-          />
+        isOpen={confirmModalOpen}
+        message="Are you sure you want to delete this employee?"
+        onConfirm={confirmDelete}
+        onClose={() => setConfirmModalOpen(false)}
+      />
     </div>
   );
 };
