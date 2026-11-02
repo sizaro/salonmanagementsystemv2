@@ -86,9 +86,6 @@ export default function ExpenseForm({ onSubmit, onClose, expenseData, entryType 
           <label className="mb-1 font-medium text-gray-700">Disbursement method</label>
           <select name="payment_method" value={form.payment_method} onChange={change} className="rounded border border-gray-300 px-3 py-2">
             <option value="CASH">Cash at Counter</option>
-            <option value="MTN_MOMO">MTN Mobile Money</option>
-            <option value="AIRTEL_MONEY">Airtel Money</option>
-            <option value="BANK_TRANSFER">Bank transfer</option>
           </select>
         </div>
       )}

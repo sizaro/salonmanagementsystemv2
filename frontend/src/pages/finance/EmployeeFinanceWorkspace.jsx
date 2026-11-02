@@ -783,11 +783,7 @@ export default function EmployeeFinanceWorkspace() {
                   }
                   className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2"
                 >
-                  <option value="CASH">Cash</option>
-                  <option value="MTN_MOMO">MTN Mobile Money</option>
-                  <option value="AIRTEL_MONEY">Airtel Money</option>
-                  <option value="BANK_TRANSFER">Bank transfer</option>
-                  <option value="OTHER">Other</option>
+                  <option value="CASH">Cash at Counter</option>
                 </select>
               </label>
               <label className="text-sm font-medium text-slate-700">
@@ -899,11 +895,7 @@ export default function EmployeeFinanceWorkspace() {
                       }
                       className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2"
                     >
-                      <option value="CASH">Cash</option>
-                      <option value="MTN_MOMO">MTN Mobile Money</option>
-                      <option value="AIRTEL_MONEY">Airtel Money</option>
-                      <option value="BANK_TRANSFER">Bank transfer</option>
-                      <option value="OTHER">Other</option>
+                      <option value="CASH">Cash at Counter</option>
                     </select>
                   </label>
                   <label className="text-sm font-medium text-slate-700">
@@ -999,9 +991,6 @@ export default function EmployeeFinanceWorkspace() {
                 >
                   <option value="PAYROLL_DEDUCTION">Deduct from available earnings</option>
                   <option value="CASH_REPAYMENT">Cash repayment received</option>
-                  <option value="MTN_MOMO">MTN Mobile Money repayment</option>
-                  <option value="AIRTEL_MONEY">Airtel Money repayment</option>
-                  <option value="BANK_TRANSFER">Bank transfer repayment</option>
                   {isOwner && <option value="WAIVED">Waive advance (owner only)</option>}
                 </select>
               </label>

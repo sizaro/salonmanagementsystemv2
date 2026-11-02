@@ -1583,24 +1583,15 @@ export default function ServiceForm({
             <div className="mb-5 grid gap-4 sm:grid-cols-2">
               <label>
                 <span className={labelClass}>Customer collection method</span>
-                <select
-                  value={form.collection_method}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      collection_method: event.target.value,
-                      collection_reference:
-                        event.target.value === "CASH" ? "" : current.collection_reference,
-                    }))
-                  }
-                  className={fieldClass}
-                >
-                  <option value="CASH">Cash at counter</option>
-                  <option value="MTN_MOMO">MTN MoMo</option>
-                  <option value="AIRTEL_MONEY">Airtel Money</option>
-                  <option value="BANK_TRANSFER">Bank transfer</option>
-                  <option value="OTHER">Other method</option>
-                </select>
+                {form.collection_method === "CASH" ? (
+                  <select value="CASH" disabled className={fieldClass}>
+                    <option value="CASH">Cash at counter</option>
+                  </select>
+                ) : (
+                  <div className={`${fieldClass} flex items-center bg-stone-100 text-stone-600`}>
+                    Existing record: {form.collection_method.replaceAll("_", " ")}
+                  </div>
+                )}
               </label>
 
               {form.collection_method === "OTHER" && (
