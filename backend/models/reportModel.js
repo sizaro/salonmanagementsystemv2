@@ -362,6 +362,20 @@ const financeSummaryForPeriod = async ({ salonId, startDate, endDate, services, 
        ) settlement_rows
        GROUP BY employee_id
      ),
+     fee_settlements AS (
+       SELECT employee_id,
+         COALESCE(SUM(amount) FILTER (WHERE settlement_method = 'PAYROLL_DEDUCTION' AND settled_date BETWEEN $2::date AND $3::date), 0)::numeric AS fee_payroll_deductions_in_period,
+         COALESCE(SUM(amount) FILTER (WHERE settlement_method = 'PAYROLL_DEDUCTION' AND settled_date <= $3::date), 0)::numeric AS fee_payroll_deductions_to_period_end,
+         COALESCE(SUM(amount) FILTER (WHERE settlement_method = 'CASH_REPAYMENT' AND settled_date BETWEEN $2::date AND $3::date), 0)::numeric AS fee_cash_repayments_in_period,
+         COALESCE(SUM(amount) FILTER (WHERE settlement_method = 'WAIVED' AND settled_date BETWEEN $2::date AND $3::date), 0)::numeric AS fee_waivers_in_period
+       FROM (
+         SELECT employee_id, amount, settlement_method,
+           (settled_at AT TIME ZONE 'Africa/Kampala')::date AS settled_date
+         FROM employee_fee_settlements
+         WHERE salon_id = $1 AND workflow_status = 'EFFECTIVE'
+       ) fee_settlement_rows
+       GROUP BY employee_id
+     ),
      tag_fee_totals AS (
        SELECT employee_id, COALESCE(SUM(amount), 0)::numeric AS tag_fees_in_period
        FROM tag_fee
@@ -380,17 +394,21 @@ const financeSummaryForPeriod = async ({ salonId, startDate, endDate, services, 
       COALESCE(p.cash_payments_in_period, 0)::numeric AS cash_payments_in_period,
        COALESCE(a.advances_in_period, 0)::numeric AS advances_in_period,
        COALESCE(s.payroll_deductions_in_period, 0)::numeric AS payroll_deductions_in_period,
+       COALESCE(fs.fee_payroll_deductions_in_period, 0)::numeric AS fee_payroll_deductions_in_period,
        COALESCE(s.cash_repayments_in_period, 0)::numeric AS cash_repayments_in_period,
+       COALESCE(fs.fee_cash_repayments_in_period, 0)::numeric AS fee_cash_repayments_in_period,
        COALESCE(s.waivers_in_period, 0)::numeric AS waivers_in_period,
+       COALESCE(fs.fee_waivers_in_period, 0)::numeric AS fee_waivers_in_period,
        COALESCE(t.tag_fees_in_period, 0)::numeric AS tag_fees_in_period,
        COALESCE(l.late_fees_in_period, 0)::numeric AS late_fees_in_period,
-       GREATEST(COALESCE(e.earned_to_period_end, 0) - COALESCE(p.payments_to_period_end, 0) - COALESCE(s.payroll_deductions_to_period_end, 0), 0)::numeric AS earnings_payable_at_period_end,
+       GREATEST(COALESCE(e.earned_to_period_end, 0) - COALESCE(p.payments_to_period_end, 0) - COALESCE(s.payroll_deductions_to_period_end, 0) - COALESCE(fs.fee_payroll_deductions_to_period_end, 0), 0)::numeric AS earnings_payable_at_period_end,
        GREATEST(COALESCE(a.advances_to_period_end, 0) - COALESCE(s.settlements_to_period_end, 0), 0)::numeric AS advances_outstanding_at_period_end
      FROM employee_scope es
      LEFT JOIN earnings e ON e.employee_id = es.employee_id
      LEFT JOIN payments p ON p.employee_id = es.employee_id
      LEFT JOIN advances a ON a.employee_id = es.employee_id
      LEFT JOIN settlements s ON s.employee_id = es.employee_id
+     LEFT JOIN fee_settlements fs ON fs.employee_id = es.employee_id
      LEFT JOIN tag_fee_totals t ON t.employee_id = es.employee_id
      LEFT JOIN late_fee_totals l ON l.employee_id = es.employee_id
      ORDER BY es.employee_id`,
@@ -452,8 +470,11 @@ const financeSummaryForPeriod = async ({ salonId, startDate, endDate, services, 
       employee_payments_disbursed: total("payments_in_period"),
       advances_disbursed: total("advances_in_period"),
       effective_payroll_deductions: total("payroll_deductions_in_period"),
+      effective_fee_payroll_deductions: total("fee_payroll_deductions_in_period"),
       cash_advance_repayments: total("cash_repayments_in_period"),
+      cash_fee_repayments: total("fee_cash_repayments_in_period"),
       advance_waivers: total("waivers_in_period"),
+      fee_waivers: total("fee_waivers_in_period"),
       tag_fees_recorded: tagFees.reduce((sum, fee) => sum + numeric(fee.amount), 0),
       late_fees_recorded: lateFees.reduce((sum, fee) => sum + numeric(fee.amount), 0),
     },

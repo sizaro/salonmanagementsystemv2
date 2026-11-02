@@ -2,6 +2,7 @@ import crypto from "crypto";
 import db from "./database.js";
 import { sha256, signatureFromDataUrl, storeManualReceipt, storeReceiptPdf, storeSignaturePng } from "../utils/financeReceiptStorage.js";
 import { createEmployeeFinanceReceiptPdf, receiptDocumentHash } from "../utils/employeeFinanceReceiptPdf.js";
+import { outstandingFeeSummary } from "./employeeFeeObligationsModel.js";
 
 const STAFF_ROLES = new Set(["owner", "manager", "cashier"]);
 const REVIEWER_ROLES = new Set(["owner", "manager"]);
@@ -148,6 +149,14 @@ const paymentAvailability = async (client, { salonId, employeeId, periodId }) =>
             AND asl.workflow_status = 'EFFECTIVE'
         ), 0)::numeric AS payroll_deductions,
        COALESCE((
+         SELECT SUM(efs.amount)
+         FROM employee_fee_settlements efs
+         WHERE efs.salon_id = $1
+           AND efs.employee_id = $2
+           AND efs.settlement_method = 'PAYROLL_DEDUCTION'
+           AND efs.workflow_status = 'EFFECTIVE'
+       ), 0)::numeric AS fee_payroll_deductions,
+       COALESCE((
          SELECT SUM(GREATEST(
            ar.requested_amount - COALESCE((
              SELECT SUM(asl.amount)
@@ -188,13 +197,15 @@ const paymentAvailability = async (client, { salonId, employeeId, periodId }) =>
   const earned = Number(rows[0].earned_amount || 0);
   const paid = Number(rows[0].paid_amount || 0);
   const payrollDeductions = Number(rows[0].payroll_deductions || 0);
+  const feePayrollDeductions = Number(rows[0].fee_payroll_deductions || 0);
   const advanceOutstanding = Number(rows[0].advance_outstanding || 0);
   return {
     earned,
     paid,
     payrollDeductions,
+    feePayrollDeductions,
     advanceOutstanding,
-    available: Math.max(earned - paid - payrollDeductions, 0),
+    available: Math.max(earned - paid - payrollDeductions - feePayrollDeductions, 0),
   };
 };
 
@@ -923,6 +934,10 @@ export const createEmployeePayment = async ({
       employeeId: targetEmployeeId,
       periodId: periodId ? Number(periodId) : null,
     });
+    const outstandingFees = await outstandingFeeSummary(client, { salonId, employeeId: targetEmployeeId });
+    if (outstandingFees > 0) {
+      throw financeError(`Settle the employee's outstanding fees of ${outstandingFees.toLocaleString()} UGX before preparing a payment`, 409);
+    }
     if (requestedAmount > availability.available) {
       throw financeError(
         `Payment exceeds available earnings of ${availability.available.toLocaleString()} UGX`,
@@ -960,6 +975,8 @@ export const createPastEmployeePayment = async ({ salonId, actorId, actorRole, e
   const evidence = await prepareManualReceipt(manualReceiptDataUrl);
   return db.transaction(async (client) => {
     const availability = await paymentAvailability(client, { salonId, employeeId: targetEmployeeId, periodId: null });
+    const outstandingFees = await outstandingFeeSummary(client, { salonId, employeeId: targetEmployeeId });
+    if (outstandingFees > 0) throw financeError(`Settle the employee's outstanding fees of ${outstandingFees.toLocaleString()} UGX before preparing a payment`, 409);
     if (requestedAmount > availability.available) throw financeError(`Payment exceeds available earnings of ${availability.available.toLocaleString()} UGX`);
     const { rows } = await client.query(
       `INSERT INTO employee_payments (

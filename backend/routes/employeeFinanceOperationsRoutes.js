@@ -27,6 +27,12 @@ import {
   postPaymentManualReceiptVerification,
 } from "../controllers/employeeFinanceOperationsController.js";
 import { requireRole } from "../middleware/auth.js";
+import {
+  getFeeObligations,
+  postCleanerFees,
+  postFeeDeductionConsent,
+  postFeeSettlement,
+} from "../controllers/employeeFeeObligationsController.js";
 
 const router = express.Router();
 
@@ -42,6 +48,11 @@ router.post("/advance-requests/:id/settlements", requireRole("owner", "manager")
 router.get("/advance-requests/:id/settlements/:settlementId", requireRole("owner", "manager", "cashier", "employee"), getAdvanceSettlementReceipt);
 router.get("/advance-requests/:id/settlements/:settlementId/evidence", requireRole("owner", "manager", "cashier", "employee"), openAdvanceSettlementEvidence);
 router.post("/advance-requests/:id/settlements/:settlementId/acknowledge", requireRole("employee", "manager", "cashier"), postAdvanceSettlementAcknowledgement);
+
+router.get("/fee-obligations", requireRole("owner", "manager", "cashier", "employee"), getFeeObligations);
+router.post("/fee-obligations/cleaner-fees", requireRole("owner"), postCleanerFees);
+router.post("/fee-obligations/:id/settlements", requireRole("owner", "manager"), postFeeSettlement);
+router.post("/fee-obligations/:id/settlements/:settlementId/acknowledge", requireRole("employee", "manager", "cashier"), postFeeDeductionConsent);
 
 router.get("/payments", requireRole("owner", "manager", "cashier", "employee"), getEmployeePayments);
 router.post("/payments", requireRole("owner", "manager", "cashier"), postEmployeePayment);

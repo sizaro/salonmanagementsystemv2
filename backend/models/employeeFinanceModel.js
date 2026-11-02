@@ -127,6 +127,26 @@ export const getEmployeeFinanceOverview = async ({
            AND ($4::date IS NULL OR asl.settled_at::date <= $4::date)
        ), 0)::numeric AS payroll_deductions,
        COALESCE((
+         SELECT SUM(efs.amount)
+         FROM employee_fee_settlements efs
+         WHERE efs.salon_id = $1
+           AND efs.employee_id = $2
+           AND efs.settlement_method = 'PAYROLL_DEDUCTION'
+           AND efs.workflow_status = 'EFFECTIVE'
+           AND ($3::date IS NULL OR efs.settled_at::date >= $3::date)
+           AND ($4::date IS NULL OR efs.settled_at::date <= $4::date)
+       ), 0)::numeric AS fee_payroll_deductions,
+       COALESCE((
+         SELECT SUM(o.amount - COALESCE(effective.amount, 0))
+         FROM employee_fee_obligations o
+         LEFT JOIN LATERAL (
+           SELECT SUM(s.amount)::numeric AS amount
+           FROM employee_fee_settlements s
+           WHERE s.fee_obligation_id = o.id AND s.salon_id = o.salon_id AND s.workflow_status = 'EFFECTIVE'
+         ) effective ON TRUE
+         WHERE o.salon_id = $1 AND o.employee_id = $2 AND o.workflow_status IN ('OPEN', 'SETTLEMENT_PENDING')
+       ), 0)::numeric AS fees_outstanding,
+       COALESCE((
          SELECT SUM(ar.requested_amount)
          FROM employee_advance_requests ar
          LEFT JOIN advances source_advance
@@ -166,6 +186,8 @@ export const getEmployeeFinanceOverview = async ({
     last_earning_date: overview.last_earning_date || null,
     paid_amount: Number(overview.paid_amount || 0),
     payroll_deductions: Number(overview.payroll_deductions || 0),
+    fee_payroll_deductions: Number(overview.fee_payroll_deductions || 0),
+    fees_outstanding: Math.max(Number(overview.fees_outstanding || 0), 0),
     advances_disbursed: Number(overview.advances_disbursed || 0),
     advances_settled: Number(overview.advances_settled || 0),
     advances_outstanding: Math.max(
@@ -175,7 +197,8 @@ export const getEmployeeFinanceOverview = async ({
     unpaid_amount: Math.max(
       Number(overview.earned_amount || 0)
         - Number(overview.paid_amount || 0)
-        - Number(overview.payroll_deductions || 0),
+        - Number(overview.payroll_deductions || 0)
+        - Number(overview.fee_payroll_deductions || 0),
       0,
     ),
     payment_state: "RECORDED",
@@ -219,6 +242,13 @@ export const getSalonFinanceSummary = async ({ salonId }) => {
            AND asl.workflow_status = 'EFFECTIVE'
        ), 0)::numeric AS payroll_deductions,
        COALESCE((
+         SELECT SUM(efs.amount)
+         FROM employee_fee_settlements efs
+         WHERE efs.salon_id = $1
+           AND efs.settlement_method = 'PAYROLL_DEDUCTION'
+           AND efs.workflow_status = 'EFFECTIVE'
+       ), 0)::numeric AS fee_payroll_deductions,
+       COALESCE((
          SELECT COUNT(*)
          FROM employee_advance_requests ar
          WHERE ar.salon_id = $1
@@ -230,11 +260,13 @@ export const getSalonFinanceSummary = async ({ salonId }) => {
   const earned = Number(summary.earned_amount || 0);
   const paid = Number(summary.paid_amount || 0);
   const payrollDeductions = Number(summary.payroll_deductions || 0);
+  const feePayrollDeductions = Number(summary.fee_payroll_deductions || 0);
   return {
     earned_amount: earned,
     paid_amount: paid,
     payroll_deductions: payrollDeductions,
-    unpaid_amount: Math.max(earned - paid - payrollDeductions, 0),
+    fee_payroll_deductions: feePayrollDeductions,
+    unpaid_amount: Math.max(earned - paid - payrollDeductions - feePayrollDeductions, 0),
     earning_entries: Number(summary.earning_entries || 0),
     pending_advance_requests: Number(summary.pending_advance_requests || 0),
   };
@@ -288,6 +320,14 @@ export const getStaffFinanceSnapshot = async ({ salonId, date }) => {
            AND asl.employee_id = u.id
            AND asl.settlement_method = 'PAYROLL_DEDUCTION'
            AND asl.workflow_status = 'EFFECTIVE'
+       ), 0)::numeric
+       - COALESCE((
+         SELECT SUM(efs.amount)
+         FROM employee_fee_settlements efs
+         WHERE efs.salon_id = u.salon_id
+           AND efs.employee_id = u.id
+           AND efs.settlement_method = 'PAYROLL_DEDUCTION'
+           AND efs.workflow_status = 'EFFECTIVE'
        ), 0)::numeric AS unpaid_amount,
        COALESCE((
          SELECT SUM(ar.requested_amount)

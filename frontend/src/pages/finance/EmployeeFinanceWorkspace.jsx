@@ -40,6 +40,7 @@ export default function EmployeeFinanceWorkspace() {
   const [financeEmployees, setFinanceEmployees] = useState([]);
   const [requests, setRequests] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [feeObligations, setFeeObligations] = useState([]);
   const [receipts, setReceipts] = useState([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -76,6 +77,13 @@ export default function EmployeeFinanceWorkspace() {
     settlement_method: "PAYROLL_DEDUCTION",
     notes: "",
   });
+  const [feeSettlementTarget, setFeeSettlementTarget] = useState(null);
+  const [feeSettlementForm, setFeeSettlementForm] = useState({
+    amount: "",
+    settlement_method: "PAYROLL_DEDUCTION",
+    notes: "",
+  });
+  const [cleanerFeeForm, setCleanerFeeForm] = useState({ amount: "", fee_period: "", reason: "Monthly cleaner fee" });
   const [signatureTarget, setSignatureTarget] = useState(null);
   const [signatureEmployeeOverview, setSignatureEmployeeOverview] = useState(null);
   const [signatureEmployeeLoading, setSignatureEmployeeLoading] = useState(false);
@@ -104,6 +112,7 @@ export default function EmployeeFinanceWorkspace() {
         overviewResponse,
         requestsResponse,
         paymentsResponse,
+        feesResponse,
         receiptsResponse,
         employeesResponse,
       ] = await Promise.all([
@@ -115,6 +124,7 @@ export default function EmployeeFinanceWorkspace() {
         ),
         axios.get(`${API_URL}/employee-finance/advance-requests`, { withCredentials: true }),
         axios.get(`${API_URL}/employee-finance/payments`, { withCredentials: true }),
+        axios.get(`${API_URL}/employee-finance/fee-obligations`, { withCredentials: true }),
         axios.get(`${API_URL}/employee-finance/receipts`, { withCredentials: true }),
         isStaff
           ? axios.get(`${API_URL}/employee-finance/employees`, { withCredentials: true })
@@ -123,6 +133,7 @@ export default function EmployeeFinanceWorkspace() {
       setOverview(overviewResponse.data.summary || overviewResponse.data.overview || null);
       setRequests(requestsResponse.data.requests || []);
       setPayments(paymentsResponse.data.payments || []);
+      setFeeObligations(feesResponse.data.obligations || []);
       setReceipts(receiptsResponse.data.receipts || []);
       setFinanceEmployees(employeesResponse.data.employees || []);
     } catch (requestError) {
@@ -148,7 +159,7 @@ export default function EmployeeFinanceWorkspace() {
   useEffect(() => {
     const action = searchParams.get("action");
     const tab = searchParams.get("tab");
-    if (["advances", "payments", "receipts"].includes(tab)) {
+    if (["advances", "payments", "fees", "receipts"].includes(tab)) {
       setActiveTab(tab);
     }
     if (["advance", "payment", "past-advance", "past-payment"].includes(action)) {
@@ -381,6 +392,60 @@ export default function EmployeeFinanceWorkspace() {
     }, "Payroll deduction sent to the employee for consent. Earnings are unchanged until they sign.");
   };
 
+  const openFeeSettlement = (obligation) => {
+    setFeeSettlementTarget(obligation);
+    setFeeSettlementForm({
+      amount: String(obligation.outstanding_amount || ""),
+      settlement_method: "PAYROLL_DEDUCTION",
+      notes: "",
+    });
+  };
+
+  const recordFeeSettlement = async (signatureDataUrl = null) => {
+    if (!feeSettlementTarget) return;
+    await axios.post(
+      `${API_URL}/employee-finance/fee-obligations/${feeSettlementTarget.id}/settlements`,
+      {
+        amount: Number(feeSettlementForm.amount),
+        settlement_method: feeSettlementForm.settlement_method,
+        notes: feeSettlementForm.notes,
+        settlement_signature_data_url: signatureDataUrl,
+      },
+      { withCredentials: true },
+    );
+  };
+
+  const submitFeeSettlement = (event) => {
+    event.preventDefault();
+    if (!feeSettlementTarget) return;
+    if (feeSettlementForm.settlement_method !== "PAYROLL_DEDUCTION") {
+      setSignatureTarget({
+        kind: "fee-obligations",
+        row: feeSettlementTarget,
+        settlement: { ...feeSettlementForm },
+        action: "FEE_SETTLEMENT_ATTESTATION",
+      });
+      return;
+    }
+    run(async () => {
+      await recordFeeSettlement();
+      setFeeSettlementTarget(null);
+    }, "Salary deduction sent to the employee for consent. Earnings are unchanged until they sign.");
+  };
+
+  const submitCleanerFees = (event) => {
+    event.preventDefault();
+    run(async () => {
+      const { data } = await axios.post(
+        `${API_URL}/employee-finance/fee-obligations/cleaner-fees`,
+        { ...cleanerFeeForm, amount: Number(cleanerFeeForm.amount) },
+        { withCredentials: true },
+      );
+      setCleanerFeeForm({ amount: "", fee_period: "", reason: "Monthly cleaner fee" });
+      setNotice(`${data.result.created_count} cleaner fee obligation(s) assigned; ${data.result.skipped_count} existing obligation(s) left unchanged.`);
+    }, "Cleaner fees assigned for employee settlement.");
+  };
+
   const decide = (kind, id, approved) => {
     const rejection_reason = approved
       ? undefined
@@ -474,6 +539,13 @@ export default function EmployeeFinanceWorkspace() {
       settlement,
       action: "PAYROLL_DEDUCTION_CONSENT",
     });
+  const requestFeePayrollDeductionConsent = (row, settlement) =>
+    setSignatureTarget({
+      kind: "fee-obligations",
+      row,
+      settlement,
+      action: "FEE_PAYROLL_DEDUCTION_CONSENT",
+    });
   const signReceipt = async (signatureDataUrl) => {
     if (!signatureTarget) return;
     const { kind, row, settlement, action } = signatureTarget;
@@ -509,8 +581,23 @@ export default function EmployeeFinanceWorkspace() {
       setSignatureTarget(null);
       return;
     }
+    if (action === "FEE_SETTLEMENT_ATTESTATION") {
+      await run(
+        async () => {
+          await recordFeeSettlement(signatureDataUrl);
+          setFeeSettlementTarget(null);
+        },
+        settlement?.settlement_method === "WAIVED"
+          ? "Fee waiver recorded with the owner's signed attestation."
+          : "Fee repayment recorded with management's signed attestation.",
+      );
+      setSignatureTarget(null);
+      return;
+    }
     const endpoint =
-      action === "PAYROLL_DEDUCTION_CONSENT"
+      action === "FEE_PAYROLL_DEDUCTION_CONSENT"
+        ? `${API_URL}/employee-finance/fee-obligations/${row.id}/settlements/${settlement.id}/acknowledge`
+        : action === "PAYROLL_DEDUCTION_CONSENT"
         ? `${API_URL}/employee-finance/advance-requests/${row.id}/settlements/${settlement.id}/acknowledge`
         : action === "APPROVAL"
           ? `${API_URL}/employee-finance/${kind}/${row.id}/decision`
@@ -521,8 +608,8 @@ export default function EmployeeFinanceWorkspace() {
         : { signature_data_url: signatureDataUrl };
     await run(
       () => axios.post(endpoint, payload, { withCredentials: true }),
-      action === "PAYROLL_DEDUCTION_CONSENT"
-        ? "Payroll deduction approved. Your available earnings and advance balance have been updated."
+      ["PAYROLL_DEDUCTION_CONSENT", "FEE_PAYROLL_DEDUCTION_CONSENT"].includes(action)
+        ? "Payroll deduction approved. Your available earnings have been updated."
         : action === "APPROVAL"
           ? "Request approved and management signature saved."
           : "Receipt acknowledgement and signature saved.",
@@ -563,6 +650,15 @@ export default function EmployeeFinanceWorkspace() {
                 Prepare employee payment
               </button>
             )}
+            {isOwner && (
+              <button
+                type="button"
+                onClick={() => setActiveForm("cleaner-fees")}
+                className="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/20"
+              >
+                Assign cleaner fees
+              </button>
+            )}
             {isStaff && (
               <button
                 type="button"
@@ -601,6 +697,7 @@ export default function EmployeeFinanceWorkspace() {
           ["Recorded earnings", money(overview?.earned_amount), "from completed services"],
           ["Paid through this workflow", money(overview?.paid_amount), "disbursed or acknowledged"],
           ["Advance deductions", money(overview?.payroll_deductions), "recovered from earnings"],
+          ["Fee deductions", money(overview?.fee_payroll_deductions), "employee-consented only"],
           ["Available for payment", money(overview?.unpaid_amount), "before a payment is prepared"],
           ["Earning records", overview?.earning_entries ?? 0, "immutable service snapshots"],
         ].map(([label, value, detail]) => (
@@ -726,8 +823,30 @@ export default function EmployeeFinanceWorkspace() {
                   <p className="mt-1 text-xs text-emerald-800">
                     Recorded earnings: {money(selectedEmployeeOverview?.earned_amount)} · Already
                     paid: {money(selectedEmployeeOverview?.paid_amount)} · Advance deductions:{" "}
-                    {money(selectedEmployeeOverview?.payroll_deductions)}
+                    {money(selectedEmployeeOverview?.payroll_deductions)} · Fee deductions:{" "}
+                    {money(selectedEmployeeOverview?.fee_payroll_deductions)}
                   </p>
+                  {Number(selectedEmployeeOverview?.fees_outstanding || 0) > 0 && (
+                    <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+                      <p className="font-semibold">
+                        Outstanding employee fees: {money(selectedEmployeeOverview.fees_outstanding)}
+                      </p>
+                      <p className="mt-1 text-xs">
+                        Late, tag, and cleaner fees must be settled by cash repayment, an
+                        employee-signed salary deduction, or an owner waiver before a payment can be prepared.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          closeForm();
+                          setActiveTab("fees");
+                        }}
+                        className="mt-2 text-xs font-bold text-rose-900 underline"
+                      >
+                        Review outstanding fees
+                      </button>
+                    </div>
+                  )}
                   {Number(selectedEmployeeOverview?.advances_outstanding || 0) > 0 && (
                     <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                       <p className="font-semibold">
@@ -816,6 +935,40 @@ export default function EmployeeFinanceWorkspace() {
                 className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 sm:col-span-2"
               >
                 {busy ? "Saving…" : "Prepare payment"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {activeForm === "cleaner-fees" && isOwner && (
+        <Modal isOpen onClose={closeForm} sizeClass="max-w-xl">
+          <form onSubmit={submitCleanerFees} className="space-y-4 p-2">
+            <h2 className="text-lg font-semibold text-slate-900">Assign monthly cleaner fees</h2>
+            <p className="text-sm leading-6 text-slate-600">
+              This is a manual month-end action. One open cleaner-fee obligation is created for each active employee; it never deducts salary automatically and a duplicate month is skipped.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-sm font-medium text-slate-700">
+                Fee amount (UGX)
+                <input required min="1" type="number" value={cleanerFeeForm.amount}
+                  onChange={(event) => setCleanerFeeForm((current) => ({ ...current, amount: event.target.value }))}
+                  className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2" />
+              </label>
+              <label className="text-sm font-medium text-slate-700">
+                Month
+                <input required type="month" value={cleanerFeeForm.fee_period?.slice(0, 7) || ""}
+                  onChange={(event) => setCleanerFeeForm((current) => ({ ...current, fee_period: `${event.target.value}-01` }))}
+                  className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2" />
+              </label>
+              <label className="text-sm font-medium text-slate-700 sm:col-span-2">
+                Reason
+                <input required value={cleanerFeeForm.reason}
+                  onChange={(event) => setCleanerFeeForm((current) => ({ ...current, reason: event.target.value }))}
+                  className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2" />
+              </label>
+              <button disabled={busy} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 sm:col-span-2">
+                {busy ? "Assigning…" : "Assign to all active employees"}
               </button>
             </div>
           </form>
@@ -1037,6 +1190,46 @@ export default function EmployeeFinanceWorkspace() {
         </Modal>
       )}
 
+      {feeSettlementTarget && (
+        <Modal isOpen onClose={() => setFeeSettlementTarget(null)} sizeClass="max-w-xl">
+          <form onSubmit={submitFeeSettlement} className="space-y-4 p-2">
+            <h2 className="text-lg font-semibold text-slate-900">Settle employee fee</h2>
+            <p className="text-sm text-slate-600">
+              {feeSettlementTarget.employee_name || "Employee"} has <strong>{money(feeSettlementTarget.outstanding_amount)}</strong> outstanding for this {displayStatus(feeSettlementTarget.fee_type).toLowerCase()}.
+              A salary deduction only becomes effective after the employee signs consent.
+            </p>
+            <div className="grid gap-3">
+              <label className="text-sm font-medium text-slate-700">
+                Settlement method
+                <select value={feeSettlementForm.settlement_method}
+                  onChange={(event) => setFeeSettlementForm((current) => ({ ...current, settlement_method: event.target.value }))}
+                  className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2">
+                  <option value="PAYROLL_DEDUCTION">Deduct from available earnings</option>
+                  <option value="CASH_REPAYMENT">Cash repayment received</option>
+                  {isOwner && <option value="WAIVED">Waive fee (owner only)</option>}
+                </select>
+              </label>
+              <label className="text-sm font-medium text-slate-700">
+                Amount (UGX)
+                <input required min="1" max={feeSettlementTarget.outstanding_amount} type="number" value={feeSettlementForm.amount}
+                  onChange={(event) => setFeeSettlementForm((current) => ({ ...current, amount: event.target.value }))}
+                  className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2" />
+              </label>
+              <label className="text-sm font-medium text-slate-700">
+                {feeSettlementForm.settlement_method === "WAIVED" ? "Waiver reason" : "Notes"}
+                <textarea required={feeSettlementForm.settlement_method === "WAIVED"} value={feeSettlementForm.notes}
+                  onChange={(event) => setFeeSettlementForm((current) => ({ ...current, notes: event.target.value }))}
+                  className="mt-1 block min-h-20 w-full rounded-xl border border-slate-300 px-3 py-2"
+                  placeholder="Record the reason or payment note" />
+              </label>
+              <button disabled={busy} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
+                {busy ? "Recording…" : feeSettlementForm.settlement_method === "PAYROLL_DEDUCTION" ? "Send for employee consent" : "Sign and record settlement"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       <section className="space-y-4">
         <div
           role="tablist"
@@ -1046,6 +1239,7 @@ export default function EmployeeFinanceWorkspace() {
           {[
             ["advances", "Advance requests", requests.length],
             ["payments", "Employee payments", payments.length],
+            ["fees", "Employee fees", feeObligations.length],
             ["receipts", "Issued receipts", receipts.length],
           ].map(([tab, label, count]) => (
             <button
@@ -1187,6 +1381,48 @@ export default function EmployeeFinanceWorkspace() {
           />
         )}
 
+        {activeTab === "fees" && (
+          <WorkflowTable
+            title="Employee fee obligations"
+            empty="No employee fee obligations yet. New late and tag fees appear here automatically."
+            rows={feeObligations}
+            employees={employees}
+            loading={loading}
+            columns={["Employee", "Fee", "Outstanding", "Status", "Recorded", "Actions"]}
+            render={(fee) => {
+              const isEmployee = Number(fee.employee_id) === Number(user?.id);
+              const pending = fee.pending_payroll_deductions || [];
+              return (
+                <tr key={fee.id} className="border-t border-slate-100">
+                  <td className="px-4 py-3 font-medium text-slate-800">{fee.employee_name || "You"}</td>
+                  <td className="px-4 py-3">
+                    <p>{displayStatus(fee.fee_type)}</p>
+                    <p className="mt-1 text-xs text-slate-500">{fee.reason || "—"}</p>
+                  </td>
+                  <td className="px-4 py-3">{money(fee.outstanding_amount)}</td>
+                  <td className="px-4 py-3"><Status value={fee.workflow_status} /></td>
+                  <td className="px-4 py-3 text-xs text-slate-600">{formatRecordDate(fee.created_at)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-2">
+                      {canSettleAdvances && ["OPEN", "SETTLEMENT_PENDING"].includes(String(fee.workflow_status || "").toUpperCase()) && pending.length === 0 && Number(fee.outstanding_amount || 0) > 0 && (
+                        <button disabled={busy} onClick={() => openFeeSettlement(fee)} className="rounded-lg bg-[var(--salehish-burgundy)] px-2.5 py-1.5 text-xs font-semibold text-white">Settle</button>
+                      )}
+                      {isEmployee && pending.map((settlement) => (
+                        <button key={settlement.id} disabled={busy} onClick={() => requestFeePayrollDeductionConsent(fee, settlement)} className="rounded-lg bg-amber-700 px-2.5 py-1.5 text-xs font-semibold text-white">
+                          Approve salary deduction {money(settlement.amount)}
+                        </button>
+                      ))}
+                      {canSettleAdvances && pending.length > 0 && (
+                        <span className="self-center rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800">Awaiting employee consent</span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            }}
+          />
+        )}
+
         {activeTab === "receipts" && (
           <ReceiptList
             receipts={receipts}
@@ -1204,19 +1440,19 @@ export default function EmployeeFinanceWorkspace() {
         title={
           signatureTarget?.action === "APPROVAL"
             ? "Sign management approval"
-            : signatureTarget?.action === "PAYROLL_DEDUCTION_CONSENT"
+            : ["PAYROLL_DEDUCTION_CONSENT", "FEE_PAYROLL_DEDUCTION_CONSENT"].includes(signatureTarget?.action)
               ? "Approve payroll deduction"
-              : signatureTarget?.action === "SETTLEMENT_ATTESTATION"
+              : ["SETTLEMENT_ATTESTATION", "FEE_SETTLEMENT_ATTESTATION"].includes(signatureTarget?.action)
                 ? "Sign settlement attestation"
                 : "Sign receipt acknowledgement"
         }
         declaration={
           signatureTarget?.action === "APPROVAL"
             ? `By signing, you approve this ${signatureTarget?.kind === "payments" ? "employee payment" : "employee advance"} for ${money(signatureTarget?.row?.requested_amount)}.`
-            : signatureTarget?.action === "PAYROLL_DEDUCTION_CONSENT"
-              ? `By signing, you agree that ${money(signatureTarget?.settlement?.amount)} will be deducted from your earned salary to settle advance ${signatureTarget?.settlement?.receipt_number}.`
-              : signatureTarget?.action === "SETTLEMENT_ATTESTATION"
-                ? `By signing, you authorize ${money(signatureTarget?.settlement?.amount)} to be ${signatureTarget?.settlement?.settlement_method === "WAIVED" ? "waived under owner authority" : ["MTN_MOMO", "AIRTEL_MONEY", "BANK_TRANSFER"].includes(signatureTarget?.settlement?.settlement_method) ? "recorded after external payment verification" : "recorded as received in cash"} against this employee advance.`
+            : ["PAYROLL_DEDUCTION_CONSENT", "FEE_PAYROLL_DEDUCTION_CONSENT"].includes(signatureTarget?.action)
+              ? `By signing, you agree that ${money(signatureTarget?.settlement?.amount)} will be deducted from your earned salary to settle ${signatureTarget?.action === "FEE_PAYROLL_DEDUCTION_CONSENT" ? "this employee fee" : `advance ${signatureTarget?.settlement?.receipt_number}`}.`
+              : ["SETTLEMENT_ATTESTATION", "FEE_SETTLEMENT_ATTESTATION"].includes(signatureTarget?.action)
+                ? `By signing, you authorize ${money(signatureTarget?.settlement?.amount)} to be ${signatureTarget?.settlement?.settlement_method === "WAIVED" ? "waived under owner authority" : ["MTN_MOMO", "AIRTEL_MONEY", "BANK_TRANSFER"].includes(signatureTarget?.settlement?.settlement_method) ? "recorded after external payment verification" : "recorded as received in cash"} against this employee ${signatureTarget?.action === "FEE_SETTLEMENT_ATTESTATION" ? "fee" : "advance"}.`
                 : `By signing, you confirm that you received ${money(signatureTarget?.row?.requested_amount)} under this ${signatureTarget?.kind === "payments" ? "employee payment" : "employee advance"}.`
         }
         reviewSummary={signatureTarget?.action === "APPROVAL" ? signatureEmployeeOverview : null}
