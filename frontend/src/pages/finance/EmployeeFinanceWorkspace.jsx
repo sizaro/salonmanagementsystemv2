@@ -84,6 +84,8 @@ export default function EmployeeFinanceWorkspace() {
     notes: "",
   });
   const [cleanerFeeForm, setCleanerFeeForm] = useState({ amount: "", fee_period: "", reason: "Monthly cleaner fee" });
+  const [cleanerFeeEditTarget, setCleanerFeeEditTarget] = useState(null);
+  const [cleanerFeeEditForm, setCleanerFeeEditForm] = useState({ amount: "", reason: "" });
   const [signatureTarget, setSignatureTarget] = useState(null);
   const [signatureEmployeeOverview, setSignatureEmployeeOverview] = useState(null);
   const [signatureEmployeeLoading, setSignatureEmployeeLoading] = useState(false);
@@ -444,6 +446,36 @@ export default function EmployeeFinanceWorkspace() {
       setCleanerFeeForm({ amount: "", fee_period: "", reason: "Monthly cleaner fee" });
       setNotice(`${data.result.created_count} cleaner fee obligation(s) assigned; ${data.result.skipped_count} existing obligation(s) left unchanged.`);
     }, "Cleaner fees assigned for employee settlement.");
+  };
+
+  const openCleanerFeeEdit = (fee) => {
+    setCleanerFeeEditTarget(fee);
+    setCleanerFeeEditForm({ amount: String(fee.amount || ""), reason: fee.reason || "" });
+  };
+
+  const submitCleanerFeeEdit = (event) => {
+    event.preventDefault();
+    if (!cleanerFeeEditTarget) return;
+    run(async () => {
+      await axios.patch(
+        `${API_URL}/employee-finance/fee-obligations/${cleanerFeeEditTarget.id}/cleaner-fee`,
+        { amount: Number(cleanerFeeEditForm.amount), reason: cleanerFeeEditForm.reason },
+        { withCredentials: true },
+      );
+      setCleanerFeeEditTarget(null);
+    }, "Cleaner fee updated. The employee-month identity remains unchanged.");
+  };
+
+  const voidCleanerFee = (fee) => {
+    const reason = window.prompt(`Why should the cleaner fee for ${fee.employee_name || "this employee"} be voided?`);
+    if (!reason?.trim()) return;
+    run(
+      () => axios.delete(`${API_URL}/employee-finance/fee-obligations/${fee.id}/cleaner-fee`, {
+        data: { reason: reason.trim() },
+        withCredentials: true,
+      }),
+      "Cleaner fee voided. It remains as an auditable record and cannot be recreated for the same employee and month.",
+    );
   };
 
   const decide = (kind, id, approved) => {
@@ -946,7 +978,7 @@ export default function EmployeeFinanceWorkspace() {
           <form onSubmit={submitCleanerFees} className="space-y-4 p-2">
             <h2 className="text-lg font-semibold text-slate-900">Assign monthly cleaner fees</h2>
             <p className="text-sm leading-6 text-slate-600">
-              This is a manual month-end action. One open cleaner-fee obligation is created for each active employee; it never deducts salary automatically and a duplicate month is skipped.
+              This is a manual month-end action. Exactly one cleaner-fee record can exist for each employee and month. It never deducts salary automatically; an already recorded month is skipped, including a voided record.
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="text-sm font-medium text-slate-700">
@@ -969,6 +1001,34 @@ export default function EmployeeFinanceWorkspace() {
               </label>
               <button disabled={busy} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 sm:col-span-2">
                 {busy ? "Assigning…" : "Assign to all active employees"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {cleanerFeeEditTarget && isOwner && (
+        <Modal isOpen onClose={() => setCleanerFeeEditTarget(null)} sizeClass="max-w-xl">
+          <form onSubmit={submitCleanerFeeEdit} className="space-y-4 p-2">
+            <h2 className="text-lg font-semibold text-slate-900">Edit cleaner fee</h2>
+            <p className="text-sm leading-6 text-slate-600">
+              {cleanerFeeEditTarget.employee_name || "Employee"} · {String(cleanerFeeEditTarget.fee_period || "").slice(0, 7)}. The employee and month cannot be changed, which prevents a second deduction for the same month.
+            </p>
+            <div className="grid gap-3">
+              <label className="text-sm font-medium text-slate-700">
+                Amount (UGX)
+                <input required min="1" type="number" value={cleanerFeeEditForm.amount}
+                  onChange={(event) => setCleanerFeeEditForm((current) => ({ ...current, amount: event.target.value }))}
+                  className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2" />
+              </label>
+              <label className="text-sm font-medium text-slate-700">
+                Reason
+                <textarea required value={cleanerFeeEditForm.reason}
+                  onChange={(event) => setCleanerFeeEditForm((current) => ({ ...current, reason: event.target.value }))}
+                  className="mt-1 block min-h-20 w-full rounded-xl border border-slate-300 px-3 py-2" />
+              </label>
+              <button disabled={busy} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
+                {busy ? "Saving…" : "Update cleaner fee"}
               </button>
             </div>
           </form>
@@ -1414,6 +1474,12 @@ export default function EmployeeFinanceWorkspace() {
                       ))}
                       {canSettleAdvances && pending.length > 0 && (
                         <span className="self-center rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800">Awaiting employee consent</span>
+                      )}
+                      {isOwner && fee.fee_type === "CLEANER_FEE" && String(fee.workflow_status || "").toUpperCase() === "OPEN" && pending.length === 0 && Number(fee.settlement_count || 0) === 0 && (
+                        <>
+                          <button disabled={busy} onClick={() => openCleanerFeeEdit(fee)} className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
+                          <button disabled={busy} onClick={() => voidCleanerFee(fee)} className="rounded-lg border border-rose-300 px-2.5 py-1.5 text-xs font-semibold text-rose-800">Void</button>
+                        </>
                       )}
                     </div>
                   </td>

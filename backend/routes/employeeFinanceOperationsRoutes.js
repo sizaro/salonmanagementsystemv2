@@ -29,6 +29,8 @@ import {
 import { requireRole } from "../middleware/auth.js";
 import {
   getFeeObligations,
+  deleteCleanerFee,
+  patchCleanerFee,
   postCleanerFees,
   postFeeDeductionConsent,
   postFeeSettlement,
@@ -51,6 +53,8 @@ router.post("/advance-requests/:id/settlements/:settlementId/acknowledge", requi
 
 router.get("/fee-obligations", requireRole("owner", "manager", "cashier", "employee"), getFeeObligations);
 router.post("/fee-obligations/cleaner-fees", requireRole("owner"), postCleanerFees);
+router.patch("/fee-obligations/:id/cleaner-fee", requireRole("owner"), patchCleanerFee);
+router.delete("/fee-obligations/:id/cleaner-fee", requireRole("owner"), deleteCleanerFee);
 router.post("/fee-obligations/:id/settlements", requireRole("owner", "manager"), postFeeSettlement);
 router.post("/fee-obligations/:id/settlements/:settlementId/acknowledge", requireRole("employee", "manager", "cashier"), postFeeDeductionConsent);
 

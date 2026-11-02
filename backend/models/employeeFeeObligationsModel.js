@@ -144,7 +144,7 @@ export const createCleanerFeeObligations = async ({ salonId, actorId, actorRole,
         `INSERT INTO employee_fee_obligations (
            salon_id, employee_id, fee_type, amount, reason, fee_date, fee_time, fee_period, created_by
          ) VALUES ($1,$2,'CLEANER_FEE',$3,$4,$5,(NOW() AT TIME ZONE 'Africa/Kampala')::time,$5,$6)
-         ON CONFLICT (salon_id, employee_id, fee_type, fee_period) WHERE fee_type = 'CLEANER_FEE' AND workflow_status <> 'VOIDED'
+         ON CONFLICT (salon_id, employee_id, fee_type, fee_period) WHERE fee_type = 'CLEANER_FEE'
          DO NOTHING RETURNING id`,
         [salonId, employee.id, numericAmount, String(reason || "Monthly cleaner fee").trim() || "Monthly cleaner fee", monthStart, actorId],
       );
@@ -159,6 +159,7 @@ export const listFeeObligations = async ({ salonId, actorId, actorRole }) => {
   const { rows } = await db.query(
     `SELECT o.*, TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) AS employee_name,
             COALESCE(SUM(s.amount) FILTER (WHERE s.workflow_status = 'EFFECTIVE'), 0)::numeric AS settled_amount,
+            COUNT(s.id)::integer AS settlement_count,
             COALESCE(json_agg(json_build_object('id', s.id, 'amount', s.amount, 'receipt_number', s.receipt_number)
               ORDER BY s.created_at) FILTER (WHERE s.workflow_status = 'PENDING_EMPLOYEE_CONSENT'), '[]'::json) AS pending_payroll_deductions
        FROM employee_fee_obligations o
@@ -169,6 +170,65 @@ export const listFeeObligations = async ({ salonId, actorId, actorRole }) => {
       ORDER BY o.fee_date DESC, o.id DESC`, [salonId, staff, actorId],
   );
   return rows.map((row) => map({ ...row, outstanding_amount: Number(row.amount || 0) - Number(row.settled_amount || 0) }));
+};
+
+export const updateCleanerFeeObligation = async ({ salonId, actorId, actorRole, obligationId, amount, reason }) => {
+  requireRole(actorRole, new Set(["owner"]), "Only the owner may edit a cleaner fee");
+  const numericAmount = positive(amount, "Cleaner fee amount");
+  const cleanReason = String(reason || "").trim();
+  if (!cleanReason) throw error("A cleaner-fee reason is required");
+  return db.transaction(async (client) => {
+    const { rows } = await client.query(
+      `SELECT * FROM employee_fee_obligations WHERE id = $1 AND salon_id = $2 FOR UPDATE`,
+      [obligationId, salonId],
+    );
+    const obligation = rows[0];
+    if (!obligation || obligation.fee_type !== "CLEANER_FEE") throw error("Cleaner fee was not found", 404);
+    const { rows: settlementRows } = await client.query(
+      `SELECT COUNT(*)::integer AS settlement_count FROM employee_fee_settlements WHERE fee_obligation_id = $1 AND salon_id = $2`,
+      [obligationId, salonId],
+    );
+    if (obligation.workflow_status !== "OPEN" || Number(settlementRows[0].settlement_count || 0) > 0) {
+      throw error("A cleaner fee can only be edited before a settlement is started", 409);
+    }
+    const { rows: updated } = await client.query(
+      `UPDATE employee_fee_obligations
+       SET amount = $1, reason = $2, updated_at = NOW()
+       WHERE id = $3 AND salon_id = $4
+       RETURNING *`,
+      [numericAmount, cleanReason, obligationId, salonId],
+    );
+    return map(updated[0]);
+  });
+};
+
+export const voidCleanerFeeObligation = async ({ salonId, actorId, actorRole, obligationId, reason }) => {
+  requireRole(actorRole, new Set(["owner"]), "Only the owner may void a cleaner fee");
+  const voidReason = String(reason || "").trim();
+  if (!voidReason) throw error("A reason is required to void a cleaner fee");
+  return db.transaction(async (client) => {
+    const { rows } = await client.query(
+      `SELECT * FROM employee_fee_obligations WHERE id = $1 AND salon_id = $2 FOR UPDATE`,
+      [obligationId, salonId],
+    );
+    const obligation = rows[0];
+    if (!obligation || obligation.fee_type !== "CLEANER_FEE") throw error("Cleaner fee was not found", 404);
+    const { rows: settlementRows } = await client.query(
+      `SELECT COUNT(*)::integer AS settlement_count FROM employee_fee_settlements WHERE fee_obligation_id = $1 AND salon_id = $2`,
+      [obligationId, salonId],
+    );
+    if (obligation.workflow_status !== "OPEN" || Number(settlementRows[0].settlement_count || 0) > 0) {
+      throw error("A cleaner fee can only be voided before a settlement is started", 409);
+    }
+    const { rows: updated } = await client.query(
+      `UPDATE employee_fee_obligations
+       SET workflow_status='VOIDED', voided_by=$1, voided_at=NOW(), void_reason=$2, updated_at=NOW()
+       WHERE id=$3 AND salon_id=$4 AND workflow_status='OPEN'
+       RETURNING *`, [actorId, voidReason, obligationId, salonId],
+    );
+    if (!updated[0]) throw error("Cleaner fee is no longer available to void", 409);
+    return map(updated[0]);
+  });
 };
 
 export const settleFeeObligation = async ({ salonId, actorId, actorRole, obligationId, amount, settlementMethod, notes, signatureDataUrl }) => {

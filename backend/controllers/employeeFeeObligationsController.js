@@ -3,6 +3,8 @@ import {
   createCleanerFeeObligations,
   listFeeObligations,
   settleFeeObligation,
+  updateCleanerFeeObligation,
+  voidCleanerFeeObligation,
 } from "../models/employeeFeeObligationsModel.js";
 
 const actor = (req) => ({ salonId: req.salon_id, actorId: req.user.id, actorRole: req.user.role });
@@ -20,6 +22,20 @@ export const postCleanerFees = async (req, res) => {
     const result = await createCleanerFeeObligations({ ...actor(req), employeeIds: req.body?.employee_ids, amount: req.body?.amount, feePeriod: req.body?.fee_period, reason: req.body?.reason });
     changed(req, "cleaner-fees-assigned");
     res.status(201).json({ result });
+  } catch (err) { respond(res, err); }
+};
+export const patchCleanerFee = async (req, res) => {
+  try {
+    const obligation = await updateCleanerFeeObligation({ ...actor(req), obligationId: Number(req.params.id), amount: req.body?.amount, reason: req.body?.reason });
+    changed(req, "cleaner-fee-updated", obligation.id);
+    res.json({ obligation });
+  } catch (err) { respond(res, err); }
+};
+export const deleteCleanerFee = async (req, res) => {
+  try {
+    const obligation = await voidCleanerFeeObligation({ ...actor(req), obligationId: Number(req.params.id), reason: req.body?.reason });
+    changed(req, "cleaner-fee-voided", obligation.id);
+    res.json({ obligation });
   } catch (err) { respond(res, err); }
 };
 export const postFeeSettlement = async (req, res) => {

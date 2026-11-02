@@ -38,7 +38,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS employee_fee_obligations_tag_source_uq
   ON employee_fee_obligations (source_tag_fee_id) WHERE source_tag_fee_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS employee_fee_obligations_cleaner_period_uq
   ON employee_fee_obligations (salon_id, employee_id, fee_type, fee_period)
-  WHERE fee_type = 'CLEANER_FEE' AND workflow_status <> 'VOIDED';
+  WHERE fee_type = 'CLEANER_FEE';
 CREATE INDEX IF NOT EXISTS employee_fee_obligations_employee_status_idx
   ON employee_fee_obligations (salon_id, employee_id, workflow_status, fee_date DESC, id DESC);
 
