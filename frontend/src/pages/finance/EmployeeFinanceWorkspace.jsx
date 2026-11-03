@@ -1772,7 +1772,7 @@ function Actions({
               onClick={() => disburse(kind, row, "CASH")}
               className="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white"
             >
-              Cash
+              Disburse
             </button>
             {externalPaymentUiEnabled && (
               <>
