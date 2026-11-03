@@ -16,7 +16,7 @@ const money = (value) => `UGX ${Number(value || 0).toLocaleString()}`;
 const displayStatus = (value) => String(value || "").replaceAll("_", " ");
 const statusClass = (value) => {
   const normalized = String(value || "").toUpperCase();
-  if (["ACKNOWLEDGED", "DISBURSED", "APPROVED"].includes(normalized))
+  if (["ACKNOWLEDGED", "DISBURSED", "APPROVED", "LEGACY_SETTLED"].includes(normalized))
     return "bg-emerald-100 text-emerald-800";
   if (["REJECTED", "CANCELLED", "VOIDED"].includes(normalized)) return "bg-rose-100 text-rose-800";
   return "bg-amber-100 text-amber-800";
@@ -29,6 +29,9 @@ export default function EmployeeFinanceWorkspace() {
   const canReviewRequests = ["owner", "manager"].includes(String(user?.role || "").toLowerCase());
   const canSettleAdvances = ["owner", "manager"].includes(String(user?.role || "").toLowerCase());
   const isOwner = String(user?.role || "").toLowerCase() === "owner";
+  const canPersonallyAcknowledge = ["employee", "manager", "cashier"].includes(
+    String(user?.role || "").toLowerCase(),
+  );
   const employeeProfilePath = (employeeId) => {
     const currentRole = String(user?.role || "").toLowerCase();
     if (currentRole === "employee") return "/employee/profile";
@@ -162,7 +165,7 @@ export default function EmployeeFinanceWorkspace() {
   useEffect(() => {
     const action = searchParams.get("action");
     const tab = searchParams.get("tab");
-    if (["advances", "payments", "fees", "receipts"].includes(tab)) {
+    if (["advances", "historic-advances", "payments", "fees", "receipts"].includes(tab)) {
       setActiveTab(tab);
     }
     if (["advance", "payment", "past-advance", "past-payment"].includes(action)) {
@@ -649,6 +652,15 @@ export default function EmployeeFinanceWorkspace() {
     );
     setSignatureTarget(null);
   };
+
+  const currentAdvanceRequests = useMemo(
+    () => requests.filter((request) => !request.is_legacy_historical),
+    [requests],
+  );
+  const legacyAdvanceRequests = useMemo(
+    () => requests.filter((request) => request.is_legacy_historical),
+    [requests],
+  );
 
   return (
     <div className="finance-workspace mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
@@ -1298,7 +1310,8 @@ export default function EmployeeFinanceWorkspace() {
           className="flex flex-wrap gap-2 border-b border-slate-200 pb-3"
         >
           {[
-            ["advances", "Advance requests", requests.length],
+            ["advances", "Advance requests", currentAdvanceRequests.length],
+            ["historic-advances", "Historic advance closure", legacyAdvanceRequests.length],
             ["payments", "Employee payments", payments.length],
             ["fees", "Employee fees", feeObligations.length],
             ["receipts", "Issued receipts", receipts.length],
@@ -1324,8 +1337,8 @@ export default function EmployeeFinanceWorkspace() {
         {activeTab === "advances" && (
           <WorkflowTable
             title="Advance requests"
-            empty="No advance requests yet."
-            rows={requests}
+            empty="No current advance requests yet."
+            rows={currentAdvanceRequests}
             employees={employees}
             loading={loading}
             columns={["Employee", "Amount", "Reason", "Status", "Requested", "Actions"]}
@@ -1371,8 +1384,8 @@ export default function EmployeeFinanceWorkspace() {
                       !(String(request.employee_role || "").toLowerCase() === "manager" && !isOwner)
                     }
                     canSettleAdvances={canSettleAdvances}
-                    canEmployeeAcknowledge={Number(request.employee_id) === Number(user?.id)}
-                    canEmployeeConsent={Number(request.employee_id) === Number(user?.id)}
+                    canEmployeeAcknowledge={canPersonallyAcknowledge && Number(request.employee_id) === Number(user?.id)}
+                    canEmployeeConsent={canPersonallyAcknowledge && Number(request.employee_id) === Number(user?.id)}
                     busy={busy}
                     decide={decide}
                     disburse={disburse}
@@ -1383,6 +1396,41 @@ export default function EmployeeFinanceWorkspace() {
                     requestPayrollDeductionConsent={requestPayrollDeductionConsent}
                     openSettlement={openSettlement}
                   />
+                </td>
+              </tr>
+            )}
+          />
+        )}
+
+        {activeTab === "historic-advances" && (
+          <WorkflowTable
+            title="Historic advance closure"
+            empty="No pre-cutover advances were imported."
+            rows={legacyAdvanceRequests}
+            employees={employees}
+            loading={loading}
+            columns={["Employee", "Amount", "Original record", "Closure status", "Recorded", "Access"]}
+            render={(request) => (
+              <tr key={request.id} className="border-t border-slate-100">
+                <td className="px-4 py-3 font-medium text-slate-800">
+                  {employeeProfilePath(request.employee_id) ? (
+                    <Link className="hover:text-blue-700 hover:underline" to={employeeProfilePath(request.employee_id)}>
+                      {request.employee_name || "You"}
+                    </Link>
+                  ) : (
+                    request.employee_name || "You"
+                  )}
+                </td>
+                <td className="px-4 py-3">{money(request.requested_amount)}</td>
+                <td className="px-4 py-3 text-slate-600">Imported from the previous automatic-deduction workflow.</td>
+                <td className="px-4 py-3">
+                  <Status value={request.is_legacy_cutover_closed ? "LEGACY_SETTLED" : "PENDING_CUTOVER_CLOSURE"} />
+                </td>
+                <td className="px-4 py-3 text-xs text-slate-600">{formatRecordDate(request.created_at)}</td>
+                <td className="px-4 py-3 text-xs text-slate-500">
+                  {request.is_legacy_cutover_closed
+                    ? "Read-only historical record; no action can create a new deduction."
+                    : "Read-only historical record awaiting the one-time cutover closure."}
                 </td>
               </tr>
             )}
@@ -1722,6 +1770,13 @@ function Actions({
 }) {
   const status = String(row.workflow_status || "").toUpperCase();
   const pendingPayrollDeductions = row.pending_payroll_deductions || [];
+  if (kind === "advance-requests" && row.is_legacy_historical) {
+    return (
+      <span className="text-xs text-slate-500">
+        Historical cutover record — read only.
+      </span>
+    );
+  }
   return (
     <div className="flex flex-wrap gap-2">
       {canReview && status === "REQUESTED" && !row.manual_receipt_attached && (

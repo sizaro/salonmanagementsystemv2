@@ -93,6 +93,36 @@ const transactionIdentity = async ({ salonId, sourceType, sourceId }) => {
   return rows[0];
 };
 
+// A legacy advance is evidence from the former automatic-deduction workflow.
+// It is retained for history but can never enter the controlled workflow again:
+// no acknowledgement, new settlement, waiver, or second deduction is allowed.
+// The predicate intentionally mirrors the production cutover SQL.
+const assertAdvanceIsMutable = async (client, { salonId, requestId }) => {
+  const { rows } = await client.query(
+    `SELECT CASE WHEN source_advance.id IS NOT NULL
+                       AND cutover.salon_id IS NOT NULL
+                       AND source_advance.advance_date <= cutover.legacy_ends_on
+                       AND ar.reason LIKE 'Historical legacy advance #%'
+                       AND COALESCE(ar.entry_type, 'CURRENT') <> 'PAST'
+                       AND ar.manual_receipt_url IS NULL
+                 THEN TRUE ELSE FALSE END AS is_legacy_historical
+     FROM employee_advance_requests ar
+     LEFT JOIN advances source_advance
+       ON source_advance.id = ar.advance_id
+      AND source_advance.salon_id = ar.salon_id
+     LEFT JOIN employee_finance_cutovers cutover
+       ON cutover.salon_id = ar.salon_id
+     WHERE ar.id = $1 AND ar.salon_id = $2`,
+    [requestId, salonId],
+  );
+  if (rows[0]?.is_legacy_historical) {
+    throw financeError(
+      "This is a historical advance closed at the finance cutover. It is read-only and cannot be settled or acknowledged again.",
+      409,
+    );
+  }
+};
+
 const insertSignature = async (client, {
   salonId, receiptId = null, advanceRequestId = null, employeePaymentId = null,
   signerId, signerRole, signatureType, signatureUrl, signatureHash, declaration,
@@ -147,6 +177,25 @@ const paymentAvailability = async (client, { salonId, employeeId, periodId }) =>
             AND asl.employee_id = $2
             AND asl.settlement_method = 'PAYROLL_DEDUCTION'
             AND asl.workflow_status = 'EFFECTIVE'
+            -- Do not let the one-off historical cutover closure reduce a
+            -- new workflow's available earnings.
+            AND NOT EXISTS (
+              SELECT 1
+              FROM employee_advance_requests legacy_ar
+              LEFT JOIN advances legacy_advance
+                ON legacy_advance.id = legacy_ar.advance_id
+               AND legacy_advance.salon_id = legacy_ar.salon_id
+              LEFT JOIN employee_finance_cutovers legacy_cutover
+                ON legacy_cutover.salon_id = legacy_ar.salon_id
+              WHERE legacy_ar.id = asl.advance_request_id
+                AND legacy_ar.salon_id = asl.salon_id
+                AND legacy_advance.id IS NOT NULL
+                AND legacy_cutover.salon_id IS NOT NULL
+                AND legacy_advance.advance_date <= legacy_cutover.legacy_ends_on
+                AND legacy_ar.reason LIKE 'Historical legacy advance #%'
+                AND COALESCE(legacy_ar.entry_type, 'CURRENT') <> 'PAST'
+                AND legacy_ar.manual_receipt_url IS NULL
+            )
         ), 0)::numeric AS payroll_deductions,
        COALESCE((
          SELECT SUM(efs.amount)
@@ -182,6 +231,7 @@ const paymentAvailability = async (client, { salonId, employeeId, periodId }) =>
               cutover.salon_id IS NOT NULL
               AND source_advance.id IS NOT NULL
               AND source_advance.advance_date <= cutover.legacy_ends_on
+              AND ar.reason LIKE 'Historical legacy advance #%'
               AND COALESCE(ar.entry_type, 'CURRENT') <> 'PAST'
               AND ar.manual_receipt_url IS NULL
             )
@@ -247,6 +297,27 @@ const listBase = `
         AND asl.salon_id = ar.salon_id
         AND asl.workflow_status = 'EFFECTIVE'
     ), 0), 0)::numeric AS outstanding_amount
+    , CASE WHEN source_advance.id IS NOT NULL
+                 AND cutover.salon_id IS NOT NULL
+                 AND source_advance.advance_date <= cutover.legacy_ends_on
+                 AND ar.reason LIKE 'Historical legacy advance #%'
+                 AND COALESCE(ar.entry_type, 'CURRENT') <> 'PAST'
+                 AND ar.manual_receipt_url IS NULL
+           THEN TRUE ELSE FALSE END AS is_legacy_historical
+    , CASE WHEN source_advance.id IS NOT NULL
+                 AND cutover.salon_id IS NOT NULL
+                 AND source_advance.advance_date <= cutover.legacy_ends_on
+                 AND ar.reason LIKE 'Historical legacy advance #%'
+                 AND COALESCE(ar.entry_type, 'CURRENT') <> 'PAST'
+                 AND ar.manual_receipt_url IS NULL
+                 AND COALESCE((
+                   SELECT SUM(effective.amount)
+                   FROM employee_advance_settlements effective
+                   WHERE effective.advance_request_id = ar.id
+                     AND effective.salon_id = ar.salon_id
+                     AND effective.workflow_status = 'EFFECTIVE'
+                 ), 0) >= ar.requested_amount
+           THEN TRUE ELSE FALSE END AS is_legacy_cutover_closed
     , COALESCE((
       SELECT jsonb_agg(jsonb_build_object(
         'id', pending.id,
@@ -265,6 +336,11 @@ const listBase = `
   JOIN users employee ON employee.id = ar.employee_id AND employee.salon_id = ar.salon_id
   JOIN users requester ON requester.id = ar.requested_by AND requester.salon_id = ar.salon_id
   LEFT JOIN users reviewer ON reviewer.id = ar.reviewed_by AND reviewer.salon_id = ar.salon_id
+  LEFT JOIN advances source_advance
+    ON source_advance.id = ar.advance_id
+   AND source_advance.salon_id = ar.salon_id
+  LEFT JOIN employee_finance_cutovers cutover
+    ON cutover.salon_id = ar.salon_id
 `;
 
 export const createAdvanceRequest = async ({
@@ -371,9 +447,11 @@ export const decideAdvanceRequest = async ({
   if (approved && identity.manual_receipt_url) {
     throw financeError("Verify the signed paper receipt instead of adding a digital approval", 409);
   }
+  await assertAdvanceIsMutable(db, { salonId, requestId });
   const signature = approved ? await prepareSignature(signatureDataUrl) : null;
   const nextStatus = approved ? "APPROVED" : "REJECTED";
   return db.transaction(async (client) => {
+    await assertAdvanceIsMutable(client, { salonId, requestId });
     const { rows } = await client.query(
       `UPDATE employee_advance_requests
      SET workflow_status = $1::varchar,
@@ -411,6 +489,7 @@ export const disburseAdvanceRequest = async ({
 }) => {
   assertRole(actorRole, STAFF_ROLES, "Only salon finance staff may disburse an advance");
   return db.transaction(async (client) => {
+    await assertAdvanceIsMutable(client, { salonId, requestId });
     const { rows: requestRows } = await client.query(
       `SELECT * FROM employee_advance_requests
        WHERE id = $1 AND salon_id = $2
@@ -473,8 +552,10 @@ export const disburseAdvanceRequest = async ({
 export const acknowledgeAdvanceRequest = async ({ salonId, actorId, requestId, signatureDataUrl }) => {
   const identity = await transactionIdentity({ salonId, sourceType: "ADVANCE", sourceId: requestId });
   if (Number(identity.employee_id) !== Number(actorId)) throw financeError("Only the receiving employee may acknowledge this receipt", 403);
+  await assertAdvanceIsMutable(db, { salonId, requestId });
   const signature = await prepareSignature(signatureDataUrl);
   const result = await db.transaction(async (client) => {
+    await assertAdvanceIsMutable(client, { salonId, requestId });
     const { rows } = await client.query(
       `UPDATE employee_advance_requests
      SET workflow_status = 'ACKNOWLEDGED',
@@ -515,6 +596,7 @@ export const acknowledgeAdvanceRequest = async ({ salonId, actorId, requestId, s
 export const verifyAdvanceManualReceipt = async ({ salonId, actorId, actorRole, requestId }) => {
   assertRole(actorRole, REVIEWER_ROLES, "Only an owner or manager may verify a signed paper receipt");
   return db.transaction(async (client) => {
+    await assertAdvanceIsMutable(client, { salonId, requestId });
     const { rows } = await client.query(
       `SELECT ar.*, u.role AS employee_role
        FROM employee_advance_requests ar
@@ -619,6 +701,7 @@ export const settleAdvanceRequest = async ({
   if (method === "WAIVED" && String(actorRole || "").toLowerCase() !== "owner") {
     throw financeError("Only the owner may waive an employee advance", 403);
   }
+  await assertAdvanceIsMutable(db, { salonId, requestId });
   // Payroll deductions have their own later employee-consent signature. Cash
   // repayments and waivers become effective now, so management must sign the
   // exact settlement before it is recorded.
@@ -627,6 +710,7 @@ export const settleAdvanceRequest = async ({
     : await prepareSignature(settlementSignatureDataUrl);
 
   return db.transaction(async (client) => {
+    await assertAdvanceIsMutable(client, { salonId, requestId });
     if (externalPaymentIntentId) {
       const existing = await client.query(
         `SELECT * FROM employee_advance_settlements
@@ -806,8 +890,10 @@ export const acknowledgeAdvanceSettlement = async ({
   settlementId,
   signatureDataUrl,
 }) => {
+  await assertAdvanceIsMutable(db, { salonId, requestId });
   const signature = await prepareSignature(signatureDataUrl);
   return db.transaction(async (client) => {
+    await assertAdvanceIsMutable(client, { salonId, requestId });
     const { rows: settlementRows } = await client.query(
       `SELECT asl.*, ar.workflow_status AS advance_workflow_status,
               TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS employee_name
