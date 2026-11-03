@@ -76,10 +76,10 @@ WITH settings AS (SELECT DATE '2026-11-03' AS cutoff_date), checks AS (
     (SELECT COUNT(*) FROM employee_finance_closeouts
      WHERE cutoff_date = (SELECT cutoff_date FROM settings)) AS closeout_headers,
     (SELECT COALESCE(SUM(GREATEST(
-       COALESCE((SELECT SUM(ee.amount) FROM employee_earnings ee WHERE ee.salon_id = staff.salon_id AND ee.employee_id = staff.employee_id
+       COALESCE((SELECT SUM(ee.amount) FROM employee_earnings ee WHERE ee.salon_id = staff.salon_id AND ee.employee_id = staff.id
          AND ee.earning_date <= (SELECT cutoff_date FROM settings)
          AND NOT EXISTS (SELECT 1 FROM employee_finance_cutovers c WHERE c.salon_id = ee.salon_id AND ee.earning_date <= c.legacy_ends_on)), 0)
-       - COALESCE((SELECT SUM(ep.requested_amount) FROM employee_payments ep WHERE ep.salon_id = staff.salon_id AND ep.employee_id = staff.employee_id
+       - COALESCE((SELECT SUM(ep.requested_amount) FROM employee_payments ep WHERE ep.salon_id = staff.salon_id AND ep.employee_id = staff.id
          AND ep.workflow_status IN ('DISBURSED', 'ACKNOWLEDGED')
          AND COALESCE(ep.business_occurred_at, ep.disbursed_at, ep.created_at)::date <= (SELECT cutoff_date FROM settings)), 0),
        0)), 0)::numeric(14,2)
