@@ -8,6 +8,7 @@ import FinanceReceiptDialog from "../../components/finance/FinanceReceiptDialog.
 import AdvanceSettlementReceiptDialog from "../../components/finance/AdvanceSettlementReceiptDialog.jsx";
 import PaymentSheet from "../../components/payments/PaymentSheet.jsx";
 import { TableSkeleton } from "../../components/loading/DashboardSkeleton.jsx";
+import { externalPaymentUiEnabled } from "../../lib/paymentFeatures.js";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 const STAFF_ROLES = new Set(["owner", "manager", "cashier"]);
@@ -1773,27 +1774,31 @@ function Actions({
             >
               Cash
             </button>
-            <button
-              disabled={busy}
-              onClick={() => disburse(kind, row, "MTN_MOMO")}
-              className="rounded-lg bg-amber-600 px-2.5 py-1.5 text-xs font-semibold text-white"
-            >
-              MTN
-            </button>
-            <button
-              disabled={busy}
-              onClick={() => disburse(kind, row, "AIRTEL_MONEY")}
-              className="rounded-lg bg-rose-700 px-2.5 py-1.5 text-xs font-semibold text-white"
-            >
-              Airtel
-            </button>
-            <button
-              disabled={busy}
-              onClick={() => disburse(kind, row, "BANK_TRANSFER")}
-              className="rounded-lg bg-indigo-700 px-2.5 py-1.5 text-xs font-semibold text-white"
-            >
-              Bank
-            </button>
+            {externalPaymentUiEnabled && (
+              <>
+                <button
+                  disabled={busy}
+                  onClick={() => disburse(kind, row, "MTN_MOMO")}
+                  className="rounded-lg bg-amber-600 px-2.5 py-1.5 text-xs font-semibold text-white"
+                >
+                  MTN
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={() => disburse(kind, row, "AIRTEL_MONEY")}
+                  className="rounded-lg bg-rose-700 px-2.5 py-1.5 text-xs font-semibold text-white"
+                >
+                  Airtel
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={() => disburse(kind, row, "BANK_TRANSFER")}
+                  className="rounded-lg bg-indigo-700 px-2.5 py-1.5 text-xs font-semibold text-white"
+                >
+                  Bank
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <button
