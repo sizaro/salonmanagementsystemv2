@@ -15,9 +15,8 @@ const ManagerLateFeesReport = () => {
     fetchYearlyData,
     fetchLateFeeById,
     updateLateFee,
-    deleteLateFee
+    deleteLateFee,
   } = useData();
-
 
   const toYMD = (date) => date.toISOString().split("T")[0];
   const today = new Date();
@@ -36,7 +35,7 @@ const ManagerLateFeesReport = () => {
     (user) =>
       user &&
       `${user.first_name || ""} ${user.last_name || ""}`.toLowerCase() !== "ntege saleh" &&
-      user.role !== "customer"
+      user.role !== "customer",
   );
 
   // MAP EMPLOYEE NAME TO EACH LATE FEE
@@ -99,7 +98,7 @@ const ManagerLateFeesReport = () => {
       new Date(year, month - 1, 1).toLocaleDateString("en-US", {
         month: "long",
         year: "numeric",
-      })
+      }),
     );
 
     fetchMonthlyData(year, month);
@@ -160,42 +159,37 @@ const ManagerLateFeesReport = () => {
   }, [lateFees]);
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="min-h-screen bg-gray-50 p-6">
       {/* FILTER BAR */}
-      <div className="mb-6 flex flex-wrap gap-4 items-end">
-
+      <div className="mb-6 flex flex-wrap items-end gap-4">
         <div>
-          <label className="block font-medium mb-1">Day:</label>
+          <label className="mb-1 block font-medium">Day:</label>
           <input
             type="date"
             value={selectedDate}
             onChange={handleDayChange}
-            className="border rounded p-2"
+            className="rounded border p-2"
           />
         </div>
 
         <div>
-          <label className="block font-medium mb-1">Week:</label>
-          <input type="week" onChange={handleWeekChange} className="border rounded p-2" />
+          <label className="mb-1 block font-medium">Week:</label>
+          <input type="week" onChange={handleWeekChange} className="rounded border p-2" />
         </div>
 
         <div>
-          <label className="block font-medium mb-1">Month:</label>
+          <label className="mb-1 block font-medium">Month:</label>
           <input
             type="month"
             value={monthYear}
             onChange={handleMonthChange}
-            className="border rounded p-2"
+            className="rounded border p-2"
           />
         </div>
 
         <div>
-          <label className="block font-medium mb-1">Year:</label>
-          <select
-            value={year}
-            onChange={handleYearChange}
-            className="border rounded p-2"
-          >
+          <label className="mb-1 block font-medium">Year:</label>
+          <select value={year} onChange={handleYearChange} className="rounded border p-2">
             <option value="">Select</option>
             {generateYearOptions().map((yr) => (
               <option key={yr} value={yr}>
@@ -207,10 +201,10 @@ const ManagerLateFeesReport = () => {
       </div>
 
       {/* HEADER */}
-      <h1 className="text-3xl font-bold mb-4">Late Fees</h1>
+      <h1 className="mb-4 text-3xl font-bold">Late Fees</h1>
 
       {/* TABLE */}
-      <div className="overflow-x-auto bg-white shadow rounded-lg">
+      <div className="overflow-x-auto rounded-lg bg-white shadow">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-100">
             <tr>

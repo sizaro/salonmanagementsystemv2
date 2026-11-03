@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "test:payments": "node --test tests/paymentProviders.test.js",
     "db:appointment-upgrade": "node scripts/applyAppointmentFlowUpgrade.js",
     "db:historical-records-upgrade": "node scripts/applyHistoricalBusinessRecordsUpgrade.js",
     "db:employee-finance-foundation": "node scripts/applyEmployeeFinanceFoundation.js",
@@ -15,7 +16,13 @@
     "db:employee-profile-audit": "node scripts/applyEmployeeProfileAudit.js",
     "db:employee-finance-signed-receipts": "node scripts/applyEmployeeFinanceSignedReceipts.js",
     "db:employee-payroll-deduction-consent": "node scripts/applyEmployeePayrollDeductionConsent.js",
-    "db:owner-intelligence": "node scripts/applyOwnerIntelligence.js"
+    "db:historical-employee-finance": "node scripts/applyHistoricalEmployeeFinanceEntries.js",
+    "db:owner-intelligence": "node scripts/applyOwnerIntelligence.js",
+    "db:service-collection-methods": "node scripts/applyServiceCollectionMethods.js",
+    "db:employee-finance-cutover": "node scripts/applyEmployeeFinanceCutover.js",
+    "db:advance-settlement-attestation": "node scripts/applyAdvanceSettlementAttestation.js",
+    "db:payment-engine-foundation": "node scripts/applyPaymentEngineFoundation.js",
+    "db:financial-audit-foundation": "node scripts/applyFinancialAuditFoundation.js"
   },
   "author": "",
   "license": "ISC",

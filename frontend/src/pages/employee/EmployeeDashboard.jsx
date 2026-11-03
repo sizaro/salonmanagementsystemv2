@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { DateTime } from "luxon";
 import { useData } from "../../context/DataContext.jsx";
+import { DashboardSkeleton } from "../../components/loading/DashboardSkeleton.jsx";
 import FinanceRequestNotice from "../../components/finance/FinanceRequestNotice.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
@@ -9,8 +10,7 @@ const ZONE = "Africa/Kampala";
 
 const ITEMS_PER_PAGE = 10;
 
-const formatMoney = (amount) =>
-  `${Number(amount || 0).toLocaleString("en-UG")} UGX`;
+const formatMoney = (amount) => `${Number(amount || 0).toLocaleString("en-UG")} UGX`;
 
 const TABS = [
   {
@@ -41,12 +41,7 @@ const TABS = [
 ];
 
 export default function EmployeeDashboard() {
-  const {
-    user,
-    users = [],
-    transactions = [],
-    serviceMaterials = [],
-  } = useData();
+  const { user, users = [], transactions = [], serviceMaterials = [] } = useData();
 
   // ======================================================
   // STATE
@@ -70,8 +65,7 @@ export default function EmployeeDashboard() {
     return transactions.map((service) => {
       const matchedMaterials = serviceMaterials.filter(
         (material) =>
-          Number(material.service_definition_id) ===
-          Number(service.service_definition_id),
+          Number(material.service_definition_id) === Number(service.service_definition_id),
       );
 
       return {
@@ -105,9 +99,7 @@ export default function EmployeeDashboard() {
     return {
       services: myServices.filter(
         (service) =>
-          service.status === null ||
-          service.status === undefined ||
-          service.status === "",
+          service.status === null || service.status === undefined || service.status === "",
       ),
 
       pending: myServices.filter(
@@ -138,10 +130,7 @@ export default function EmployeeDashboard() {
   // PAGINATION
   // ======================================================
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(currentTabServices.length / ITEMS_PER_PAGE),
-  );
+  const totalPages = Math.max(1, Math.ceil(currentTabServices.length / ITEMS_PER_PAGE));
 
   const safeCurrentPage = Math.min(currentPage, totalPages);
 
@@ -179,19 +168,14 @@ export default function EmployeeDashboard() {
   // ======================================================
 
   const loadedServiceEarnings = useMemo(() => {
-    const performed = [
-      ...servicesByStatus.services,
-      ...servicesByStatus.completed,
-    ];
+    const performed = [...servicesByStatus.services, ...servicesByStatus.completed];
 
     return performed.reduce((total, service) => {
       const assignment = (service.performers || []).find(
         (performer) => Number(performer.employee_id) === Number(user?.id),
       );
 
-      const amount = Number(
-        assignment?.role_amount ?? assignment?.earned_amount ?? 0,
-      );
+      const amount = Number(assignment?.role_amount ?? assignment?.earned_amount ?? 0);
 
       return total + amount;
     }, 0);
@@ -226,19 +210,13 @@ export default function EmployeeDashboard() {
 
         setPaySummary(data.employee || null);
       } catch (error) {
-        console.error(
-          "Employee payroll error:",
-          error.response?.data || error.message,
-        );
+        console.error("Employee payroll error:", error.response?.data || error.message);
 
         if (!active) return;
 
         setPaySummary(null);
 
-        setPayError(
-          error.response?.data?.error ||
-            "Unable to load your monthly pay summary.",
-        );
+        setPayError(error.response?.data?.error || "Unable to load your monthly pay summary.");
       } finally {
         if (active) {
           setPayLoading(false);
@@ -347,9 +325,7 @@ export default function EmployeeDashboard() {
 
   const getDisplayDate = (service) => {
     const isAppointment =
-      service.status !== null &&
-      service.status !== undefined &&
-      service.status !== "";
+      service.status !== null && service.status !== undefined && service.status !== "";
 
     if (isAppointment && service.appointment_date) {
       return service.appointment_date;
@@ -364,9 +340,7 @@ export default function EmployeeDashboard() {
 
   const getDisplayTime = (service) => {
     const isAppointment =
-      service.status !== null &&
-      service.status !== undefined &&
-      service.status !== "";
+      service.status !== null && service.status !== undefined && service.status !== "";
 
     if (isAppointment && service.appointment_time) {
       return service.appointment_time;
@@ -380,11 +354,7 @@ export default function EmployeeDashboard() {
   // ======================================================
 
   const getStatusLabel = (service) => {
-    if (
-      service.status === null ||
-      service.status === undefined ||
-      service.status === ""
-    ) {
+    if (service.status === null || service.status === undefined || service.status === "") {
       return "Service";
     }
 
@@ -464,8 +434,8 @@ export default function EmployeeDashboard() {
 
   if (!user?.id) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center text-slate-500">
-        Loading your dashboard...
+      <div className="dashboard-page p-4 sm:p-6">
+        <DashboardSkeleton />
       </div>
     );
   }
@@ -485,22 +455,30 @@ export default function EmployeeDashboard() {
       ================================================== */}
 
       <header className="dashboard-hero">
-        <p className="salon-eyebrow text-[var(--salon-copper)]">
-          Employee workspace
-        </p>
+        <p className="salon-eyebrow text-[var(--salon-copper)]">Employee workspace</p>
 
         <div className="relative z-10 mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            <img src={user?.image_url ? (String(user.image_url).startsWith("http") ? user.image_url : `${import.meta.env.VITE_STATIC_URL || "http://localhost:5500"}${user.image_url}`) : "/default-avatar.png"} alt="" className="h-20 w-20 rounded-3xl border-4 border-white object-cover shadow-lg" />
-          <div>
-            <h1 className="font-serif text-3xl font-semibold text-slate-900">
-              Welcome, {user.first_name}
-            </h1>
+            <img
+              src={
+                user?.image_url
+                  ? String(user.image_url).startsWith("http")
+                    ? user.image_url
+                    : `${import.meta.env.VITE_STATIC_URL || "http://localhost:5500"}${user.image_url}`
+                  : "/default-avatar.png"
+              }
+              alt=""
+              className="h-20 w-20 rounded-3xl border-4 border-white object-cover shadow-lg"
+            />
+            <div>
+              <h1 className="font-serif text-3xl font-semibold text-slate-900">
+                Welcome, {user.first_name}
+              </h1>
 
-            <p className="mt-2 text-sm text-slate-600">
-              Your services, appointments and pay overview.
-            </p>
-          </div>
+              <p className="mt-2 text-sm text-slate-600">
+                Your services, appointments and pay overview.
+              </p>
+            </div>
           </div>
 
           <div className="text-sm text-slate-500">
@@ -517,13 +495,9 @@ export default function EmployeeDashboard() {
 
       <section>
         <div className="mb-3">
-          <h2 className="font-serif text-xl font-semibold text-slate-900">
-            My work overview
-          </h2>
+          <h2 className="font-serif text-xl font-semibold text-slate-900">My work overview</h2>
 
-          <p className="text-sm text-slate-500">
-            Your assigned services and appointments.
-          </p>
+          <p className="text-sm text-slate-500">Your assigned services and appointments.</p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -536,13 +510,9 @@ export default function EmployeeDashboard() {
           >
             <p className="text-sm text-slate-500">Performed Work</p>
 
-            <p className="mt-2 text-3xl font-bold text-slate-900">
-              {performedServicesCount}
-            </p>
+            <p className="mt-2 text-3xl font-bold text-slate-900">{performedServicesCount}</p>
 
-            <p className="mt-2 text-xs text-slate-500">
-              Normal services + completed appointments
-            </p>
+            <p className="mt-2 text-xs text-slate-500">Normal services + completed appointments</p>
           </button>
 
           {/* PENDING */}
@@ -574,9 +544,7 @@ export default function EmployeeDashboard() {
               {servicesByStatus.confirmed.length}
             </p>
 
-            <p className="mt-2 text-xs text-slate-500">
-              Confirmed appointments
-            </p>
+            <p className="mt-2 text-xs text-slate-500">Confirmed appointments</p>
           </button>
 
           {/* COMPLETED */}
@@ -604,9 +572,7 @@ export default function EmployeeDashboard() {
       <section className="dashboard-panel">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="salon-eyebrow text-[var(--salon-copper)]">
-              {currentMonth}
-            </p>
+            <p className="salon-eyebrow text-[var(--salon-copper)]">{currentMonth}</p>
 
             <h2 className="mt-1 font-serif text-2xl font-semibold text-slate-900">
               My pay summary
@@ -625,17 +591,13 @@ export default function EmployeeDashboard() {
                   : "bg-slate-100 text-slate-600"
               }`}
             >
-              {paySummary.isClockedIn
-                ? "Currently clocked in"
-                : "Currently clocked out"}
+              {paySummary.isClockedIn ? "Currently clocked in" : "Currently clocked out"}
             </span>
           )}
         </div>
 
         {payLoading ? (
-          <div className="py-8 text-center text-sm text-slate-500">
-            Loading pay summary...
-          </div>
+          <div className="py-8 text-center text-sm text-slate-500">Loading pay summary...</div>
         ) : payError ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {payError}
@@ -645,7 +607,7 @@ export default function EmployeeDashboard() {
             {/* GROSS */}
 
             <div className="rounded-2xl bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
                 Gross earnings
               </p>
 
@@ -657,7 +619,7 @@ export default function EmployeeDashboard() {
             {/* ADVANCES */}
 
             <div className="rounded-2xl bg-amber-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+              <p className="text-xs font-semibold tracking-wide text-amber-700 uppercase">
                 Advances
               </p>
 
@@ -669,7 +631,7 @@ export default function EmployeeDashboard() {
             {/* NET */}
 
             <div className="rounded-2xl bg-emerald-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+              <p className="text-xs font-semibold tracking-wide text-emerald-700 uppercase">
                 Earnings eligible for payment
               </p>
 
@@ -681,7 +643,7 @@ export default function EmployeeDashboard() {
             {/* LOADED WORK EARNINGS */}
 
             <div className="rounded-2xl bg-stone-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+              <p className="text-xs font-semibold tracking-wide text-stone-500 uppercase">
                 Loaded work earnings
               </p>
 
@@ -689,13 +651,14 @@ export default function EmployeeDashboard() {
                 {formatMoney(loadedServiceEarnings)}
               </p>
 
-              <p className="mt-1 text-xs text-stone-400">
-                Based on currently loaded services
-              </p>
+              <p className="mt-1 text-xs text-stone-400">Based on currently loaded services</p>
             </div>
           </div>
         )}
-        <p className="mt-4 text-xs text-slate-500">Advances are listed for transparency and do not automatically reduce earned income. Payment status and acknowledgements are managed in My Finance.</p>
+        <p className="mt-4 text-xs text-slate-500">
+          Advances are listed for transparency and do not automatically reduce earned income.
+          Payment status and acknowledgements are managed in My Finance.
+        </p>
       </section>
 
       {/* ==================================================
@@ -739,9 +702,7 @@ export default function EmployeeDashboard() {
 
                   <span
                     className={`flex min-w-6 items-center justify-center rounded-full px-2 py-0.5 text-xs ${
-                      selected
-                        ? "bg-white/20 text-white"
-                        : "bg-stone-100 text-stone-700"
+                      selected ? "bg-white/20 text-white" : "bg-stone-100 text-stone-700"
                     }`}
                   >
                     {count}
@@ -758,23 +719,19 @@ export default function EmployeeDashboard() {
 
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="font-semibold text-slate-900">
-              {selectedTab?.label}
-            </h3>
+            <h3 className="font-semibold text-slate-900">{selectedTab?.label}</h3>
 
             <p className="text-sm text-slate-500">{selectedTab?.description}</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-stone-100 px-3 py-1 text-sm font-semibold text-stone-700">
-              {currentTabServices.length}{" "}
-              {currentTabServices.length === 1 ? "record" : "records"}
+              {currentTabServices.length} {currentTabServices.length === 1 ? "record" : "records"}
             </span>
 
             {currentTabServices.length > 0 && (
               <span className="text-xs text-stone-500">
-                Showing {displayStart}–{displayEnd} of{" "}
-                {currentTabServices.length}
+                Showing {displayStart}–{displayEnd} of {currentTabServices.length}
               </span>
             )}
           </div>
@@ -786,9 +743,7 @@ export default function EmployeeDashboard() {
 
         {currentTabServices.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-stone-200 py-12 text-center">
-            <p className="font-medium text-stone-700">
-              Nothing here at the moment
-            </p>
+            <p className="font-medium text-stone-700">Nothing here at the moment</p>
 
             <p className="mt-1 text-sm text-stone-500">
               You currently have no {selectedTab?.label.toLowerCase()}.
@@ -857,22 +812,16 @@ export default function EmployeeDashboard() {
                         {/* CUSTOMER */}
 
                         <td>
-                          <div className="font-medium">
-                            {getCustomerName(service)}
-                          </div>
+                          <div className="font-medium">{getCustomerName(service)}</div>
 
                           <div className="mt-1 text-xs text-stone-400">
-                            {service.customer_id
-                              ? "Registered customer"
-                              : "Walk-in"}
+                            {service.customer_id ? "Registered customer" : "Walk-in"}
                           </div>
                         </td>
 
                         {/* DATE */}
 
-                        <td className="whitespace-nowrap">
-                          {formatDate(getDisplayDate(service))}
-                        </td>
+                        <td className="whitespace-nowrap">{formatDate(getDisplayDate(service))}</td>
 
                         {/* TIME */}
 
@@ -883,14 +832,12 @@ export default function EmployeeDashboard() {
                         {/* ROLE */}
 
                         <td>
-                          <span className="font-medium text-stone-800">
-                            {role}
-                          </span>
+                          <span className="font-medium text-stone-800">{role}</span>
                         </td>
 
                         {/* AMOUNT */}
 
-                        <td className="whitespace-nowrap font-semibold text-[var(--salon-copper)]">
+                        <td className="font-semibold whitespace-nowrap text-[var(--salon-copper)]">
                           {formatMoney(earning)}
                         </td>
 
@@ -926,18 +873,9 @@ export default function EmployeeDashboard() {
 
             <div className="mt-5 flex flex-col gap-3 border-t border-stone-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-sm text-stone-500">
-                Showing{" "}
-                <span className="font-semibold text-stone-700">
-                  {displayStart}
-                </span>{" "}
-                to{" "}
-                <span className="font-semibold text-stone-700">
-                  {displayEnd}
-                </span>{" "}
-                of{" "}
-                <span className="font-semibold text-stone-700">
-                  {currentTabServices.length}
-                </span>{" "}
+                Showing <span className="font-semibold text-stone-700">{displayStart}</span> to{" "}
+                <span className="font-semibold text-stone-700">{displayEnd}</span> of{" "}
+                <span className="font-semibold text-stone-700">{currentTabServices.length}</span>{" "}
                 records
               </div>
 
@@ -969,9 +907,7 @@ export default function EmployeeDashboard() {
                       1
                     </button>
 
-                    {pageNumbers[0] > 2 && (
-                      <span className="px-1 text-stone-400">...</span>
-                    )}
+                    {pageNumbers[0] > 2 && <span className="px-1 text-stone-400">...</span>}
                   </>
                 )}
 

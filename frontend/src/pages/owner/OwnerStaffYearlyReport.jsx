@@ -44,9 +44,12 @@ const OwnerStaffYearlyReport = () => {
         if (s.barber === fullName) sum += parseInt(s.barber_amount) || 0;
         if (s.barber_assistant === fullName) sum += parseInt(s.barber_assistant_amount) || 0;
         if (s.scrubber_assistant === fullName) sum += parseInt(s.scrubber_assistant_amount) || 0;
-        if (s.black_shampoo_assistant === fullName) sum += parseInt(s.black_shampoo_assistant_amount) || 0;
-        if (s.super_black_assistant === fullName) sum += parseInt(s.super_black_assistant_amount) || 0;
-        if (s.black_mask_assistant === fullName) sum += parseInt(s.black_mask_assistant_amount) || 0;
+        if (s.black_shampoo_assistant === fullName)
+          sum += parseInt(s.black_shampoo_assistant_amount) || 0;
+        if (s.super_black_assistant === fullName)
+          sum += parseInt(s.super_black_assistant_amount) || 0;
+        if (s.black_mask_assistant === fullName)
+          sum += parseInt(s.black_mask_assistant_amount) || 0;
         return sum;
       }, 0);
 
@@ -79,27 +82,19 @@ const OwnerStaffYearlyReport = () => {
   if (!services.length) {
     return (
       <section className="p-6">
-        <h2 className="text-xl font-bold text-center text-gray-700">
-          No Recorded Work Yet
-        </h2>
+        <h2 className="text-center text-xl font-bold text-gray-700">No Recorded Work Yet</h2>
       </section>
     );
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold text-center mb-6 text-gray-800">
-        Yearly Workers Report
-      </h1>
+    <div className="mx-auto max-w-6xl p-6">
+      <h1 className="mb-6 text-center text-3xl font-bold text-gray-800">Yearly Workers Report</h1>
 
       {/* Year Picker */}
       <div className="mb-4">
-        <label className="block mb-2 font-medium">Pick a year:</label>
-        <select
-          value={year}
-          onChange={handleYearChange}
-          className="border rounded p-2"
-        >
+        <label className="mb-2 block font-medium">Pick a year:</label>
+        <select value={year} onChange={handleYearChange} className="rounded border p-2">
           {generateYearOptions().map((y) => (
             <option key={y} value={y}>
               {y}
@@ -110,9 +105,9 @@ const OwnerStaffYearlyReport = () => {
       </div>
 
       {/* Employee Table */}
-      <div className="overflow-x-auto overflow-y-auto max-h-[60vh] border rounded">
+      <div className="max-h-[60vh] overflow-x-auto overflow-y-auto rounded border">
         <table className="min-w-full border-collapse">
-          <thead className="bg-gray-200 sticky top-0">
+          <thead className="sticky top-0 bg-gray-200">
             <tr>
               <th className="border px-4 py-2 text-left">#</th>
               <th className="border px-4 py-2 text-left">Employee</th>

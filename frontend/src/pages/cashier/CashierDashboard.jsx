@@ -99,10 +99,7 @@ export default function CashierDashboard() {
 
   const session = Array.isArray(sessions) ? sessions[0] : sessions || null;
 
-  const sessionDuration = useSalonSessionTimer(
-    session?.open_date,
-    session?.open_time,
-  );
+  const sessionDuration = useSalonSessionTimer(session?.open_date, session?.open_time);
 
   // ======================================================
   // SYNC SALON STATUS
@@ -128,10 +125,7 @@ export default function CashierDashboard() {
         setSalonStatus("closed");
       }
     } catch (error) {
-      console.error(
-        "Salon session error:",
-        error.response?.data || error.message,
-      );
+      console.error("Salon session error:", error.response?.data || error.message);
     }
   };
 
@@ -143,17 +137,13 @@ export default function CashierDashboard() {
     return (transactions || []).map((service) => {
       const matchedMaterials = (serviceMaterials || []).filter(
         (material) =>
-          Number(material.service_definition_id) ===
-          Number(service.service_definition_id),
+          Number(material.service_definition_id) === Number(service.service_definition_id),
       );
 
       return {
         ...service,
 
-        materials:
-          matchedMaterials.length > 0
-            ? matchedMaterials
-            : service.materials || [],
+        materials: matchedMaterials.length > 0 ? matchedMaterials : service.materials || [],
       };
     });
   }, [transactions, serviceMaterials]);
@@ -207,15 +197,11 @@ export default function CashierDashboard() {
       .toLowerCase();
 
     const isCashierWorker =
-      currentUserRole === "cashier" &&
-      currentUserStatus !== "inactive" &&
-      user?.id;
+      currentUserRole === "cashier" && currentUserStatus !== "inactive" && user?.id;
 
     if (
       isCashierWorker &&
-      !activeEmployees.some(
-        (employee) => Number(employee.id) === Number(user.id),
-      )
+      !activeEmployees.some((employee) => Number(employee.id) === Number(user.id))
     ) {
       return [...activeEmployees, user];
     }
@@ -313,9 +299,7 @@ export default function CashierDashboard() {
     }
 
     const customer = Customers.find(
-      (entry) =>
-        Number(entry.id) ===
-        Number(service.active_customer_id ?? service.customer_id),
+      (entry) => Number(entry.id) === Number(service.active_customer_id ?? service.customer_id),
     );
 
     if (!customer) {
@@ -376,21 +360,13 @@ export default function CashierDashboard() {
         .toLowerCase();
 
     return {
-      pending: appointmentTransactions.filter(
-        (service) => statusOf(service) === "pending",
-      ),
+      pending: appointmentTransactions.filter((service) => statusOf(service) === "pending"),
 
-      confirmed: appointmentTransactions.filter(
-        (service) => statusOf(service) === "confirmed",
-      ),
+      confirmed: appointmentTransactions.filter((service) => statusOf(service) === "confirmed"),
 
-      completed: appointmentTransactions.filter(
-        (service) => statusOf(service) === "completed",
-      ),
+      completed: appointmentTransactions.filter((service) => statusOf(service) === "completed"),
 
-      cancelled: appointmentTransactions.filter(
-        (service) => statusOf(service) === "cancelled",
-      ),
+      cancelled: appointmentTransactions.filter((service) => statusOf(service) === "cancelled"),
     };
   }, [appointmentTransactions]);
 
@@ -399,9 +375,7 @@ export default function CashierDashboard() {
   // ======================================================
 
   const getActualProfessionalName = (performer) => {
-    const name = `${performer.first_name || ""} ${
-      performer.last_name || ""
-    }`.trim();
+    const name = `${performer.first_name || ""} ${performer.last_name || ""}`.trim();
 
     return name || null;
   };
@@ -482,10 +456,7 @@ export default function CashierDashboard() {
 
       return result;
     } catch (error) {
-      console.error(
-        "Failed to create walk-in service:",
-        error.response?.data || error.message,
-      );
+      console.error("Failed to create walk-in service:", error.response?.data || error.message);
 
       throw error;
     }
@@ -501,10 +472,7 @@ export default function CashierDashboard() {
 
       closeModal();
     } catch (error) {
-      console.error(
-        "Failed to submit expense:",
-        error.response?.data || error.message,
-      );
+      console.error("Failed to submit expense:", error.response?.data || error.message);
 
       throw error;
     }
@@ -520,10 +488,7 @@ export default function CashierDashboard() {
 
       closeModal();
     } catch (error) {
-      console.error(
-        "Failed to submit advance:",
-        error.response?.data || error.message,
-      );
+      console.error("Failed to submit advance:", error.response?.data || error.message);
 
       throw error;
     }
@@ -549,10 +514,7 @@ export default function CashierDashboard() {
 
       return result;
     } catch (error) {
-      console.error(
-        "Error handling clocking:",
-        error.response?.data || error.message,
-      );
+      console.error("Error handling clocking:", error.response?.data || error.message);
 
       throw error;
     }
@@ -581,10 +543,7 @@ export default function CashierDashboard() {
   // ======================================================
 
   const refreshAppointments = async () => {
-    await Promise.all([
-      fetchServiceTransactions(),
-      fetchServiceTransactionsApp(),
-    ]);
+    await Promise.all([fetchServiceTransactions(), fetchServiceTransactionsApp()]);
   };
 
   // ======================================================
@@ -600,11 +559,7 @@ export default function CashierDashboard() {
   // Anyone available is also valid.
   // ======================================================
 
-  const handleAppointmentStatus = async (
-    serviceId,
-    newStatus,
-    cancel_reason = null,
-  ) => {
+  const handleAppointmentStatus = async (serviceId, newStatus, cancel_reason = null) => {
     if (appointmentAction) return;
     setAppointmentAction({ id: Number(serviceId), action: newStatus });
     setAppointmentNotice(null);
@@ -635,16 +590,11 @@ export default function CashierDashboard() {
 
       return result;
     } catch (error) {
-      console.error(
-        "Failed to update appointment:",
-        error.response?.data || error.message,
-      );
+      console.error("Failed to update appointment:", error.response?.data || error.message);
       setAppointmentNotice({
         type: "error",
         text:
-          error.response?.data?.message ||
-          error.message ||
-          "The appointment could not be updated.",
+          error.response?.data?.message || error.message || "The appointment could not be updated.",
       });
       throw error;
     } finally {
@@ -678,7 +628,6 @@ export default function CashierDashboard() {
         throw new Error("Appointment could not be loaded");
       }
 
-
       setCompletingAppointment(appointment);
 
       setModalType("complete_appointment");
@@ -690,9 +639,7 @@ export default function CashierDashboard() {
       setAppointmentNotice({
         type: "error",
         text:
-          error.response?.data?.message ||
-          error.message ||
-          "The appointment could not be loaded.",
+          error.response?.data?.message || error.message || "The appointment could not be loaded.",
       });
     } finally {
       setLoadingCompletionId(null);
@@ -728,11 +675,7 @@ export default function CashierDashboard() {
         performers: formData.performers || [],
       };
 
-
-      const result = await updateServiceTransactionAppointment(
-        transactionId,
-        payload,
-      );
+      const result = await updateServiceTransactionAppointment(transactionId, payload);
 
       await refreshAppointments();
 
@@ -746,16 +689,11 @@ export default function CashierDashboard() {
 
       return result;
     } catch (error) {
-      console.error(
-        "Failed to complete appointment:",
-        error.response?.data || error.message,
-      );
+      console.error("Failed to complete appointment:", error.response?.data || error.message);
       setAppointmentNotice({
         type: "error",
         text:
-          error.response?.data?.message ||
-          error.message ||
-          "The service could not be completed.",
+          error.response?.data?.message || error.message || "The service could not be completed.",
       });
       throw error;
     }
@@ -819,8 +757,7 @@ export default function CashierDashboard() {
             </h2>
 
             <p className="mt-1 text-base text-stone-500">
-              Record daily salon activity and manage staff operations from one
-              place.
+              Record daily salon activity and manage staff operations from one place.
             </p>
           </div>
 
@@ -848,9 +785,7 @@ export default function CashierDashboard() {
         <div className="mb-5 rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-base font-semibold text-stone-800">
-                Salon Session
-              </p>
+              <p className="text-base font-semibold text-stone-800">Salon Session</p>
 
               {salonStatus === "open" ? (
                 <p className="mt-1 text-base text-stone-500">
@@ -870,25 +805,7 @@ export default function CashierDashboard() {
               <button
                 type="button"
                 onClick={() => handleSalonSession("open")}
-                className="
-                  inline-flex
-                  items-center
-                  justify-center
-                  rounded-xl
-                  bg-emerald-600
-                  px-5
-                  py-2.5
-                  text-base
-                  font-semibold
-                  text-white
-                  shadow-sm
-                  transition
-                  hover:bg-emerald-700
-                  focus:outline-none
-                  focus:ring-2
-                  focus:ring-emerald-500
-                  focus:ring-offset-2
-                "
+                className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-2.5 text-base font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:outline-none"
               >
                 Open Salon
               </button>
@@ -896,25 +813,7 @@ export default function CashierDashboard() {
               <button
                 type="button"
                 onClick={() => handleSalonSession("closed")}
-                className="
-                  inline-flex
-                  items-center
-                  justify-center
-                  rounded-xl
-                  bg-rose-600
-                  px-5
-                  py-2.5
-                  text-base
-                  font-semibold
-                  text-white
-                  shadow-sm
-                  transition
-                  hover:bg-rose-700
-                  focus:outline-none
-                  focus:ring-2
-                  focus:ring-rose-500
-                  focus:ring-offset-2
-                "
+                className="inline-flex items-center justify-center rounded-xl bg-rose-600 px-5 py-2.5 text-base font-semibold text-white shadow-sm transition hover:bg-rose-700 focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 focus:outline-none"
               >
                 Close Salon
               </button>
@@ -929,13 +828,11 @@ export default function CashierDashboard() {
 
           <div className="rounded-2xl border border-stone-200 bg-white p-4">
             <div className="mb-4">
-              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-stone-400">
+              <p className="text-sm font-semibold tracking-[0.16em] text-stone-400 uppercase">
                 Services
               </p>
 
-              <h3 className="mt-1 text-lg font-semibold text-stone-900">
-                Service Operations
-              </h3>
+              <h3 className="mt-1 text-lg font-semibold text-stone-900">Service Operations</h3>
 
               <p className="mt-1 text-base text-stone-500">
                 Record services performed for salon customers.
@@ -946,29 +843,10 @@ export default function CashierDashboard() {
               <button
                 type="button"
                 onClick={() => setModalType("service")}
-                className="
-                  group
-                  flex
-                  w-full
-                  items-center
-                  justify-between
-                  rounded-xl
-                  border
-                  border-stone-200
-                  bg-white
-                  px-4
-                  py-3.5
-                  text-left
-                  transition
-                  hover:border-[var(--salon-copper)]
-                  hover:bg-stone-50
-                  hover:shadow-sm
-                "
+                className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3.5 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50 hover:shadow-sm"
               >
                 <span>
-                  <span className="block text-base font-semibold text-stone-800">
-                    Add Service
-                  </span>
+                  <span className="block text-base font-semibold text-stone-800">Add Service</span>
 
                   <span className="mt-0.5 block text-sm text-stone-500">
                     Record a completed walk-in service
@@ -988,13 +866,11 @@ export default function CashierDashboard() {
 
           <div className="rounded-2xl border border-stone-200 bg-white p-4">
             <div className="mb-4">
-              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-stone-400">
+              <p className="text-sm font-semibold tracking-[0.16em] text-stone-400 uppercase">
                 Staff & Finance
               </p>
 
-              <h3 className="mt-1 text-lg font-semibold text-stone-900">
-                Daily Records
-              </h3>
+              <h3 className="mt-1 text-lg font-semibold text-stone-900">Daily Records</h3>
 
               <p className="mt-1 text-base text-stone-500">
                 Record staff clocking, salon expenses and employee advances.
@@ -1028,9 +904,7 @@ export default function CashierDashboard() {
                 className="group flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3.5 text-left transition hover:border-[var(--salon-copper)] hover:bg-stone-50 hover:shadow-sm"
               >
                 <span>
-                  <span className="block text-base font-semibold text-stone-800">
-                    Add Expense
-                  </span>
+                  <span className="block text-base font-semibold text-stone-800">Add Expense</span>
 
                   <span className="mt-0.5 block text-sm text-stone-500">
                     Record a salon operating expense
@@ -1072,17 +946,15 @@ export default function CashierDashboard() {
 
       <section className="dashboard-panel">
         <div className="mb-5">
-          <p className="salon-eyebrow text-[var(--salon-copper)]">
-            Client bookings
-          </p>
+          <p className="salon-eyebrow text-[var(--salon-copper)]">Client bookings</p>
 
           <h2 className="mt-1 font-serif text-2xl font-semibold text-[var(--salon-ink)]">
             Appointments
           </h2>
 
           <p className="mt-1 text-sm text-stone-500">
-            Confirm bookings, review customer preferences and record the actual
-            professionals when the service is completed.
+            Confirm bookings, review customer preferences and record the actual professionals when
+            the service is completed.
           </p>
         </div>
 
@@ -1106,11 +978,8 @@ export default function CashierDashboard() {
             <button
               key={status}
               type="button"
-              className={`dashboard-tab ${
-                activeTab === status ? "dashboard-tab-active" : ""
-              } ${
-                status === "pending" &&
-                (appointmentsByStatus.pending?.length || 0) > 0
+              className={`dashboard-tab ${activeTab === status ? "dashboard-tab-active" : ""} ${
+                status === "pending" && (appointmentsByStatus.pending?.length || 0) > 0
                   ? activeTab === status
                     ? "!border-rose-600 !bg-rose-600 !text-white"
                     : "border-rose-300 bg-rose-50 text-rose-700 ring-1 ring-rose-200"
@@ -1120,9 +989,7 @@ export default function CashierDashboard() {
             >
               {status.charAt(0).toUpperCase() + status.slice(1)}
 
-              <span className="dashboard-count">
-                {appointmentsByStatus[status]?.length || 0}
-              </span>
+              <span className="dashboard-count">{appointmentsByStatus[status]?.length || 0}</span>
             </button>
           ))}
         </div>
@@ -1134,13 +1001,9 @@ export default function CashierDashboard() {
             {currentAppointments.map((service) => {
               const performers = service.performers || [];
 
-              const preferences = performers.filter(
-                (performer) => performer.preferred_employee_id,
-              );
+              const preferences = performers.filter((performer) => performer.preferred_employee_id);
 
-              const actualAssignments = performers.filter(
-                (performer) => performer.employee_id,
-              );
+              const actualAssignments = performers.filter((performer) => performer.employee_id);
 
               const hasPreferences = preferences.length > 0;
 
@@ -1168,7 +1031,7 @@ export default function CashierDashboard() {
 
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+                      <p className="text-xs font-semibold tracking-wide text-stone-400 uppercase">
                         Online booking
                       </p>
 
@@ -1177,7 +1040,7 @@ export default function CashierDashboard() {
                       </h3>
                     </div>
 
-                    <span className="rounded-full bg-white/80 px-2.5 py-1 text-xs font-semibold capitalize text-stone-600">
+                    <span className="rounded-full bg-white/80 px-2.5 py-1 text-xs font-semibold text-stone-600 capitalize">
                       {service.status}
                     </span>
                   </div>
@@ -1209,9 +1072,7 @@ export default function CashierDashboard() {
                     {service.customer_note && (
                       <div>
                         <span className="text-stone-500">Customer Note:</span>{" "}
-                        <span className="text-stone-700">
-                          {service.customer_note}
-                        </span>
+                        <span className="text-stone-700">{service.customer_note}</span>
                       </div>
                     )}
                   </div>
@@ -1219,54 +1080,44 @@ export default function CashierDashboard() {
                   {/* CUSTOMER PREFERENCE */}
 
                   <div className="mt-4 rounded-xl border border-stone-200 bg-white/80 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+                    <p className="text-xs font-semibold tracking-wide text-stone-400 uppercase">
                       Customer preference
                     </p>
 
                     {hasPreferences ? (
                       <div className="mt-2 space-y-1.5">
                         {preferences.map((performer, index) => (
-                          <div
-                            key={`preference-${performer.role_id ?? index}`}
-                            className="text-sm"
-                          >
+                          <div key={`preference-${performer.role_id ?? index}`} className="text-sm">
                             <span className="text-stone-500">
                               {performer.role_name || "Professional"}:
                             </span>{" "}
                             <span className="font-semibold text-stone-800">
-                              {getPreferredProfessionalName(performer) ||
-                                "Preferred professional"}
+                              {getPreferredProfessionalName(performer) || "Preferred professional"}
                             </span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="mt-2 text-sm font-medium text-stone-600">
-                        Anyone available
-                      </p>
+                      <p className="mt-2 text-sm font-medium text-stone-600">Anyone available</p>
                     )}
                   </div>
 
                   {/* ACTUAL PROFESSIONALS */}
 
                   <div className="mt-3 rounded-xl border border-stone-200 bg-white/80 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+                    <p className="text-xs font-semibold tracking-wide text-stone-400 uppercase">
                       Actual professionals
                     </p>
 
                     {hasActualAssignments ? (
                       <div className="mt-2 space-y-1.5">
                         {actualAssignments.map((performer, index) => (
-                          <div
-                            key={`actual-${performer.role_id ?? index}`}
-                            className="text-sm"
-                          >
+                          <div key={`actual-${performer.role_id ?? index}`} className="text-sm">
                             <span className="text-stone-500">
                               {performer.role_name || "Professional"}:
                             </span>{" "}
                             <span className="font-semibold text-stone-800">
-                              {getActualProfessionalName(performer) ||
-                                "Assigned"}
+                              {getActualProfessionalName(performer) || "Assigned"}
                             </span>
                           </div>
                         ))}
@@ -1283,13 +1134,11 @@ export default function CashierDashboard() {
                   {String(service.status || "").toLowerCase() === "cancelled" &&
                     service.cancel_reason && (
                       <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">
+                        <p className="text-xs font-semibold tracking-wide text-rose-500 uppercase">
                           Cancellation reason
                         </p>
 
-                        <p className="mt-1 text-sm text-rose-700">
-                          {service.cancel_reason}
-                        </p>
+                        <p className="mt-1 text-sm text-rose-700">{service.cancel_reason}</p>
                       </div>
                     )}
 
@@ -1300,9 +1149,7 @@ export default function CashierDashboard() {
                       <button
                         type="button"
                         disabled={appointmentAction !== null}
-                        onClick={() =>
-                          handleAppointmentStatus(transactionId, "confirmed")
-                        }
+                        onClick={() => handleAppointmentStatus(transactionId, "confirmed")}
                         className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {appointmentAction?.id === Number(transactionId) &&
@@ -1332,8 +1179,8 @@ export default function CashierDashboard() {
                     <div className="mt-4">
                       {!hasActualAssignments && (
                         <p className="mb-3 text-xs leading-5 text-stone-500">
-                          Record the employees who actually performed the
-                          service before marking this appointment completed.
+                          Record the employees who actually performed the service before marking
+                          this appointment completed.
                         </p>
                       )}
 
@@ -1344,9 +1191,7 @@ export default function CashierDashboard() {
                           onClick={() => handleOpenCompletion(transactionId)}
                           className="rounded-xl bg-[var(--salon-copper)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {isLoadingThisAppointment
-                            ? "Loading..."
-                            : "Complete Service"}
+                          {isLoadingThisAppointment ? "Loading..." : "Complete Service"}
                         </button>
 
                         <button
@@ -1370,9 +1215,7 @@ export default function CashierDashboard() {
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-stone-200 py-10 text-center">
-            <p className="font-medium text-stone-700">
-              No {activeTab} appointments
-            </p>
+            <p className="font-medium text-stone-700">No {activeTab} appointments</p>
 
             <p className="mt-1 text-sm text-stone-500">
               Appointments with this status will appear here.
@@ -1398,9 +1241,7 @@ export default function CashierDashboard() {
       <Modal
         isOpen={modalType !== null}
         onClose={closeModal}
-        sizeClass={
-          modalType === "complete_appointment" ? "max-w-3xl" : "max-w-2xl"
-        }
+        sizeClass={modalType === "complete_appointment" ? "max-w-3xl" : "max-w-2xl"}
       >
         {/* ================================================
             NEW WALK-IN SERVICE
@@ -1438,8 +1279,7 @@ export default function CashierDashboard() {
             Sections={sections}
             createdBy={createdbyID?.id}
             customerId={
-              completingAppointment.active_customer_id ??
-              completingAppointment.customer_id
+              completingAppointment.active_customer_id ?? completingAppointment.customer_id
             }
             serviceStatus="completed"
             serviceData={completingAppointment}
@@ -1451,17 +1291,13 @@ export default function CashierDashboard() {
             EXPENSE
         ================================================ */}
 
-        {modalType === "expense" && (
-          <ExpenseForm onSubmit={createExpense} onClose={closeModal} />
-        )}
+        {modalType === "expense" && <ExpenseForm onSubmit={createExpense} onClose={closeModal} />}
 
         {/* ================================================
             ADVANCE
         ================================================ */}
 
-        {modalType === "advance" && (
-          <AdvanceForm onSubmit={createAdvance} onClose={closeModal} />
-        )}
+        {modalType === "advance" && <AdvanceForm onSubmit={createAdvance} onClose={closeModal} />}
 
         {/* ================================================
             CLOCKING

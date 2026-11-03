@@ -23,13 +23,8 @@ const OwnerAdvances = () => {
     deleteAdvance,
   } = useData();
 
-  const {
-    report,
-    fetchDailyData,
-    fetchWeeklyData,
-    fetchMonthlyData,
-    fetchYearlyData,
-  } = useOwnerReport();
+  const { report, fetchDailyData, fetchWeeklyData, fetchMonthlyData, fetchYearlyData } =
+    useOwnerReport();
 
   const advances = report?.advances ?? [];
 
@@ -72,23 +67,17 @@ const OwnerAdvances = () => {
     return (users || []).filter(
       (user) =>
         user &&
-        `${user.first_name || ""} ${user.last_name || ""}`
-          .trim()
-          .toLowerCase() !== "ntege saleh" &&
+        `${user.first_name || ""} ${user.last_name || ""}`.trim().toLowerCase() !== "ntege saleh" &&
         user.role !== "customer",
     );
   }, [users]);
 
   const employeeMap = useMemo(() => {
-    return new Map(
-      employees.map((employee) => [Number(employee.id), employee]),
-    );
+    return new Map(employees.map((employee) => [Number(employee.id), employee]));
   }, [employees]);
 
   const employeeAdvances = useMemo(() => {
-    return advances.filter((advance) =>
-      employeeMap.has(Number(advance.employee_id)),
-    );
+    return advances.filter((advance) => employeeMap.has(Number(advance.employee_id)));
   }, [advances, employeeMap]);
 
   // ========================
@@ -105,9 +94,7 @@ const OwnerAdvances = () => {
 
       case REPORT_TYPES.MONTH:
         if (monthYear) {
-          const [selectedYear, selectedMonth] = monthYear
-            .split("-")
-            .map(Number);
+          const [selectedYear, selectedMonth] = monthYear.split("-").map(Number);
 
           await fetchMonthlyData(selectedYear, selectedMonth);
         }
@@ -174,9 +161,7 @@ const OwnerAdvances = () => {
 
     setActiveReportType(REPORT_TYPES.WEEK);
 
-    setReportLabel(
-      `${monday.toLocaleDateString()} → ${sunday.toLocaleDateString()}`,
-    );
+    setReportLabel(`${monday.toLocaleDateString()} → ${sunday.toLocaleDateString()}`);
 
     await fetchWeeklyData(monday, sunday);
   };
@@ -228,12 +213,6 @@ const OwnerAdvances = () => {
   // ========================
   // CRUD HANDLERS
   // ========================
-
-  const handleAddPast = () => {
-    setEditingAdvance(null);
-    setNewAdvanceEntryType("past");
-    setShowModal(true);
-  };
 
   const handleEdit = async (advanceId) => {
     try {
@@ -388,11 +367,11 @@ const OwnerAdvances = () => {
     return date.toLocaleString();
   };
 
-  const isPastAdvance = (advance) =>
-    String(advance?.entry_type || "").toLowerCase() === "past";
+  const isPastAdvance = (advance) => String(advance?.entry_type || "").toLowerCase() === "past";
 
   const isFinanceWorkflowAdvance = (advance) => Boolean(advance?.finance_request_id);
-  const formatFinanceStatus = (advance) => String(advance?.finance_workflow_status || "").replaceAll("_", " ");
+  const formatFinanceStatus = (advance) =>
+    String(advance?.finance_workflow_status || "").replaceAll("_", " ");
 
   // ========================
   // INITIAL LOAD
@@ -408,49 +387,41 @@ const OwnerAdvances = () => {
   // ========================
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="min-h-screen bg-gray-50 p-6">
       {/* FILTER BAR */}
-      <div className="mb-6 flex flex-wrap gap-4 items-end">
+      <div className="mb-6 flex flex-wrap items-end gap-4">
         <div>
-          <label className="block font-medium mb-1">Day:</label>
+          <label className="mb-1 block font-medium">Day:</label>
 
           <input
             type="date"
             value={selectedDate}
             onChange={handleDayChange}
-            className="border rounded p-2"
+            className="rounded border p-2"
           />
         </div>
 
         <div>
-          <label className="block font-medium mb-1">Week:</label>
+          <label className="mb-1 block font-medium">Week:</label>
 
-          <input
-            type="week"
-            onChange={handleWeekChange}
-            className="border rounded p-2"
-          />
+          <input type="week" onChange={handleWeekChange} className="rounded border p-2" />
         </div>
 
         <div>
-          <label className="block font-medium mb-1">Month:</label>
+          <label className="mb-1 block font-medium">Month:</label>
 
           <input
             type="month"
             value={monthYear}
             onChange={handleMonthChange}
-            className="border rounded p-2"
+            className="rounded border p-2"
           />
         </div>
 
         <div>
-          <label className="block font-medium mb-1">Year:</label>
+          <label className="mb-1 block font-medium">Year:</label>
 
-          <select
-            value={year}
-            onChange={handleYearChange}
-            className="border rounded p-2"
-          >
+          <select value={year} onChange={handleYearChange} className="rounded border p-2">
             <option value="">Select Year</option>
 
             {generateYearOptions().map((currentYear) => (
@@ -470,46 +441,47 @@ const OwnerAdvances = () => {
       )}
 
       {/* HEADER */}
-      <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">Advances</h1>
 
-          <p className="text-sm text-gray-500 mt-1">
-            Employee advances recorded by business date. New current advances use the finance workflow so approval, settlement, and receipts stay connected.
+          <p className="mt-1 text-sm text-gray-500">
+            Employee advances recorded by business date. New current advances use the finance
+            workflow so approval, settlement, and receipts stay connected.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <Link
             to="/owner/finance?action=advance&tab=advances"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md shadow"
+            className="rounded-md bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700"
           >
             Create Finance Advance Request
           </Link>
 
-          <button
-            type="button"
-            onClick={handleAddPast}
-            className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-md shadow"
+          <Link
+            to="/owner/finance?action=past-advance&tab=advances"
+            className="rounded-md bg-amber-600 px-4 py-2 text-white shadow hover:bg-amber-700"
           >
             Add Past Advance
-          </button>
+          </Link>
         </div>
       </div>
 
       <div className="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-950">
-        <span className="font-semibold">Settlement rule:</span> current employee advances are requested, approved, disbursed, acknowledged, and then settled from Employee Finance. Direct historical entries remain available for audit, but are not silently deducted from pay.
+        <span className="font-semibold">Settlement rule:</span> all new advances, including past
+        entries, are recorded through Employee Finance so approval, disbursement, receipt evidence,
+        and settlement remain connected. Existing legacy entries remain available here for audit and
+        are not silently deducted from pay.
       </div>
 
       {/* SUMMARY */}
-      <div className="mb-4 bg-white rounded-lg shadow p-4">
+      <div className="mb-4 rounded-lg bg-white p-4 shadow">
         <div className="flex flex-wrap gap-6">
           <div>
             <p className="text-sm text-gray-500">Records</p>
 
-            <p className="text-xl font-bold text-gray-800">
-              {employeeAdvances.length}
-            </p>
+            <p className="text-xl font-bold text-gray-800">{employeeAdvances.length}</p>
           </div>
 
           <div>
@@ -517,10 +489,7 @@ const OwnerAdvances = () => {
 
             <p className="text-xl font-bold text-gray-800">
               {employeeAdvances
-                .reduce(
-                  (total, advance) => total + Number(advance.amount || 0),
-                  0,
-                )
+                .reduce((total, advance) => total + Number(advance.amount || 0), 0)
                 .toLocaleString()}
             </p>
           </div>
@@ -528,17 +497,13 @@ const OwnerAdvances = () => {
       </div>
 
       {/* TABLE */}
-      <div className="overflow-x-auto bg-white shadow rounded-lg">
+      <div className="overflow-x-auto rounded-lg bg-white shadow">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-100">
             <tr>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                Employee
-              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Employee</th>
 
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                Amount
-              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Amount</th>
 
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
                 Business Date
@@ -548,9 +513,7 @@ const OwnerAdvances = () => {
                 Business Time
               </th>
 
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                Type
-              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Type</th>
 
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
                 Description
@@ -560,9 +523,7 @@ const OwnerAdvances = () => {
                 Settlement
               </th>
 
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                Actions
-              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
             </tr>
           </thead>
 
@@ -579,9 +540,7 @@ const OwnerAdvances = () => {
 
                 return (
                   <tr key={advance.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      {getEmployeeName(advance.employee_id)}
-                    </td>
+                    <td className="px-4 py-3">{getEmployeeName(advance.employee_id)}</td>
 
                     <td className="px-4 py-3 font-medium">
                       {Number(advance.amount || 0).toLocaleString()}
@@ -593,11 +552,11 @@ const OwnerAdvances = () => {
 
                     <td className="px-4 py-3">
                       {past ? (
-                        <span className="inline-flex px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                        <span className="inline-flex rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">
                           Past
                         </span>
                       ) : (
-                        <span className="inline-flex px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                        <span className="inline-flex rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-800">
                           Current
                         </span>
                       )}
@@ -612,10 +571,13 @@ const OwnerAdvances = () => {
                             {formatFinanceStatus(advance) || "Finance workflow"}
                           </span>
                           <p className="text-xs text-gray-600">
-                            Outstanding: {Number(advance.finance_outstanding_amount || 0).toLocaleString()}
+                            Outstanding:{" "}
+                            {Number(advance.finance_outstanding_amount || 0).toLocaleString()}
                           </p>
                           {advance.settlement_receipt_numbers && (
-                            <p className="text-xs text-gray-500">Settlements: {advance.settlement_receipt_numbers}</p>
+                            <p className="text-xs text-gray-500">
+                              Settlements: {advance.settlement_receipt_numbers}
+                            </p>
                           )}
                         </div>
                       ) : (
@@ -628,7 +590,7 @@ const OwnerAdvances = () => {
                         <button
                           type="button"
                           onClick={() => handleView(advance.id)}
-                          className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded-md text-sm"
+                          className="rounded-md bg-gray-500 px-3 py-1 text-sm text-white hover:bg-gray-600"
                         >
                           View
                         </button>
@@ -636,7 +598,7 @@ const OwnerAdvances = () => {
                         {isFinanceWorkflowAdvance(advance) ? (
                           <Link
                             to="/owner/finance?tab=advances"
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-md text-sm"
+                            className="rounded-md bg-indigo-600 px-3 py-1 text-sm text-white hover:bg-indigo-700"
                           >
                             Finance control
                           </Link>
@@ -645,7 +607,7 @@ const OwnerAdvances = () => {
                             <button
                               type="button"
                               onClick={() => handleEdit(advance.id)}
-                              className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded-md text-sm"
+                              className="rounded-md bg-yellow-400 px-3 py-1 text-sm text-white hover:bg-yellow-500"
                             >
                               Edit
                             </button>
@@ -653,7 +615,7 @@ const OwnerAdvances = () => {
                             <button
                               type="button"
                               onClick={() => handleDelete(advance.id)}
-                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm"
+                              className="rounded-md bg-red-500 px-3 py-1 text-sm text-white hover:bg-red-600"
                             >
                               Delete
                             </button>
@@ -690,40 +652,78 @@ const OwnerAdvances = () => {
         {viewingAdvance && (
           <div className="max-w-2xl space-y-5 p-2">
             <header className="rounded-2xl bg-gradient-to-br from-[var(--salehish-plum)] to-[var(--salehish-magenta)] p-5 text-white">
-              <p className="text-xs font-semibold uppercase tracking-widest text-emerald-200">Employee advance record</p>
-              <h2 className="mt-1 text-2xl font-bold">UGX {Number(viewingAdvance.amount || 0).toLocaleString()}</h2>
-              <p className="mt-2 text-sm text-slate-300">{getEmployeeName(viewingAdvance.employee_id)} · {getBusinessDate(viewingAdvance)} at {getBusinessTime(viewingAdvance)}</p>
+              <p className="text-xs font-semibold tracking-widest text-emerald-200 uppercase">
+                Employee advance record
+              </p>
+              <h2 className="mt-1 text-2xl font-bold">
+                UGX {Number(viewingAdvance.amount || 0).toLocaleString()}
+              </h2>
+              <p className="mt-2 text-sm text-slate-300">
+                {getEmployeeName(viewingAdvance.employee_id)} · {getBusinessDate(viewingAdvance)} at{" "}
+                {getBusinessTime(viewingAdvance)}
+              </p>
             </header>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <AdvanceDetail label="Employee" value={getEmployeeName(viewingAdvance.employee_id)} />
-              <AdvanceDetail label="Business record" value={isPastAdvance(viewingAdvance) ? "Historical entry" : "Current entry"} />
+              <AdvanceDetail
+                label="Business record"
+                value={isPastAdvance(viewingAdvance) ? "Historical entry" : "Current entry"}
+              />
               <AdvanceDetail label="Description" value={viewingAdvance.description || "—"} />
-              <AdvanceDetail label="Recorded in system" value={formatCreatedAt(viewingAdvance.created_at)} />
-              {isPastAdvance(viewingAdvance) && <AdvanceDetail label="Backdate reason" value={viewingAdvance.backdate_reason || "—"} />}
+              <AdvanceDetail
+                label="Recorded in system"
+                value={formatCreatedAt(viewingAdvance.created_at)}
+              />
+              {isPastAdvance(viewingAdvance) && (
+                <AdvanceDetail
+                  label="Backdate reason"
+                  value={viewingAdvance.backdate_reason || "—"}
+                />
+              )}
             </div>
 
             {isFinanceWorkflowAdvance(viewingAdvance) ? (
               <section className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wide text-indigo-700">Finance workflow</p>
-                    <p className="mt-1 font-semibold text-indigo-950">{formatFinanceStatus(viewingAdvance) || "Recorded"}</p>
+                    <p className="text-xs font-bold tracking-wide text-indigo-700 uppercase">
+                      Finance workflow
+                    </p>
+                    <p className="mt-1 font-semibold text-indigo-950">
+                      {formatFinanceStatus(viewingAdvance) || "Recorded"}
+                    </p>
                   </div>
-                  <p className="text-lg font-bold text-indigo-950">Outstanding: UGX {Number(viewingAdvance.finance_outstanding_amount || 0).toLocaleString()}</p>
+                  <p className="text-lg font-bold text-indigo-950">
+                    Outstanding: UGX{" "}
+                    {Number(viewingAdvance.finance_outstanding_amount || 0).toLocaleString()}
+                  </p>
                 </div>
                 <div className="mt-3 grid gap-2 text-sm text-indigo-900 sm:grid-cols-2">
                   <p>Issued receipt: {viewingAdvance.finance_receipt_number || "Not issued"}</p>
-                  <p>Settled: UGX {Number(viewingAdvance.finance_settled_amount || 0).toLocaleString()}</p>
+                  <p>
+                    Settled: UGX{" "}
+                    {Number(viewingAdvance.finance_settled_amount || 0).toLocaleString()}
+                  </p>
                   <p>Disbursed: {formatCreatedAt(viewingAdvance.finance_disbursed_at)}</p>
                   <p>Acknowledged: {formatCreatedAt(viewingAdvance.finance_acknowledged_at)}</p>
                 </div>
-                {viewingAdvance.settlement_receipt_numbers && <p className="mt-3 text-xs text-indigo-800">Settlement receipts: {viewingAdvance.settlement_receipt_numbers}</p>}
-                <Link to="/owner/finance?tab=advances" className="mt-4 inline-flex rounded-lg bg-indigo-700 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-800">Open settlement control</Link>
+                {viewingAdvance.settlement_receipt_numbers && (
+                  <p className="mt-3 text-xs text-indigo-800">
+                    Settlement receipts: {viewingAdvance.settlement_receipt_numbers}
+                  </p>
+                )}
+                <Link
+                  to="/owner/finance?tab=advances"
+                  className="mt-4 inline-flex rounded-lg bg-indigo-700 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-800"
+                >
+                  Open settlement control
+                </Link>
               </section>
             ) : (
               <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                This is a direct historical advance record. It was not issued through the approval and settlement workflow.
+                This is a direct historical advance record. It was not issued through the approval
+                and settlement workflow.
               </section>
             )}
 
@@ -759,5 +759,10 @@ const OwnerAdvances = () => {
 export default OwnerAdvances;
 
 function AdvanceDetail({ label, value }) {
-  return <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 text-sm font-medium text-slate-900">{value || "—"}</p></div>;
+  return (
+    <div className="rounded-xl bg-slate-50 p-3">
+      <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">{label}</p>
+      <p className="mt-1 text-sm font-medium text-slate-900">{value || "—"}</p>
+    </div>
+  );
 }

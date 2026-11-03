@@ -49,6 +49,10 @@ import employeeProfileRoutes from "./routes/employeeProfileRoutes.js";
 import ownerIntelligenceRoutes from "./routes/ownerIntelligenceRoutes.js";
 import publicCampaignRoutes from "./routes/publicCampaignRoutes.js";
 import statisticsRoutes from "./routes/statisticsRoutes.js";
+import paymentsRoutes from "./routes/paymentsRoutes.js";
+import bankNotificationsRoutes from "./routes/bankNotificationsRoutes.js";
+import auditRoutes from "./routes/auditRoutes.js";
+import { recoverConfirmedPayments, reconcileUnmatchedBankCredits, resumePendingMockPayments } from "./payments/paymentEngine.js";
 import {
   requireAuth,
   requireRole,
@@ -83,8 +87,20 @@ app.use(
   }),
 );
 app.use(attachRequestId);
+app.use(
+  "/api/payment-provider-callbacks/bank",
+  apiRateLimiter,
+  express.json({
+    limit: "256kb",
+    verify: (req, _res, buffer) => { req.rawBody = Buffer.from(buffer); },
+  }),
+  bankNotificationsRoutes,
+);
 app.use("/api", apiRateLimiter, requireTrustedOrigin);
-app.use(express.json({ limit: "3mb" }));
+// Historical finance entries may include an authenticated paper receipt. The
+// upload itself is capped at 8 MB by the finance workflow; base64 transport
+// needs a little additional JSON headroom.
+app.use(express.json({ limit: process.env.API_JSON_BODY_LIMIT || "12mb" }));
 app.use(cookieParser());
 
 // --- Sessions ---
@@ -179,6 +195,21 @@ app.use(
 app.use("/api/marketplace", publicCampaignRoutes);
 app.use("/api/statistics", requireAuth, requireSalonContext, statisticsRoutes);
 app.use("/api/services", servicesRoutes);
+
+app.use(
+  "/api/payments",
+  requireAuth,
+  requireSalonContext,
+  requireOpenSalon,
+  paymentsRoutes,
+);
+
+app.use(
+  "/api/audit-events",
+  requireAuth,
+  requireSalonContext,
+  auditRoutes,
+);
 
 app.use(
   "/api/servicet",
@@ -293,6 +324,25 @@ app.set("io", io);
 
 // optional easy global: global.io (use with caution)
 global.io = io;
+
+resumePendingMockPayments({ app }).catch((error) => {
+  console.error("Unable to resume pending development payments:", error.message);
+});
+recoverConfirmedPayments({ app }).catch((error) => {
+  console.error("Unable to recover confirmed payment postings:", error.message);
+});
+reconcileUnmatchedBankCredits({ app }).catch((error) => {
+  console.error("Unable to reconcile unmatched bank credits:", error.message);
+});
+const paymentRecoveryTimer = setInterval(() => {
+  recoverConfirmedPayments({ app }).catch((error) => {
+    console.error("Scheduled payment posting recovery failed:", error.message);
+  });
+  reconcileUnmatchedBankCredits({ app }).catch((error) => {
+    console.error("Scheduled bank-credit reconciliation failed:", error.message);
+  });
+}, Math.max(15000, Number(process.env.PAYMENT_RECOVERY_INTERVAL_MS || 30000)));
+paymentRecoveryTimer.unref?.();
 
 io.engine.use(sessionMiddleware);
 io.engine.use(passport.initialize());

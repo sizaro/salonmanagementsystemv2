@@ -53,7 +53,7 @@ export default function Dashboard() {
 
   const createExpense = async (formData) => {
     try {
-      await sendFormData("createExpense", formData); 
+      await sendFormData("createExpense", formData);
       closeModal();
     } catch (err) {
       console.error("Failed to submit expense", err);
@@ -83,8 +83,7 @@ export default function Dashboard() {
     }
   };
 
-
- useEffect(() => {
+  useEffect(() => {
     const fetchStatus = async () => {
       if (sessions && sessions.length > 0) {
         const todaySession = sessions[0];
@@ -95,28 +94,33 @@ export default function Dashboard() {
     };
 
     fetchStatus();
-  }, [sessions]); 
+  }, [sessions]);
 
   return (
     <div className="space-y-10">
       <div className="space-y-10">
-      {salonStatus === "closed" && (
-        <Button className='bg-green-400 hover:bg-green-300' onClick={() => handleSalonSession("open")}>Open Salon</Button>
-      )}
-      {salonStatus === "open" && (
-        <Button onClick={() => handleSalonSession("closed")}>Close Salon</Button>
-      )}
-    </div>
-      <Button onClick={() => setModalType('service')}>Add Service</Button>
-      <Button onClick={() => setModalType('expense')}>Add Expense</Button>
-      <Button onClick={() => setModalType('advance')}>Add Advance</Button>
-      <Button onClick={() => setModalType('clocking')}>Employee Clocking</Button>
+        {salonStatus === "closed" && (
+          <Button
+            className="bg-green-400 hover:bg-green-300"
+            onClick={() => handleSalonSession("open")}
+          >
+            Open Salon
+          </Button>
+        )}
+        {salonStatus === "open" && (
+          <Button onClick={() => handleSalonSession("closed")}>Close Salon</Button>
+        )}
+      </div>
+      <Button onClick={() => setModalType("service")}>Add Service</Button>
+      <Button onClick={() => setModalType("expense")}>Add Expense</Button>
+      <Button onClick={() => setModalType("advance")}>Add Advance</Button>
+      <Button onClick={() => setModalType("clocking")}>Employee Clocking</Button>
 
       <Modal isOpen={modalType !== null} onClose={closeModal}>
-        {modalType === 'service' && <ServiceForm onSubmit={createService} onClose={closeModal} />}
-        {modalType === 'expense' && <ExpenseForm onSubmit={createExpense} onClose={closeModal} />}
-        {modalType === 'advance' && <AdvanceForm onSubmit={createAdvance} onClose={closeModal} />}
-        {modalType === 'clocking' && <ClockForm onSubmit={handleClocking} onClose={closeModal} />}
+        {modalType === "service" && <ServiceForm onSubmit={createService} onClose={closeModal} />}
+        {modalType === "expense" && <ExpenseForm onSubmit={createExpense} onClose={closeModal} />}
+        {modalType === "advance" && <AdvanceForm onSubmit={createAdvance} onClose={closeModal} />}
+        {modalType === "clocking" && <ClockForm onSubmit={handleClocking} onClose={closeModal} />}
       </Modal>
     </div>
   );

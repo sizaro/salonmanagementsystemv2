@@ -100,10 +100,10 @@ export default function SalonSetup() {
      UI
      ============================ */
   return (
-    <div className="max-w-md mx-auto p-6">
-      <h1 className="text-xl font-bold mb-4">Salon Setup</h1>
+    <div className="mx-auto max-w-md p-6">
+      <h1 className="mb-4 text-xl font-bold">Salon Setup</h1>
 
-      {error && <p className="text-red-500 mb-3">{error}</p>}
+      {error && <p className="mb-3 text-red-500">{error}</p>}
 
       {/* STEP 1 */}
       {step === 1 && (
@@ -129,7 +129,7 @@ export default function SalonSetup() {
       {/* STEP 2 */}
       {step === 2 && (
         <>
-          <p className="text-sm text-gray-600 mb-2">Create owner account</p>
+          <p className="mb-2 text-sm text-gray-600">Create owner account</p>
           <input
             className="input"
             type="password"
@@ -172,7 +172,7 @@ export default function SalonSetup() {
             href={`/${slug}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-600 underline break-all"
+            className="break-all text-blue-600 underline"
           >
             {window.location.origin}/{slug}
           </a>

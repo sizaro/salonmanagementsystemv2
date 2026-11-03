@@ -23,8 +23,7 @@ export default function ResetPassword() {
   const checkStrength = (password) => {
     if (password.length === 0) return null;
 
-    const strongRegex =
-      /^(?=.*[0-9])(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
+    const strongRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
 
     if (!strongRegex.test(password)) return "weak";
     if (password.length >= 12) return "strong";
@@ -66,44 +65,34 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white shadow-lg rounded-xl p-8">
-        <h2 className="text-2xl font-bold text-center text-blue-700 mb-6">
-          Reset Your Password
-        </h2>
+    <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4">
+      <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
+        <h2 className="mb-6 text-center text-2xl font-bold text-blue-700">Reset Your Password</h2>
 
         {/* ERROR */}
-        {error && (
-          <p className="text-red-600 bg-red-100 p-2 rounded text-sm mb-4">
-            {error}
-          </p>
-        )}
+        {error && <p className="mb-4 rounded bg-red-100 p-2 text-sm text-red-600">{error}</p>}
 
         {/* SUCCESS */}
         {success && (
-          <p className="text-green-700 bg-green-100 p-2 rounded text-sm mb-4">
-            {success}
-          </p>
+          <p className="mb-4 rounded bg-green-100 p-2 text-sm text-green-700">{success}</p>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* NEW PASSWORD */}
           <div className="relative">
-            <label className="text-sm font-medium text-gray-700">
-              New Password
-            </label>
+            <label className="text-sm font-medium text-gray-700">New Password</label>
             <input
               type={showPassword ? "text" : "password"}
               value={newPassword}
               onChange={(e) => handlePasswordChange(e.target.value)}
-              className="mt-1 w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-400"
+              className="mt-1 w-full rounded-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-400"
               required
             />
 
             {/* TOGGLE */}
             <span
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-9 cursor-pointer text-gray-500"
+              className="absolute top-9 right-3 cursor-pointer text-gray-500"
             >
               {showPassword ? "👁️" : "👁️‍🗨️"}
             </span>
@@ -111,10 +100,8 @@ export default function ResetPassword() {
             {/* STRENGTH BAR */}
             {strength && (
               <div className="mt-2">
-                <div
-                  className={`h-2 rounded ${strengthColors[strength]}`}
-                ></div>
-                <p className="text-xs mt-1 text-gray-600">
+                <div className={`h-2 rounded ${strengthColors[strength]}`}></div>
+                <p className="mt-1 text-xs text-gray-600">
                   {strength === "weak" && "Password is too weak"}
                   {strength === "medium" && "Strong enough"}
                   {strength === "strong" && "Very strong password!"}
@@ -125,20 +112,18 @@ export default function ResetPassword() {
 
           {/* CONFIRM PASSWORD */}
           <div className="relative">
-            <label className="text-sm font-medium text-gray-700">
-              Confirm Password
-            </label>
+            <label className="text-sm font-medium text-gray-700">Confirm Password</label>
             <input
               type={showConfirm ? "text" : "password"}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="mt-1 w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-400"
+              className="mt-1 w-full rounded-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-400"
               required
             />
 
             <span
               onClick={() => setShowConfirm(!showConfirm)}
-              className="absolute right-3 top-9 cursor-pointer text-gray-500"
+              className="absolute top-9 right-3 cursor-pointer text-gray-500"
             >
               {showConfirm ? "👁️" : "👁️‍🗨️"}
             </span>
@@ -148,8 +133,7 @@ export default function ResetPassword() {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-3 rounded-lg text-white font-semibold transition 
-              ${loading ? "bg-blue-300" : "bg-blue-600 hover:bg-blue-700"}`}
+            className={`w-full rounded-lg py-3 font-semibold text-white transition ${loading ? "bg-blue-300" : "bg-blue-600 hover:bg-blue-700"}`}
           >
             {loading ? "Resetting..." : "Reset Password"}
           </button>

@@ -15,7 +15,7 @@ export default function SectionForm({ existingSection = null, onSubmit, onClose 
   useEffect(() => {
     setFormData({
       section_name: existingSection?.section_name || "",
-      id: existingSection?.id || null
+      id: existingSection?.id || null,
     });
   }, [existingSection]);
 
@@ -46,22 +46,22 @@ export default function SectionForm({ existingSection = null, onSubmit, onClose 
   };
 
   return (
-    <div className="w-full max-w-md bg-white p-4 rounded shadow">
-      <h2 className="text-lg font-semibold mb-3">
+    <div className="w-full max-w-md rounded bg-white p-4 shadow">
+      <h2 className="mb-3 text-lg font-semibold">
         {existingSection ? "Edit Section" : "Add Section"}
       </h2>
 
-      {error && <div className="text-red-600 mb-2">{error}</div>}
+      {error && <div className="mb-2 text-red-600">{error}</div>}
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
-          <label className="block text-sm mb-1">Section name</label>
+          <label className="mb-1 block text-sm">Section name</label>
           <input
             type="text"
             name="section_name"
             value={formData.section_name}
             onChange={handleChange}
-            className="w-full border rounded px-2 py-1"
+            className="w-full rounded border px-2 py-1"
             placeholder="e.g. men, women, nails"
             autoFocus
           />
@@ -71,7 +71,7 @@ export default function SectionForm({ existingSection = null, onSubmit, onClose 
           <button
             type="submit"
             disabled={submitting}
-            className="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-60"
+            className="rounded bg-blue-600 px-3 py-1 text-white disabled:opacity-60"
           >
             {submitting ? "Saving..." : existingSection ? "Update" : "Create"}
           </button>
@@ -79,7 +79,7 @@ export default function SectionForm({ existingSection = null, onSubmit, onClose 
           <button
             type="button"
             onClick={() => onClose && onClose()}
-            className="px-3 py-1 border rounded"
+            className="rounded border px-3 py-1"
           >
             Cancel
           </button>

@@ -2,10 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useData } from "../../context/DataContext.jsx";
 
 const ManagerExpensesWeeklyReport = () => {
-  const {
-    expenses,
-    fetchWeeklyData,
-  } = useData();
+  const { expenses, fetchWeeklyData } = useData();
 
   const [weekRange, setWeekRange] = useState({ start: null, end: null });
   const [reportLabel, setReportLabel] = useState("");
@@ -41,9 +38,7 @@ const ManagerExpensesWeeklyReport = () => {
     sunday.setDate(monday.getDate() + 6);
 
     setWeekRange({ start: monday, end: sunday });
-    setReportLabel(
-      `${monday.toLocaleDateString("en-US")} → ${sunday.toLocaleDateString("en-US")}`
-    );
+    setReportLabel(`${monday.toLocaleDateString("en-US")} → ${sunday.toLocaleDateString("en-US")}`);
 
     setLoading(true);
     await fetchWeeklyData(monday, sunday);
@@ -59,9 +54,7 @@ const ManagerExpensesWeeklyReport = () => {
     sunday.setDate(monday.getDate() + 6);
 
     setWeekRange({ start: monday, end: sunday });
-    setReportLabel(
-      `${monday.toLocaleDateString("en-US")} → ${sunday.toLocaleDateString("en-US")}`
-    );
+    setReportLabel(`${monday.toLocaleDateString("en-US")} → ${sunday.toLocaleDateString("en-US")}`);
 
     const fetchData = async () => {
       setLoading(true);
@@ -72,25 +65,16 @@ const ManagerExpensesWeeklyReport = () => {
   }, []);
 
   // ---- Calculate Total Expenses ----
-  const totalExpenses = expenses.reduce(
-    (sum, e) => sum + (parseInt(e.amount, 10) || 0),
-    0
-  );
+  const totalExpenses = expenses.reduce((sum, e) => sum + (parseInt(e.amount, 10) || 0), 0);
 
   return (
-    <div className="income-page max-w-6xl mx-auto p-4 overflow-y-hidden">
-      <h1 className="text-3xl font-bold text-center mb-6 text-gray-800">
-        Weekly Expenses Report
-      </h1>
+    <div className="income-page mx-auto max-w-6xl overflow-y-hidden p-4">
+      <h1 className="mb-6 text-center text-3xl font-bold text-gray-800">Weekly Expenses Report</h1>
 
       {/* Week Picker */}
       <div className="mb-4">
-        <label className="block mb-2 font-medium">Pick a week:</label>
-        <input
-          type="week"
-          onChange={handleWeekChange}
-          className="border rounded p-2"
-        />
+        <label className="mb-2 block font-medium">Pick a week:</label>
+        <input type="week" onChange={handleWeekChange} className="rounded border p-2" />
         <p className="mt-2 text-gray-600">{reportLabel}</p>
       </div>
 
@@ -101,22 +85,20 @@ const ManagerExpensesWeeklyReport = () => {
       ) : (
         <>
           {/* Summary Section */}
-          <section className="bg-white shadow-md rounded-lg p-4 mb-6">
-            <h2 className="text-xl font-semibold text-blue-700 mb-2">Summary</h2>
+          <section className="mb-6 rounded-lg bg-white p-4 shadow-md">
+            <h2 className="mb-2 text-xl font-semibold text-blue-700">Summary</h2>
             <p>
-              <span className="font-medium">Total Expenses:</span>{" "}
-              {totalExpenses.toLocaleString()} UGX
+              <span className="font-medium">Total Expenses:</span> {totalExpenses.toLocaleString()}{" "}
+              UGX
             </p>
           </section>
 
           {/* Expenses Table */}
-          <section className="bg-white shadow-md rounded-lg p-4">
-            <h2 className="text-xl font-semibold text-blue-700 mb-4">
-              Expenses List
-            </h2>
-            <div className="w-full overflow-x-auto max-h-[60vh] overflow-y-auto border border-gray-300 rounded">
+          <section className="rounded-lg bg-white p-4 shadow-md">
+            <h2 className="mb-4 text-xl font-semibold text-blue-700">Expenses List</h2>
+            <div className="max-h-[60vh] w-full overflow-x-auto overflow-y-auto rounded border border-gray-300">
               <table className="min-w-full border-collapse text-sm">
-                <thead className="bg-blue-700 text-white sticky top-0 z-10">
+                <thead className="sticky top-0 z-10 bg-blue-700 text-white">
                   <tr>
                     <th className="px-3 py-2 text-left">No.</th>
                     <th className="px-3 py-2 text-left">Expense Name</th>

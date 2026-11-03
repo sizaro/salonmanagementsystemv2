@@ -1,7 +1,7 @@
 const apiUrl = import.meta.env.VITE_API_URL || "";
 const apiOrigin = apiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
 
-export function resolvePublicMedia(source, fallback = "/images/hero_image.jpg") {
+export function resolvePublicMedia(source, fallback = "/images/hero_image.webp") {
   if (!source || source === "-") return fallback;
   if (/^https?:\/\//i.test(source)) return source;
   const normalized = source.startsWith("/") ? source : `/${source}`;

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { DateTime } from "luxon";
 import { useData } from "../../context/DataContext.jsx";
+import { DashboardSkeleton } from "../../components/loading/DashboardSkeleton.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 const ZONE = "Africa/Kampala";
@@ -43,8 +44,6 @@ export default function CashierIncomeReview() {
           withCredentials: true,
         });
 
-
-
         if (!active) return;
 
         setReport({
@@ -58,10 +57,7 @@ export default function CashierIncomeReview() {
 
         if (!active) return;
 
-        setError(
-          requestError.response?.data?.error ||
-            "Unable to load today's services.",
-        );
+        setError(requestError.response?.data?.error || "Unable to load today's services.");
       } finally {
         if (active) {
           setLoading(false);
@@ -76,7 +72,9 @@ export default function CashierIncomeReview() {
     };
   }, [selectedDate]);
 
-  useEffect(() => { setPage(1); }, [selectedDate]);
+  useEffect(() => {
+    setPage(1);
+  }, [selectedDate]);
 
   const totalPages = Math.max(1, Math.ceil((report.services?.length || 0) / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -152,6 +150,15 @@ export default function CashierIncomeReview() {
     return service.customerId ? "Registered customer" : "Walk-in";
   };
 
+  const getCollectionLabel = (method) =>
+    ({
+      CASH: "Cash",
+      MTN_MOMO: "MTN MoMo",
+      AIRTEL_MONEY: "Airtel Money",
+      BANK_TRANSFER: "Bank transfer",
+      OTHER: "Other",
+    })[String(method || "CASH").toUpperCase()] || "Other";
+
   return (
     <div className="dashboard-page space-y-6">
       {/* =====================================
@@ -163,9 +170,7 @@ export default function CashierIncomeReview() {
           {user?.role || "Cashier"} workspace
         </p>
 
-        <h1 className="relative z-10 mt-2 font-serif text-3xl font-semibold">
-          Daily Services
-        </h1>
+        <h1 className="relative z-10 mt-2 font-serif text-3xl font-semibold">Daily Services</h1>
 
         <p className="relative z-10 mt-2 text-stone-600">
           Review services performed during the selected day.
@@ -190,9 +195,7 @@ export default function CashierIncomeReview() {
 
           <div className="text-sm text-stone-500">
             Showing services for{" "}
-            <span className="font-semibold text-stone-700">
-              {formatDate(selectedDate)}
-            </span>
+            <span className="font-semibold text-stone-700">{formatDate(selectedDate)}</span>
           </div>
         </div>
       </section>
@@ -202,10 +205,7 @@ export default function CashierIncomeReview() {
       ===================================== */}
 
       {error && (
-        <p
-          role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700"
-        >
+        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
           {error}
         </p>
       )}
@@ -215,10 +215,7 @@ export default function CashierIncomeReview() {
       ===================================== */}
 
       {loading ? (
-        <div className="dashboard-panel text-center">
-          <div className="mx-auto mb-3 h-9 w-9 animate-spin rounded-full border-4 border-stone-200 border-t-[var(--salon-copper)]" />
-          Loading daily services...
-        </div>
+        <DashboardSkeleton />
       ) : (
         <>
           {/* =====================================
@@ -245,78 +242,89 @@ export default function CashierIncomeReview() {
 
           <section className="dashboard-panel">
             <div className="mb-5">
-              <h2 className="font-serif text-2xl font-semibold">
-                Services Performed
-              </h2>
+              <h2 className="font-serif text-2xl font-semibold">Services Performed</h2>
 
               <p className="mt-1 text-sm text-stone-500">
-                Customer, service and professional information for the selected
-                day.
+                Customer, service and professional information for the selected day.
               </p>
             </div>
 
             {report.services?.length ? (
               <>
-              <div className="dashboard-table-wrap overflow-x-auto">
-                <table className="dashboard-table min-w-[1000px]">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Time</th>
-                      <th>Service</th>
-                      <th>Section</th>
-                      <th>Customer</th>
-                      <th>Professional</th>
-                      <th>Amount</th>
-                    </tr>
-                  </thead>
+                <div className="dashboard-table-wrap overflow-x-auto">
+                  <table className="dashboard-table min-w-[1000px]">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Time</th>
+                        <th>Service</th>
+                        <th>Section</th>
+                        <th>Customer</th>
+                        <th>Collection</th>
+                        <th>Professional</th>
+                        <th>Employee earnings</th>
+                      </tr>
+                    </thead>
 
-                  <tbody>
-                    {visibleServices.map((service, index) => (
-                      <tr key={service.id}>
-                        {/* NUMBER */}
+                    <tbody>
+                      {visibleServices.map((service, index) => (
+                        <tr key={service.id}>
+                          {/* NUMBER */}
 
-                        <td>{pageStart + index + 1}</td>
+                          <td>{pageStart + index + 1}</td>
 
-                        {/* TIME */}
+                          {/* TIME */}
 
-                        <td>
-                          <span className="font-medium whitespace-nowrap">
-                            {formatTime(service.serviceTime)}
-                          </span>
-                        </td>
+                          <td>
+                            <span className="font-medium whitespace-nowrap">
+                              {formatTime(service.serviceTime)}
+                            </span>
+                          </td>
 
-                        {/* SERVICE */}
+                          {/* SERVICE */}
 
-                        <td>
-                          <div className="font-semibold text-stone-800">
-                            {service.serviceName}
-                          </div>
-                        </td>
+                          <td>
+                            <div className="font-semibold text-stone-800">
+                              {service.serviceName}
+                            </div>
+                          </td>
 
-                        {/* SECTION */}
+                          {/* SECTION */}
 
-                        <td>{service.sectionName || "—"}</td>
+                          <td>{service.sectionName || "—"}</td>
 
-                        {/* CUSTOMER */}
+                          {/* CUSTOMER */}
 
-                        <td>
-                          <div className="font-medium text-stone-800">
-                            {getCustomerName(service)}
-                          </div>
+                          <td>
+                            <div className="font-medium text-stone-800">
+                              {getCustomerName(service)}
+                            </div>
 
-                          <div className="mt-1 text-xs text-stone-400">
-                            {getCustomerType(service)}
-                          </div>
-                        </td>
+                            <div className="mt-1 text-xs text-stone-400">
+                              {getCustomerType(service)}
+                            </div>
+                          </td>
 
-                        {/* PROFESSIONALS */}
+                          <td>
+                            <div className="font-medium text-stone-800">
+                              {getCollectionLabel(service.collectionMethod)}
+                            </div>
+                            {service.collectionReference && (
+                              <div
+                                className="mt-1 max-w-40 truncate text-xs text-stone-400"
+                                title={service.collectionReference}
+                              >
+                                {service.collectionReference}
+                              </div>
+                            )}
+                          </td>
 
-                        <td>
-                          {service.performers?.length ? (
-                            <div className="space-y-3">
-                              {service.performers.map(
-                                (performer, performerIndex) => (
+                          {/* PROFESSIONALS */}
+
+                          <td>
+                            {service.performers?.length ? (
+                              <div className="space-y-3">
+                                {service.performers.map((performer, performerIndex) => (
                                   <div
                                     key={`${service.id}-performer-${performerIndex}`}
                                     className="min-h-[38px]"
@@ -326,60 +334,71 @@ export default function CashierIncomeReview() {
                                     </div>
 
                                     {performer.role && (
-                                      <div className="text-xs text-stone-500">
-                                        {performer.role}
-                                      </div>
+                                      <div className="text-xs text-stone-500">{performer.role}</div>
                                     )}
                                   </div>
-                                ),
-                              )}
-                            </div>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
+                                ))}
+                              </div>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
 
-                        {/* PERFORMER AMOUNTS */}
+                          {/* PERFORMER AMOUNTS */}
 
-                        <td>
-                          {service.performers?.length ? (
-                            <div className="space-y-3">
-                              {service.performers.map(
-                                (performer, performerIndex) => (
+                          <td>
+                            {service.performers?.length ? (
+                              <div className="space-y-3">
+                                {service.performers.map((performer, performerIndex) => (
                                   <div
                                     key={`${service.id}-amount-${performerIndex}`}
-                                    className="flex min-h-[38px] items-center font-semibold text-[var(--salon-copper)] whitespace-nowrap"
+                                    className="flex min-h-[38px] items-center font-semibold whitespace-nowrap text-[var(--salon-copper)]"
                                   >
                                     UGX {formatMoney(performer.amount)}
                                   </div>
-                                ),
-                              )}
-                            </div>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <footer className="mt-4 flex flex-col gap-3 border-t border-stone-100 pt-4 text-sm text-stone-500 sm:flex-row sm:items-center sm:justify-between">
-                <p>
-                  Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, report.services.length)} of {report.services.length}
-                </p>
-                <div className="flex items-center gap-3">
-                  <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={safePage === 1} className="rounded-lg border border-stone-200 px-3 py-1.5 font-semibold text-stone-700 disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
-                  <span className="font-medium">Page {safePage} of {totalPages}</span>
-                  <button type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={safePage === totalPages} className="rounded-lg border border-stone-200 px-3 py-1.5 font-semibold text-stone-700 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+                                ))}
+                              </div>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              </footer>
+                <footer className="mt-4 flex flex-col gap-3 border-t border-stone-100 pt-4 text-sm text-stone-500 sm:flex-row sm:items-center sm:justify-between">
+                  <p>
+                    Showing {pageStart + 1}–
+                    {Math.min(pageStart + PAGE_SIZE, report.services.length)} of{" "}
+                    {report.services.length}
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPage((current) => Math.max(1, current - 1))}
+                      disabled={safePage === 1}
+                      className="rounded-lg border border-stone-200 px-3 py-1.5 font-semibold text-stone-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Previous
+                    </button>
+                    <span className="font-medium">
+                      Page {safePage} of {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                      disabled={safePage === totalPages}
+                      className="rounded-lg border border-stone-200 px-3 py-1.5 font-semibold text-stone-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </footer>
               </>
             ) : (
               <div className="rounded-xl border border-dashed border-stone-200 py-12 text-center">
-                <p className="font-medium text-stone-700">
-                  No services recorded
-                </p>
+                <p className="font-medium text-stone-700">No services recorded</p>
 
                 <p className="mt-1 text-sm text-stone-500">
                   There are no services for {formatDate(selectedDate)}.

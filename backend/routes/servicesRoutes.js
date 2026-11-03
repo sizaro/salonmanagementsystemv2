@@ -24,6 +24,8 @@ import {
   getAllServiceTransactions,
   getServiceTransactionById,
   getAppointmentAvailability,
+  getAppointmentSettings,
+  updateAppointmentSettings,
   updateServiceTransaction,
   updateServiceTransactiont,
   deleteServiceTransaction,
@@ -66,6 +68,8 @@ router.get('/service_transactions', getAllServiceTransactions);
 
 // Privacy-safe availability: returns employee IDs only, never customer details.
 router.get('/appointment-availability', getAppointmentAvailability);
+router.get('/appointment-settings', getAppointmentSettings);
+router.put('/appointment-settings', requireRole('owner'), updateAppointmentSettings);
 
 // 👉 fetch single service transaction by ID
 router.get('/service_transactions/:id', getServiceTransactionById);

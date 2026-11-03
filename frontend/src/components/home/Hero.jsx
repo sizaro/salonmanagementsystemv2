@@ -1,11 +1,5 @@
 import { useEffect, useRef } from "react";
-import {
-  ArrowDown,
-  ArrowUpRight,
-  CalendarCheck,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
+import { ArrowDown, ArrowUpRight, CalendarCheck, ShieldCheck, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { gsap } from "gsap";
 
@@ -16,26 +10,10 @@ export default function Hero() {
       const timeline = gsap.timeline({ defaults: { ease: "power3.out" } });
       timeline
         .from("[data-hero-image]", { scale: 1.12, duration: 1.5 })
-        .from(
-          "[data-hero-eyebrow]",
-          { y: 22, opacity: 0, duration: 0.6 },
-          "-=1",
-        )
-        .from(
-          "[data-hero-title]",
-          { y: 55, opacity: 0, duration: 0.9 },
-          "-=0.35",
-        )
-        .from(
-          "[data-hero-copy]",
-          { y: 28, opacity: 0, duration: 0.7 },
-          "-=0.45",
-        )
-        .from(
-          "[data-hero-actions]",
-          { y: 22, opacity: 0, duration: 0.6 },
-          "-=0.35",
-        );
+        .from("[data-hero-eyebrow]", { y: 22, opacity: 0, duration: 0.6 }, "-=1")
+        .from("[data-hero-title]", { y: 55, opacity: 0, duration: 0.9 }, "-=0.35")
+        .from("[data-hero-copy]", { y: 28, opacity: 0, duration: 0.7 }, "-=0.45")
+        .from("[data-hero-actions]", { y: 22, opacity: 0, duration: 0.6 }, "-=0.35");
     }, rootRef);
     return () => context.revert();
   }, []);
@@ -47,9 +25,9 @@ export default function Hero() {
     >
       <img
         data-hero-image
-        src="/images/salehishhero.webp"
-        alt="A professional stylist shaping a client's look"
-        className="absolute inset-0 h-full w-full object-contain md:object-cover object-[center_35%] sm:object-[center_30%] md:object-center"
+        src="/images/hero_image.webp"
+        alt="The welcoming interior of Salehish Beauty Parlour and Spa"
+        className="absolute inset-0 h-full w-full object-contain object-[center_35%] sm:object-[center_30%] md:object-cover md:object-center"
       />
 
       <div className="salon-container relative flex min-h-[calc(100svh-5rem)] flex-col py-8 sm:py-10">
@@ -65,7 +43,7 @@ export default function Hero() {
           </span>
         </div>
 
-        <div className="mt-auto pb-2 sm:pb-3 md:-mb-10 -mb-1">
+        <div className="mt-auto -mb-1 pb-2 sm:pb-3 md:-mb-10">
           <div data-hero-actions className="flex flex-wrap gap-3">
             <Link
               to="/contact"
@@ -77,7 +55,7 @@ export default function Hero() {
 
             <Link
               to="/services"
-              className="inline-flex items-center gap-2 rounded-full bg-[var(--salon-ink)] px-5 py-3 font-semibold text-white transition hover:bg-black drop-shadow-[0_3px_8px_rgba(0,0,0,0.45)]"
+              className="inline-flex items-center gap-2 rounded-full bg-[var(--salon-ink)] px-5 py-3 font-semibold text-white drop-shadow-[0_3px_8px_rgba(0,0,0,0.45)] transition hover:bg-black"
             >
               Explore services
               <ArrowUpRight size={17} />
@@ -89,7 +67,7 @@ export default function Hero() {
       <a
         href="#salon-introduction"
         aria-label="Explore the salon"
-        className="absolute bottom-7 right-6 hidden h-14 w-14 place-items-center rounded-full border border-white/25 text-white transition hover:bg-white hover:text-slate-950 md:grid lg:right-12"
+        className="absolute right-6 bottom-7 hidden h-14 w-14 place-items-center rounded-full border border-white/25 text-white transition hover:bg-white hover:text-slate-950 md:grid lg:right-12"
       >
         <ArrowDown size={19} />
       </a>

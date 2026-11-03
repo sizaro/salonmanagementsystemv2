@@ -24,14 +24,12 @@ const ManagerAdvances = () => {
     (user) =>
       user &&
       `${user.first_name || ""} ${user.last_name || ""}`.toLowerCase() !== "ntege saleh" &&
-      user.role !== "customer"
+      user.role !== "customer",
   );
 
   const employeeAdvances = useMemo(() => {
     if (!employees.length) return [];
-    return advances.filter((a) =>
-      employees.some((emp) => emp.id === a.employee_id)
-    );
+    return advances.filter((a) => employees.some((emp) => emp.id === a.employee_id));
   }, [advances, employees]);
 
   // ========================
@@ -107,45 +105,37 @@ const ManagerAdvances = () => {
   }, [advances]);
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="min-h-screen bg-gray-50 p-6">
       {/* FILTER BAR */}
-      <div className="mb-6 flex flex-wrap gap-4 items-end">
+      <div className="mb-6 flex flex-wrap items-end gap-4">
         <div>
-          <label className="block font-medium mb-1">Day:</label>
+          <label className="mb-1 block font-medium">Day:</label>
           <input
             type="date"
             value={selectedDate}
             onChange={handleDayChange}
-            className="border rounded p-2"
+            className="rounded border p-2"
           />
         </div>
 
         <div>
-          <label className="block font-medium mb-1">Week:</label>
-          <input
-            type="week"
-            onChange={handleWeekChange}
-            className="border rounded p-2"
-          />
+          <label className="mb-1 block font-medium">Week:</label>
+          <input type="week" onChange={handleWeekChange} className="rounded border p-2" />
         </div>
 
         <div>
-          <label className="block font-medium mb-1">Month:</label>
+          <label className="mb-1 block font-medium">Month:</label>
           <input
             type="month"
             value={monthYear}
             onChange={handleMonthChange}
-            className="border rounded p-2"
+            className="rounded border p-2"
           />
         </div>
 
         <div>
-          <label className="block font-medium mb-1">Year:</label>
-          <select
-            value={year}
-            onChange={handleYearChange}
-            className="border rounded p-2"
-          >
+          <label className="mb-1 block font-medium">Year:</label>
+          <select value={year} onChange={handleYearChange} className="rounded border p-2">
             <option value="" disabled>
               Select Year
             </option>
@@ -159,33 +149,25 @@ const ManagerAdvances = () => {
       </div>
 
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-800">Advances</h1>
         <button
           onClick={handleAdd}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md shadow"
+          className="rounded-md bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700"
         >
           Add Advance
         </button>
       </div>
 
       {/* TABLE */}
-      <div className="overflow-x-auto bg-white shadow rounded-lg">
+      <div className="overflow-x-auto rounded-lg bg-white shadow">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-100">
             <tr>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Employee
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Amount
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Date
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
-                Reason
-              </th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Employee</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Amount</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Date</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Reason</th>
             </tr>
           </thead>
 
@@ -194,16 +176,13 @@ const ManagerAdvances = () => {
               <tr key={adv.id} className="hover:bg-gray-50">
                 <td className="px-4 py-2">{adv.last_name || "—"}</td>
                 <td className="px-4 py-2">{adv.amount}</td>
-                <td className="px-4 py-2">
-                  {new Date(adv.created_at).toLocaleDateString()}
-                </td>
+                <td className="px-4 py-2">{new Date(adv.created_at).toLocaleDateString()}</td>
                 <td className="px-4 py-2">{adv.description}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-
     </div>
   );
 };

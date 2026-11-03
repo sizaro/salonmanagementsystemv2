@@ -16,10 +16,10 @@ if (!process.env.DATABASE_URL) {
 }
 
 const databaseUrl = new URL(process.env.DATABASE_URL);
-const sql = await fs.readFile(
-  path.resolve(__dirname, "..", "sql", "appointment_flow_upgrade.sql"),
-  "utf8",
-);
+const sqlFiles = [
+  "appointment_flow_upgrade.sql",
+  "20261027_appointment_production_hardening.sql",
+];
 
 const client = new pg.Client({
   connectionString: process.env.DATABASE_URL,
@@ -29,7 +29,10 @@ const client = new pg.Client({
 try {
   console.log(`Applying appointment upgrade to ${databaseUrl.hostname}/${databaseUrl.pathname.slice(1)}...`);
   await client.connect();
-  await client.query(sql);
+  for (const sqlFile of sqlFiles) {
+    const sql = await fs.readFile(path.resolve(__dirname, "..", "sql", sqlFile), "utf8");
+    await client.query(sql);
+  }
   console.log("Appointment flow database upgrade applied successfully.");
 } finally {
   await client.end().catch(() => undefined);

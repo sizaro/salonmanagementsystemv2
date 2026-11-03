@@ -20,7 +20,9 @@ export default function PublicLayout() {
   return (
     <div className="min-h-screen bg-[var(--salon-cream)] text-[var(--salon-ink)]">
       <Navbar />
-      <main className="overflow-hidden"><Outlet /></main>
+      <main className="overflow-hidden">
+        <Outlet />
+      </main>
       <Footer />
     </div>
   );

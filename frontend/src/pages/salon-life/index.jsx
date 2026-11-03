@@ -10,7 +10,7 @@ export default function SalonLifePage() {
         eyebrow="Salon life"
         title="The people and moments beyond the chair."
         description="Images and videos from everyday service, teamwork, learning and the social rhythm of Salehish."
-        image="/images/salon_interior1.jpg"
+        image="/images/salon-life-hero.webp"
         imageAlt="Life inside the Salehish salon"
       />
       <SalonLifeMedia />

@@ -1,17 +1,18 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DateTime } from "luxon";
+import axios from "axios";
+import { LoadingButton } from "./loading/LoadingButton.jsx";
+import PaymentSheet from "./payments/PaymentSheet.jsx";
 
-const ZONE = "Africa/Kampala";
-
-const APPOINTMENT_TIME_SLOTS = Array.from({ length: 32 }, (_, index) => {
-  const totalMinutes = 8 * 60 + index * 30;
-
-  const hour = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
-
-  const minute = String(totalMinutes % 60).padStart(2, "0");
-
-  return `${hour}:${minute}`;
-});
+const API_URL = import.meta.env.VITE_API_URL || "/api";
+const DEFAULT_APPOINTMENT_SETTINGS = {
+  timezone: "Africa/Kampala",
+  opening_time: "08:00:00",
+  closing_time: "23:30:00",
+  slot_interval_minutes: 30,
+  minimum_notice_minutes: 60,
+  maximum_booking_days: 90,
+};
 
 const formatMoney = (value) => Number(value || 0).toLocaleString("en-UG");
 
@@ -91,6 +92,10 @@ export default function ServiceForm({
 
   const [checkingAvailability, setCheckingAvailability] = useState(false);
 
+  const [paymentRequest, setPaymentRequest] = useState(null);
+  const [appointmentSettings, setAppointmentSettings] = useState(DEFAULT_APPOINTMENT_SETTINGS);
+  const bookingIdempotencyKeyRef = useRef(crypto.randomUUID());
+
   // ======================================================
   // CUSTOMER PROFESSIONAL PREFERENCE
   // ======================================================
@@ -114,6 +119,10 @@ export default function ServiceForm({
 
     customerNote: "",
 
+    collection_method: "CASH",
+
+    collection_reference: "",
+
     status: serviceStatus || null,
 
     performers: [],
@@ -125,20 +134,43 @@ export default function ServiceForm({
 
   const isEditing = Boolean(serviceData);
 
-  const serviceDetailsLocked =
-    isEditing && !isCustomer && !canEditServiceDetails;
+  const serviceDetailsLocked = isEditing && !isCustomer && !canEditServiceDetails;
 
   // ======================================================
   // CURRENT TIME / BOOKING LIMIT
   // ======================================================
 
-  const now = DateTime.now().setZone(ZONE);
+  const appointmentZone = appointmentSettings.timezone || DEFAULT_APPOINTMENT_SETTINGS.timezone;
+  const now = DateTime.now().setZone(appointmentZone);
 
   const minimumAppointmentTime = now.plus({
-    hours: 1,
+    minutes: Number(appointmentSettings.minimum_notice_minutes || 60),
   });
 
   const minimumAppointmentDate = now.toISODate();
+  const maximumAppointmentDate = now.plus({
+    days: Number(appointmentSettings.maximum_booking_days || 90),
+  }).toISODate();
+
+  const appointmentTimeSlots = useMemo(() => {
+    const [openingHour, openingMinute] = String(appointmentSettings.opening_time || "08:00").slice(0, 5).split(":").map(Number);
+    const [closingHour, closingMinute] = String(appointmentSettings.closing_time || "23:30").slice(0, 5).split(":").map(Number);
+    const interval = Number(appointmentSettings.slot_interval_minutes || 30);
+    const slots = [];
+    for (let minute = openingHour * 60 + openingMinute; minute <= closingHour * 60 + closingMinute; minute += interval) {
+      slots.push(`${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`);
+    }
+    return slots;
+  }, [appointmentSettings]);
+
+  useEffect(() => {
+    if (!isCustomer) return undefined;
+    let active = true;
+    axios.get(`${API_URL}/services/appointment-settings`, { withCredentials: true })
+      .then((response) => { if (active && response.data?.data) setAppointmentSettings((current) => ({ ...current, ...response.data.data })); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [isCustomer]);
 
   // ======================================================
   // SYNC PROPS
@@ -175,9 +207,7 @@ export default function ServiceForm({
   const buildPerformersFromRoles = (matchingRoles, existingPerformers = []) => {
     return (matchingRoles || []).map((role) => {
       const existing = (existingPerformers || []).find(
-        (performer) =>
-          Number(performer.role_id ?? performer.service_role_id) ===
-          Number(role.id),
+        (performer) => Number(performer.role_id ?? performer.service_role_id) === Number(role.id),
       );
 
       return {
@@ -185,15 +215,10 @@ export default function ServiceForm({
 
         employee_id: normalizeOptionalId(existing?.employee_id),
 
-        preferred_employee_id: normalizeOptionalId(
-          existing?.preferred_employee_id,
-        ),
+        preferred_employee_id: normalizeOptionalId(existing?.preferred_employee_id),
 
         earned_amount:
-          existing?.earned_amount ??
-          existing?.role_amount ??
-          role.earned_amount ??
-          null,
+          existing?.earned_amount ?? existing?.role_amount ?? role.earned_amount ?? null,
 
         role_name: existing?.role_name ?? role.role_name ?? null,
 
@@ -217,14 +242,12 @@ export default function ServiceForm({
       return;
     }
 
-    const sectionId =
-      serviceData.definition_section_id ?? serviceData.section_id;
+    const sectionId = serviceData.definition_section_id ?? serviceData.section_id;
 
     const serviceDefinitionId = serviceData.service_definition_id;
 
     const matchingRoles = (Roles || []).filter(
-      (role) =>
-        Number(role.service_definition_id) === Number(serviceDefinitionId),
+      (role) => Number(role.service_definition_id) === Number(serviceDefinitionId),
     );
 
     // ====================================================
@@ -235,10 +258,7 @@ export default function ServiceForm({
     // where no employee/preference had previously been saved.
     // ====================================================
 
-    const mergedPerformers = buildPerformersFromRoles(
-      matchingRoles,
-      serviceData.performers || [],
-    );
+    const mergedPerformers = buildPerformersFromRoles(matchingRoles, serviceData.performers || []);
 
     setForm({
       id: serviceData.transaction_id ?? serviceData.id ?? null,
@@ -253,15 +273,17 @@ export default function ServiceForm({
 
       customerNote: serviceData.customer_note || "",
 
+      collection_method: serviceData.collection_method || "CASH",
+
+      collection_reference: serviceData.collection_reference || "",
+
       status: serviceData.status || serviceStatus || null,
 
       performers: mergedPerformers,
     });
 
     setServices(
-      (Services || []).filter(
-        (service) => Number(service.section_id) === Number(sectionId),
-      ),
+      (Services || []).filter((service) => Number(service.section_id) === Number(sectionId)),
     );
 
     setRoles(matchingRoles);
@@ -270,9 +292,8 @@ export default function ServiceForm({
       Number(
         serviceData.full_amount ||
           serviceData.service_amount ||
-          (Services || []).find(
-            (service) => Number(service.id) === Number(serviceDefinitionId),
-          )?.service_amount ||
+          (Services || []).find((service) => Number(service.id) === Number(serviceDefinitionId))
+            ?.service_amount ||
           0,
       ),
     );
@@ -282,9 +303,7 @@ export default function ServiceForm({
     // ====================================================
 
     if (isCustomer) {
-      const hasPreference = mergedPerformers.some(
-        (performer) => performer.preferred_employee_id,
-      );
+      const hasPreference = mergedPerformers.some((performer) => performer.preferred_employee_id);
 
       setProfessionalPreference(hasPreference ? "specific" : "any");
     }
@@ -313,11 +332,7 @@ export default function ServiceForm({
 
     setServiceAmount("");
 
-    setServices(
-      (Services || []).filter(
-        (service) => Number(service.section_id) === Number(id),
-      ),
-    );
+    setServices((Services || []).filter((service) => Number(service.section_id) === Number(id)));
 
     if (isCustomer) {
       setProfessionalPreference("any");
@@ -377,9 +392,7 @@ export default function ServiceForm({
 
     setRoles(matchingRoles);
 
-    setServiceAmount(
-      Number(serviceObj?.service_amount || serviceObj?.full_amount || 0),
-    );
+    setServiceAmount(Number(serviceObj?.service_amount || serviceObj?.full_amount || 0));
 
     if (isCustomer) {
       setProfessionalPreference("any");
@@ -543,12 +556,9 @@ export default function ServiceForm({
       return false;
     }
 
-    const requestedAt = DateTime.fromISO(
-      `${form.appointment_date}T${time}:00`,
-      {
-        zone: ZONE,
-      },
-    );
+    const requestedAt = DateTime.fromISO(`${form.appointment_date}T${time}:00`, {
+      zone: appointmentZone,
+    });
 
     if (!requestedAt.isValid) {
       return true;
@@ -572,9 +582,7 @@ export default function ServiceForm({
 
     const localBusy = (Appointments || [])
       .filter((appointment) => {
-        const appointmentId = normalizeOptionalId(
-          appointment.transaction_id ?? appointment.id,
-        );
+        const appointmentId = normalizeOptionalId(appointment.transaction_id ?? appointment.id);
 
         return (
           appointmentId !== currentId &&
@@ -586,9 +594,9 @@ export default function ServiceForm({
           Math.abs(
             DateTime.fromISO(
               `${appointment.appointment_date?.slice(0, 10)}T${appointment.appointment_time?.slice(0, 5)}`,
-              { zone: ZONE },
+              { zone: appointmentZone },
             ).diff(
-              DateTime.fromISO(`${form.appointment_date}T${requestedTime}`, { zone: ZONE }),
+              DateTime.fromISO(`${form.appointment_date}T${requestedTime}`, { zone: appointmentZone }),
               "minutes",
             ).minutes,
           ) < 60
@@ -600,9 +608,7 @@ export default function ServiceForm({
 
         const actualId = normalizeOptionalId(performer.employee_id);
 
-        const preferredId = normalizeOptionalId(
-          performer.preferred_employee_id,
-        );
+        const preferredId = normalizeOptionalId(performer.preferred_employee_id);
 
         if (actualId) {
           ids.push(actualId);
@@ -615,9 +621,7 @@ export default function ServiceForm({
         return ids;
       });
 
-    const remoteBusy = (remoteBusyEmployeeIds || [])
-      .map(normalizeOptionalId)
-      .filter(Boolean);
+    const remoteBusy = (remoteBusyEmployeeIds || []).map(normalizeOptionalId).filter(Boolean);
 
     return new Set([...remoteBusy, ...localBusy]);
   }, [
@@ -627,6 +631,7 @@ export default function ServiceForm({
     form.id,
     isCustomer,
     remoteBusyEmployeeIds,
+    appointmentZone,
   ]);
 
   // ======================================================
@@ -634,11 +639,7 @@ export default function ServiceForm({
   // ======================================================
 
   useEffect(() => {
-    if (
-      !isCustomer ||
-      professionalPreference !== "specific" ||
-      busyEmployeeIds.size === 0
-    ) {
+    if (!isCustomer || professionalPreference !== "specific" || busyEmployeeIds.size === 0) {
       return;
     }
 
@@ -646,9 +647,7 @@ export default function ServiceForm({
       let changed = false;
 
       const performers = current.performers.map((performer) => {
-        const preferredId = normalizeOptionalId(
-          performer.preferred_employee_id,
-        );
+        const preferredId = normalizeOptionalId(performer.preferred_employee_id);
 
         if (!preferredId || !busyEmployeeIds.has(preferredId)) {
           return performer;
@@ -698,7 +697,11 @@ export default function ServiceForm({
     setCheckingAvailability(true);
 
     const timer = setTimeout(() => {
-      getAppointmentAvailability(form.appointment_date, form.appointment_time)
+      getAppointmentAvailability(
+        form.appointment_date,
+        form.appointment_time,
+        form.service_definition_id,
+      )
         .then((ids) => {
           if (!active) {
             return;
@@ -709,9 +712,7 @@ export default function ServiceForm({
           // Remove an old availability
           // error if a new check succeeds.
           setSubmitError((current) =>
-            current.includes("Availability could not be checked")
-              ? ""
-              : current,
+            current.includes("Availability could not be checked") ? "" : current,
           );
         })
         .catch(() => {
@@ -719,9 +720,7 @@ export default function ServiceForm({
             return;
           }
 
-          setSubmitError(
-            "Availability could not be checked. Try again before submitting.",
-          );
+          setSubmitError("Availability could not be checked. Try again before submitting.");
         })
         .finally(() => {
           if (active) {
@@ -735,12 +734,7 @@ export default function ServiceForm({
 
       clearTimeout(timer);
     };
-  }, [
-    form.appointment_date,
-    form.appointment_time,
-    getAppointmentAvailability,
-    isCustomer,
-  ]);
+  }, [form.appointment_date, form.appointment_time, form.service_definition_id, getAppointmentAvailability, isCustomer]);
 
   // ======================================================
   // SELECTED SECTION
@@ -748,9 +742,7 @@ export default function ServiceForm({
 
   const selectedSection = useMemo(() => {
     return (
-      (Sections || []).find(
-        (section) => Number(section.id) === Number(form.section_id),
-      ) || null
+      (Sections || []).find((section) => Number(section.id) === Number(form.section_id)) || null
     );
   }, [Sections, form.section_id]);
 
@@ -785,10 +777,7 @@ export default function ServiceForm({
   // ONLINE PRICE
   // ======================================================
 
-  const onlinePrice = Math.max(
-    0,
-    Number(serviceAmount || 0) - 500,
-  );
+  const onlinePrice = Math.max(0, Number(serviceAmount || 0) - 500);
 
   // ======================================================
   // SUBMIT
@@ -820,12 +809,9 @@ export default function ServiceForm({
         return;
       }
 
-      const requestedAt = DateTime.fromISO(
-        `${form.appointment_date}T${form.appointment_time}`,
-        {
-          zone: ZONE,
-        },
-      );
+      const requestedAt = DateTime.fromISO(`${form.appointment_date}T${form.appointment_time}`, {
+        zone: appointmentZone,
+      });
 
       if (!requestedAt.isValid) {
         setSubmitError("Select a valid appointment date and time.");
@@ -833,14 +819,12 @@ export default function ServiceForm({
         return;
       }
 
-      const minimumTime = DateTime.now().setZone(ZONE).plus({
-        hours: 1,
+      const minimumTime = DateTime.now().setZone(appointmentZone).plus({
+        minutes: Number(appointmentSettings.minimum_notice_minutes || 60),
       });
 
       if (requestedAt < minimumTime) {
-        setSubmitError(
-          "Appointments must be booked at least 1 hour in advance.",
-        );
+        setSubmitError(`Appointments must be booked at least ${appointmentSettings.minimum_notice_minutes || 60} minutes in advance.`);
 
         return;
       }
@@ -851,9 +835,7 @@ export default function ServiceForm({
         );
 
         if (!selectedPreference) {
-          setSubmitError(
-            "Choose at least one preferred professional, or select Anyone available.",
-          );
+          setSubmitError("Choose at least one preferred professional, or select Anyone available.");
 
           return;
         }
@@ -876,9 +858,7 @@ export default function ServiceForm({
 
     if (!isCustomer) {
       const missingRole = professionalRoles.find((role) => {
-        const performer = form.performers.find(
-          (item) => Number(item.role_id) === Number(role.id),
-        );
+        const performer = form.performers.find((item) => Number(item.role_id) === Number(role.id));
 
         return !normalizeOptionalId(performer?.employee_id);
       });
@@ -899,9 +879,7 @@ export default function ServiceForm({
 
       // Customer can never set
       // actual employee.
-      employee_id: isCustomer
-        ? null
-        : normalizeOptionalId(performer.employee_id),
+      employee_id: isCustomer ? null : normalizeOptionalId(performer.employee_id),
 
       preferred_employee_id: isCustomer
         ? professionalPreference === "specific"
@@ -926,17 +904,13 @@ export default function ServiceForm({
     // preserve its source.
     // ====================================================
 
-    const serviceSource = isCustomer
-      ? "online_booking"
-      : serviceData?.service_source || "walk_in";
+    const serviceSource = isCustomer ? "online_booking" : serviceData?.service_source || "walk_in";
 
     // ====================================================
     // STATUS
     // ====================================================
 
-    const finalStatus = isCustomer
-      ? "pending"
-      : serviceStatus || form.status || "completed";
+    const finalStatus = isCustomer ? "pending" : serviceStatus || form.status || "completed";
 
     // ====================================================
     // PAYLOAD
@@ -958,25 +932,29 @@ export default function ServiceForm({
       //
       // Internal completion preserves
       // existing appointment information.
-      appointment_date: isCustomer
-        ? form.appointment_date
-        : serviceData?.appointment_date || null,
+      appointment_date: isCustomer ? form.appointment_date : serviceData?.appointment_date || null,
 
-      appointment_time: isCustomer
-        ? form.appointment_time
-        : serviceData?.appointment_time || null,
+      appointment_time: isCustomer ? form.appointment_time : serviceData?.appointment_time || null,
 
       created_by: createdBy,
 
       customer_id:
-        customerId ??
-        serviceData?.active_customer_id ??
-        serviceData?.customer_id ??
-        null,
+        customerId ?? serviceData?.active_customer_id ?? serviceData?.customer_id ?? null,
 
       customer_note: form.customerNote,
 
+      collection_method: isCustomer ? "CASH" : form.collection_method || "CASH",
+
+      collection_reference: isCustomer
+        ? null
+        : String(form.collection_reference || "").trim() || null,
+
       status: finalStatus,
+
+      // The backend uses this only for a new customer booking.  Replaying a
+      // request after a slow connection therefore returns the same booking
+      // instead of reserving the slot twice.
+      appointment_idempotency_key: isCustomer ? bookingIdempotencyKeyRef.current : null,
 
       performers,
     };
@@ -985,6 +963,24 @@ export default function ServiceForm({
 
     try {
       setSubmitting(true);
+
+      const requiresExternalPayment =
+        !isCustomer && ["MTN_MOMO", "AIRTEL_MONEY", "BANK_TRANSFER"].includes(payload.collection_method);
+
+      if (requiresExternalPayment) {
+        setPaymentRequest({
+          label: serviceData
+            ? "The completed appointment will be recorded after payment confirmation."
+            : "The completed service will be recorded after payment confirmation.",
+          amount: serviceAmount,
+          payload: {
+            ...payload,
+            payment_operation: serviceData && transactionId ? "APPOINTMENT_COMPLETE" : "CREATE_SERVICE",
+            appointment_id: serviceData && transactionId ? Number(transactionId) : null,
+          },
+        });
+        return;
+      }
 
       if (serviceData && transactionId) {
         await onSubmit(transactionId, payload);
@@ -1038,7 +1034,8 @@ export default function ServiceForm({
   // ======================================================
 
   return (
-    <form onSubmit={handleSubmit} className="w-full">
+    <>
+      <form onSubmit={handleSubmit} className="w-full">
       {/* ==================================================
           HEADER
       ================================================== */}
@@ -1046,7 +1043,7 @@ export default function ServiceForm({
       <div className="border-b border-stone-100 px-1 pb-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--salon-copper)]">
+            <p className="text-xs font-semibold tracking-[0.18em] text-[var(--salon-copper)] uppercase">
               {isCustomer
                 ? "Appointment booking"
                 : serviceData
@@ -1095,25 +1092,21 @@ export default function ServiceForm({
             </div>
 
             <div>
-              <p className="text-sm font-semibold text-amber-900">
-                Before booking
-              </p>
+              <p className="text-sm font-semibold text-amber-900">Before booking</p>
 
               <div className="mt-1 space-y-1 text-sm leading-6 text-amber-800">
                 <p>
-                  Appointments must be booked at least{" "}
-                  <strong>1 hour in advance</strong>.
+                  Appointments must be booked at least <strong>1 hour in advance</strong>.
                 </p>
 
                 <p>
-                  Please arrive about{" "}
-                  <strong>10 minutes before your appointment</strong>.
+                  Please arrive about <strong>10 minutes before your appointment</strong>.
                 </p>
 
                 <p>
                   Your appointment is protected for{" "}
-                  <strong>10 minutes after the scheduled time</strong>. After
-                  that, your preferred professional may become unavailable.
+                  <strong>10 minutes after the scheduled time</strong>. After that, your preferred
+                  professional may become unavailable.
                 </p>
               </div>
             </div>
@@ -1128,13 +1121,11 @@ export default function ServiceForm({
 
         <section className="rounded-2xl border border-stone-200 bg-stone-50/50 p-4 sm:p-5">
           <div className="mb-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+            <p className="text-xs font-semibold tracking-[0.16em] text-stone-400 uppercase">
               Step 1
             </p>
 
-            <h3 className="mt-1 text-base font-semibold text-stone-900">
-              Service Details
-            </h3>
+            <h3 className="mt-1 text-base font-semibold text-stone-900">Service Details</h3>
 
             <p className="mt-1 text-sm text-stone-500">
               {serviceDetailsLocked
@@ -1154,9 +1145,7 @@ export default function ServiceForm({
 
                 <div className="rounded-xl border border-stone-200 bg-white px-4 py-3">
                   <p className="font-semibold text-stone-800">
-                    {selectedSection?.section_name ||
-                      serviceData?.section_name ||
-                      "N/A"}
+                    {selectedSection?.section_name || serviceData?.section_name || "N/A"}
                   </p>
 
                   <p className="mt-1 text-xs text-stone-400">Read only</p>
@@ -1168,9 +1157,7 @@ export default function ServiceForm({
 
                 <div className="rounded-xl border border-stone-200 bg-white px-4 py-3">
                   <p className="font-semibold text-stone-800">
-                    {selectedService?.service_name ||
-                      serviceData?.service_name ||
-                      "N/A"}
+                    {selectedService?.service_name || serviceData?.service_name || "N/A"}
                   </p>
 
                   <p className="mt-1 text-xs text-stone-400">Read only</p>
@@ -1184,9 +1171,7 @@ export default function ServiceForm({
 
                 <select
                   value={form.section_id}
-                  onChange={(event) =>
-                    handleSectionSelect(Number(event.target.value))
-                  }
+                  onChange={(event) => handleSectionSelect(Number(event.target.value))}
                   required
                   className={fieldClass}
                 >
@@ -1211,9 +1196,7 @@ export default function ServiceForm({
                   className={`${fieldClass} disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400`}
                 >
                   <option value="">
-                    {form.section_id
-                      ? "Select service"
-                      : "Select section first"}
+                    {form.section_id ? "Select service" : "Select section first"}
                   </option>
 
                   {services.map((service) => (
@@ -1238,9 +1221,7 @@ export default function ServiceForm({
             <div className="mt-4 rounded-xl border border-stone-200 bg-white p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-stone-400">
-                    Service
-                  </p>
+                  <p className="text-xs tracking-wide text-stone-400 uppercase">Service</p>
 
                   <p className="mt-1 font-semibold text-stone-900">
                     {selectedService?.service_name || serviceData?.service_name}
@@ -1268,16 +1249,14 @@ export default function ServiceForm({
         {isCustomer && form.service_definition_id && (
           <section className="rounded-2xl border border-stone-200 bg-stone-50/50 p-4 sm:p-5">
             <div className="mb-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+              <p className="text-xs font-semibold tracking-[0.16em] text-stone-400 uppercase">
                 Step 2
               </p>
 
-              <h3 className="mt-1 text-base font-semibold text-stone-900">
-                Appointment Details
-              </h3>
+              <h3 className="mt-1 text-base font-semibold text-stone-900">Appointment Details</h3>
 
               <p className="mt-1 text-sm text-stone-500">
-                Select a date and time at least one hour from now.
+                Select a date and time at least {appointmentSettings.minimum_notice_minutes || 60} minutes from now.
               </p>
             </div>
 
@@ -1288,6 +1267,7 @@ export default function ServiceForm({
                 <input
                   type="date"
                   min={minimumAppointmentDate}
+                  max={maximumAppointmentDate}
                   value={form.appointment_date}
                   onChange={(event) => {
                     setForm((current) => ({
@@ -1322,12 +1302,10 @@ export default function ServiceForm({
                   className={`${fieldClass} disabled:cursor-not-allowed disabled:bg-stone-100`}
                 >
                   <option value="">
-                    {form.appointment_date
-                      ? "Select time"
-                      : "Select date first"}
+                    {form.appointment_date ? "Select time" : "Select date first"}
                   </option>
 
-                  {APPOINTMENT_TIME_SLOTS.map((time) => {
+                  {appointmentTimeSlots.map((time) => {
                     const tooSoon = isTimeSlotTooSoon(time);
 
                     return (
@@ -1340,7 +1318,7 @@ export default function ServiceForm({
                 </select>
 
                 <p className="mt-1.5 text-xs text-stone-400">
-                  30-minute booking intervals.
+                  {appointmentSettings.slot_interval_minutes || 30}-minute booking intervals.
                 </p>
               </div>
             </div>
@@ -1370,7 +1348,7 @@ export default function ServiceForm({
             <section className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
               <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+                  <p className="text-xs font-semibold tracking-[0.16em] text-stone-400 uppercase">
                     Step 3
                   </p>
 
@@ -1379,8 +1357,8 @@ export default function ServiceForm({
                   </h3>
 
                   <p className="mt-1 text-sm text-stone-500">
-                    You may choose a preferred professional or let the salon
-                    assign anyone available.
+                    You may choose a preferred professional or let the salon assign anyone
+                    available.
                   </p>
                 </div>
 
@@ -1401,9 +1379,7 @@ export default function ServiceForm({
                       : "border-stone-200 bg-white hover:bg-stone-50"
                   }`}
                 >
-                  <p className="font-semibold text-stone-900">
-                    Anyone available
-                  </p>
+                  <p className="font-semibold text-stone-900">Anyone available</p>
 
                   <p className="mt-1 text-sm text-stone-500">
                     Let the salon assign an available professional.
@@ -1419,9 +1395,7 @@ export default function ServiceForm({
                       : "border-stone-200 bg-white hover:bg-stone-50"
                   }`}
                 >
-                  <p className="font-semibold text-stone-900">
-                    Choose preferred professional
-                  </p>
+                  <p className="font-semibold text-stone-900">Choose preferred professional</p>
 
                   <p className="mt-1 text-sm text-stone-500">
                     Request someone specific where available.
@@ -1451,26 +1425,17 @@ export default function ServiceForm({
                         <select
                           value={performer?.preferred_employee_id || ""}
                           onChange={(event) =>
-                            updatePreferredPerformer(
-                              role.id,
-                              event.target.value,
-                            )
+                            updatePreferredPerformer(role.id, event.target.value)
                           }
                           className={fieldClass}
                         >
                           <option value="">No preference</option>
 
                           {employees.map((employee) => {
-                            const busy = busyEmployeeIds.has(
-                              Number(employee.id),
-                            );
+                            const busy = busyEmployeeIds.has(Number(employee.id));
 
                             return (
-                              <option
-                                key={employee.id}
-                                value={employee.id}
-                                disabled={busy}
-                              >
+                              <option key={employee.id} value={employee.id} disabled={busy}>
                                 {employee.first_name} {employee.last_name}
                                 {busy ? " — unavailable" : ""}
                               </option>
@@ -1484,9 +1449,8 @@ export default function ServiceForm({
               )}
 
               <div className="mt-4 rounded-xl bg-stone-50 p-3 text-sm leading-6 text-stone-600">
-                A preferred professional is a request only. The employee who
-                actually performs the service will be recorded when the service
-                is completed.
+                A preferred professional is a request only. The employee who actually performs the
+                service will be recorded when the service is completed.
               </div>
             </section>
           )}
@@ -1511,17 +1475,14 @@ export default function ServiceForm({
         {!isCustomer && professionalRoles.length > 0 && (
           <section className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
             <div className="mb-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+              <p className="text-xs font-semibold tracking-[0.16em] text-stone-400 uppercase">
                 Step 2
               </p>
 
-              <h3 className="mt-1 text-base font-semibold text-stone-900">
-                Actual Professionals
-              </h3>
+              <h3 className="mt-1 text-base font-semibold text-stone-900">Actual Professionals</h3>
 
               <p className="mt-1 text-sm text-stone-500">
-                Select the employees who actually performed each part of this
-                service.
+                Select the employees who actually performed each part of this service.
               </p>
             </div>
 
@@ -1532,9 +1493,7 @@ export default function ServiceForm({
                 );
 
                 const preferredEmployee = employees.find(
-                  (employee) =>
-                    Number(employee.id) ===
-                    Number(performer?.preferred_employee_id),
+                  (employee) => Number(employee.id) === Number(performer?.preferred_employee_id),
                 );
 
                 return (
@@ -1558,22 +1517,17 @@ export default function ServiceForm({
 
                     {preferredEmployee && (
                       <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                        <p className="text-xs text-amber-700">
-                          Customer preference
-                        </p>
+                        <p className="text-xs text-amber-700">Customer preference</p>
 
                         <p className="text-sm font-semibold text-amber-900">
-                          {preferredEmployee.first_name}{" "}
-                          {preferredEmployee.last_name}
+                          {preferredEmployee.first_name} {preferredEmployee.last_name}
                         </p>
                       </div>
                     )}
 
                     <select
                       value={performer?.employee_id || ""}
-                      onChange={(event) =>
-                        updateActualPerformer(role.id, event.target.value)
-                      }
+                      onChange={(event) => updateActualPerformer(role.id, event.target.value)}
                       required
                       className={fieldClass}
                     >
@@ -1599,7 +1553,7 @@ export default function ServiceForm({
         {isCustomer && form.service_definition_id && (
           <section className="overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50">
             <div className="p-4 sm:p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
+              <p className="text-xs font-semibold tracking-[0.16em] text-emerald-700 uppercase">
                 Online booking offer
               </p>
 
@@ -1626,6 +1580,40 @@ export default function ServiceForm({
 
         {!isCustomer && (
           <section className="rounded-2xl border border-stone-200 bg-stone-50/50 p-4 sm:p-5">
+            <div className="mb-5 grid gap-4 sm:grid-cols-2">
+              <label>
+                <span className={labelClass}>Customer collection method</span>
+                {form.collection_method === "CASH" ? (
+                  <select value="CASH" disabled className={fieldClass}>
+                    <option value="CASH">Cash at counter</option>
+                  </select>
+                ) : (
+                  <div className={`${fieldClass} flex items-center bg-stone-100 text-stone-600`}>
+                    Existing record: {form.collection_method.replaceAll("_", " ")}
+                  </div>
+                )}
+              </label>
+
+              {form.collection_method === "OTHER" && (
+                <label>
+                  <span className={labelClass}>Reference (optional)</span>
+                  <input
+                    type="text"
+                    value={form.collection_reference}
+                    maxLength={120}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        collection_reference: event.target.value,
+                      }))
+                    }
+                    placeholder="Transaction or bank reference"
+                    className={fieldClass}
+                  />
+                </label>
+              )}
+            </div>
+
             <label className={labelClass}>Additional Information</label>
 
             <textarea
@@ -1643,13 +1631,8 @@ export default function ServiceForm({
         ================================================== */}
 
         {submitError && (
-          <div
-            role="alert"
-            className="rounded-xl border border-red-200 bg-red-50 p-4"
-          >
-            <p className="text-sm font-semibold text-red-800">
-              Unable to continue
-            </p>
+          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4">
+            <p className="text-sm font-semibold text-red-800">Unable to continue</p>
 
             <p className="mt-1 text-sm text-red-700">{submitError}</p>
           </div>
@@ -1672,24 +1655,34 @@ export default function ServiceForm({
               </button>
             )}
 
-            <button
+            <LoadingButton
               type="submit"
-              disabled={submitting || checkingAvailability}
-              className="inline-flex min-w-40 items-center justify-center rounded-xl bg-[var(--salon-copper)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--salon-copper)] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+              loading={submitting}
+              loadingLabel="Submitting…"
+              disabled={checkingAvailability}
+              preserveStyle
+              className="inline-flex min-w-40 items-center justify-center rounded-xl bg-[var(--salon-copper)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 focus:ring-2 focus:ring-[var(--salon-copper)] focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting
-                ? "Submitting..."
-                : serviceData
-                  ? "Save & Complete"
-                  : isCustomer
-                    ? "Request Appointment"
-                    : entryType === "past"
-                      ? "Add Past Service"
-                      : "Add Service"}
-            </button>
+              {serviceData
+                ? "Save & Complete"
+                : isCustomer
+                  ? "Request Appointment"
+                  : entryType === "past"
+                    ? "Add Past Service"
+                    : "Add Service"}
+            </LoadingButton>
           </div>
         </div>
       </div>
-    </form>
+      </form>
+      <PaymentSheet
+        paymentRequest={paymentRequest}
+        onClose={() => setPaymentRequest(null)}
+        onCompleted={() => {
+          setPaymentRequest(null);
+          onClose?.();
+        }}
+      />
+    </>
   );
 }

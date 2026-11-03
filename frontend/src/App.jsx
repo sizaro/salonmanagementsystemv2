@@ -1,5 +1,8 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import { useData } from "./context/DataContext.jsx";
 import ProtectedRoute from "./components/common/ProtectedRoute.jsx";
+import { SalehishPageLoader } from "./components/loading/SalehishPageLoader.jsx";
 import PublicLayout from "./layouts/PublicLayout.jsx";
 import Home from "./pages/home/index.jsx";
 import About from "./pages/about/index.jsx";
@@ -18,74 +21,91 @@ import CustomerLayout from "./components/layout/CustomerLayout.jsx";
 
 import CashierLayout from "./components/layout/CashierLayout.jsx";
 
+const SalehishLoadingPreview = lazy(
+  () => import("./components/loading/SalehishLoadingPreview.jsx"),
+);
 
 function App() {
-  return (
-      <Routes>
-        {/* Public Landing Routes */}
-        <Route element={<PublicLayout />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/services" element={<Services />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/gallery" element={<Gallery />} />
-          <Route path="/salon-life" element={<SalonLife />} />
-          <Route path="/events-news" element={<EventsNews />} />
-        </Route>
-        {/* Reset Password (public) */}
-      <Route path="/reset-password/:token" element={<ResetPassword />} />
-        
+  const { authInitializing } = useData();
 
-        {/* Owner Routes */}
-        <Route
-          path="/owner/*"
-          element={
-            <ProtectedRoute role="owner">
-              <OwnerLayout />
-            </ProtectedRoute>
-          }
-        />
-
-        {/*  Manager Routes */}
-        <Route
-          path="/manager/*"
-          element={
-            <ProtectedRoute role="manager">
-              <ManagerLayout />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Employee Routes */}
-        <Route
-          path="/employee/*"
-          element={
-            <ProtectedRoute role="employee">
-              <EmployeeLayout />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Customer Routes */}
-        <Route
-          path="/customer/*"
-          element={
-            <ProtectedRoute role="customer">
-              <CustomerLayout />
-            </ProtectedRoute>
-          }
-        />
-
-
-        <Route
-  path="/cashier/*"
-  element={
-    <ProtectedRoute role="cashier">
-      <CashierLayout />
-    </ProtectedRoute>
+  if (authInitializing) {
+    return <SalehishPageLoader message="PREPARING YOUR SALEHISH EXPERIENCE" />;
   }
-/>
-      </Routes>
+
+  return (
+    <Routes>
+      {import.meta.env.DEV ? (
+        <Route
+          path="/__preview/loading"
+          element={
+            <Suspense fallback={null}>
+              <SalehishLoadingPreview />
+            </Suspense>
+          }
+        />
+      ) : null}
+      {/* Public Landing Routes */}
+      <Route element={<PublicLayout />}>
+        <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/services" element={<Services />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/gallery" element={<Gallery />} />
+        <Route path="/salon-life" element={<SalonLife />} />
+        <Route path="/events-news" element={<EventsNews />} />
+      </Route>
+      {/* Reset Password (public) */}
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
+
+      {/* Owner Routes */}
+      <Route
+        path="/owner/*"
+        element={
+          <ProtectedRoute role="owner">
+            <OwnerLayout />
+          </ProtectedRoute>
+        }
+      />
+
+      {/*  Manager Routes */}
+      <Route
+        path="/manager/*"
+        element={
+          <ProtectedRoute role="manager">
+            <ManagerLayout />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Employee Routes */}
+      <Route
+        path="/employee/*"
+        element={
+          <ProtectedRoute role="employee">
+            <EmployeeLayout />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Customer Routes */}
+      <Route
+        path="/customer/*"
+        element={
+          <ProtectedRoute role="customer">
+            <CustomerLayout />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/cashier/*"
+        element={
+          <ProtectedRoute role="cashier">
+            <CashierLayout />
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
   );
 }
 

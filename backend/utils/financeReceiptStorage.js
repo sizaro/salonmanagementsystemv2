@@ -103,6 +103,29 @@ export async function storeReceiptPdf(buffer) {
   return target.url;
 }
 
+export async function storeManualReceipt(buffer, mimeType = "application/pdf") {
+  const isImage = /^image\/(png|jpeg|webp)$/i.test(String(mimeType));
+  const extension = mimeType === "image/jpeg" ? ".jpg" : mimeType === "image/webp" ? ".webp" : isImage ? ".png" : ".pdf";
+  if (configured()) {
+    const result = await uploadBuffer(buffer, {
+      folder: "salon-management/manual-finance-receipts",
+      resource_type: isImage ? "image" : "raw",
+      type: "authenticated",
+      public_id: `manual-finance-receipt-${Date.now()}`,
+      overwrite: false,
+      ...(isImage ? {} : { format: "pdf" }),
+    });
+    return `private://cloudinary/${isImage ? "image" : "raw"}/${result.public_id}`;
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Manual receipt storage requires Cloudinary configuration in production.");
+  }
+  const target = localTarget("manual-finance-receipts", randomName("manual-finance-receipt", extension));
+  await fs.mkdir(target.directory, { recursive: true });
+  await fs.writeFile(target.filePath, buffer);
+  return target.url;
+}
+
 export async function readStoredArtifact(url) {
   return readPrivateArtifact(url);
 }

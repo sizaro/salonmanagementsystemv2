@@ -1,11 +1,10 @@
 import {
-  saveAdvance,
   fetchAllAdvances,
   fetchAdvanceById,
   isFinanceWorkflowAdvance,
   UpdateAdvanceById,
-  DeleteAdvanceById,
 } from "../models/advancesModel.js";
+import { appendAuditEvent } from "../models/auditModel.js";
 
 const getSalonId = (req) => Number(req.salon_id || req.user?.salon_id);
 
@@ -46,52 +45,10 @@ export const getAdvanceById = async (req, res) => {
  */
 export const createAdvance = async (req, res) => {
   try {
-    const salon_id = getSalonId(req);
-
-    const {
-      employee_id,
-      amount,
-      description,
-      entry_type = "current",
-      advance_date,
-      advance_time,
-      backdate_reason,
-    } = req.body;
-
-    if (entry_type !== "past") {
-      return res.status(409).json({
-        error:
-          "New current advances must be requested through Employee Finance so approval, signatures, and settlement are recorded.",
-        code: "USE_EMPLOYEE_FINANCE_WORKFLOW",
-      });
-    }
-
-    if (req.user?.role !== "owner") {
-      return res.status(403).json({
-        error: "Only owners can create past advances",
-      });
-    }
-
-    if (entry_type === "past" && (!advance_date || !advance_time || !String(backdate_reason || "").trim())) {
-      return res.status(400).json({
-        error: "Past advance requires a business date, time, and backdate reason",
-      });
-    }
-
-    const newAdvance = await saveAdvance({
-      employee_id,
-      amount,
-      description,
-      salon_id,
-      entry_type,
-      advance_date,
-      advance_time,
-      backdate_reason: entry_type === "past" ? String(backdate_reason).trim() : null,
-    });
-
-    res.status(201).json({
-      message: "Advance created successfully",
-      data: newAdvance,
+    return res.status(409).json({
+      error:
+        "New advances, including past entries, must be recorded through Employee Finance so approval, disbursement, receipt evidence, and settlement are recorded.",
+      code: "USE_EMPLOYEE_FINANCE_WORKFLOW",
     });
   } catch (err) {
     console.error("Error creating advance:", err);
@@ -164,17 +121,26 @@ export const deleteAdvanceById = async (req, res) => {
   try {
     const { id } = req.params;
     const salon_id = getSalonId(req);
+    const existing = await fetchAdvanceById(id, salon_id);
+    if (!existing) return res.status(404).json({ error: "Advance not found" });
 
-    if (await isFinanceWorkflowAdvance(id, salon_id)) {
-      return res.status(409).json({
-        error: "This advance was issued through the employee finance workflow and cannot be deleted.",
-      });
-    }
-
-    const deleted = await DeleteAdvanceById(id, salon_id);
-    if (!deleted) return res.status(404).json({ error: "Advance not found" });
-
-    res.status(200).json({ message: "Advance deleted successfully" });
+    await appendAuditEvent({
+      salonId: salon_id,
+      actorUserId: req.user?.id,
+      actorRole: req.user?.role,
+      action: "PERMANENT_DELETE_BLOCKED",
+      module: "EMPLOYEE_FINANCE",
+      recordType: "ADVANCE",
+      recordId: id,
+      previousValues: { employee_id: existing.employee_id, amount: existing.amount, advance_date: existing.advance_date },
+      reason: "Advance records must be preserved for settlement and financial history.",
+      requestId: req.requestId,
+      outcome: "BLOCKED",
+    });
+    return res.status(409).json({
+      code: "FINANCIAL_RECORD_PRESERVED",
+      error: "Advance records cannot be permanently deleted. Record an authorized correction instead.",
+    });
   } catch (err) {
     console.error("Error deleting advance:", err);
     res.status(500).json({ error: "Failed to delete advance" });
