@@ -26,7 +26,7 @@ export default function Hero() {
       <img
         data-hero-image
         src="/images/hero_image.webp"
-        alt="A professional stylist shaping a client's look"
+        alt="The welcoming interior of Salehish Beauty Parlour and Spa"
         className="absolute inset-0 h-full w-full object-contain object-[center_35%] sm:object-[center_30%] md:object-cover md:object-center"
       />
 
