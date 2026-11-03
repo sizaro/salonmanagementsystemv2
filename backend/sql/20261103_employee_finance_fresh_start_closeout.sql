@@ -96,15 +96,17 @@ WHERE actors.actor_id IS NOT NULL
   )
 ON CONFLICT (salon_id, cutoff_date) DO NOTHING;
 
--- An approved or requested advance has no disbursement. It is cancelled as
--- unissued, never converted into a salary deduction.
+-- A REQUESTED advance was never approved and is cancelled as unissued. An
+-- APPROVED advance is treated as money already issued under the old workflow:
+-- staff had no completion screen, so this closeout reconstructs the historical
+-- source advance and then closes it through a historical salary deduction.
 WITH settings AS (SELECT DATE '2026-11-03' AS cutoff_date), updated AS (
   UPDATE employee_advance_requests ar
   SET workflow_status = 'CANCELLED',
       rejection_reason = 'FINANCE_CLOSEOUT:2026-11-03. Cancelled as unissued during the owner-authorized fresh-start closeout; no salary deduction was recorded.',
       updated_at = NOW()
   FROM settings
-  WHERE ar.workflow_status IN ('REQUESTED', 'APPROVED')
+  WHERE ar.workflow_status = 'REQUESTED'
     AND COALESCE(ar.business_occurred_at, ar.created_at)::date <= settings.cutoff_date
   RETURNING ar.salon_id, ar.id AS advance_request_id, ar.employee_id
 )
@@ -112,6 +114,67 @@ INSERT INTO employee_activity_log (salon_id, employee_id, actor_id, action, meta
 SELECT updated.salon_id, updated.employee_id, closeout.closed_by,
        'FINANCE_CLOSEOUT_UNISSUED_ADVANCE_CANCELLED',
        jsonb_build_object('advance_request_id', updated.advance_request_id, 'cutoff_date', '2026-11-03', 'effect', 'Cancelled as unissued; no deduction was created')
+FROM updated
+JOIN employee_finance_closeouts closeout
+  ON closeout.salon_id = updated.salon_id AND closeout.cutoff_date = (SELECT cutoff_date FROM settings);
+
+-- The former workflow stopped at APPROVED even when the advance had physically
+-- been handed to the employee. Create a labelled historical source record for
+-- each such request, without creating a receipt, signature, or new cash event.
+-- The exact source marker makes this operation safe to rerun: once reclassified
+-- as DISBURSED, an advance request no longer qualifies as a candidate.
+WITH settings AS (SELECT DATE '2026-11-03' AS cutoff_date), candidates AS (
+  SELECT ar.id AS advance_request_id, ar.salon_id, ar.employee_id,
+         ar.requested_amount, COALESCE(NULLIF(BTRIM(ar.reason), ''), 'No reason recorded.') AS reason,
+         COALESCE(ar.business_occurred_at, ar.created_at, NOW()) AS occurred_at,
+         c.closed_by,
+         CONCAT('FINANCE_CLOSEOUT_APPROVED_ADVANCE_REQUEST_', ar.id) AS source_marker
+  FROM employee_advance_requests ar
+  JOIN employee_finance_closeouts c
+    ON c.salon_id = ar.salon_id AND c.cutoff_date = (SELECT cutoff_date FROM settings)
+  WHERE ar.workflow_status = 'APPROVED'
+    AND COALESCE(ar.business_occurred_at, ar.created_at)::date <= (SELECT cutoff_date FROM settings)
+), inserted_advances AS (
+  INSERT INTO advances (
+    employee_id, amount, description, salon_id,
+    advance_date, advance_time, entry_type, backdate_reason, created_at
+  )
+  SELECT employee_id, requested_amount,
+         CONCAT(source_marker, '. ', reason), salon_id,
+         (occurred_at AT TIME ZONE 'Africa/Kampala')::date,
+         (occurred_at AT TIME ZONE 'Africa/Kampala')::time,
+         'past',
+         'Owner-authorized fresh-start closeout: approved legacy advance was physically issued but the former workflow was not completed.',
+         NOW()
+  FROM candidates
+  RETURNING id, salon_id, description
+), updated AS (
+  UPDATE employee_advance_requests ar
+  SET workflow_status = 'DISBURSED',
+      advance_id = inserted_advances.id,
+      disbursed_by = candidates.closed_by,
+      disbursed_at = candidates.occurred_at,
+      receipt_number = COALESCE(ar.receipt_number, CONCAT('FINCLOSE-ADV-REQ-', ar.salon_id, '-', ar.id)),
+      rejection_reason = NULL,
+      updated_at = NOW()
+  FROM candidates
+  JOIN inserted_advances
+    ON inserted_advances.salon_id = candidates.salon_id
+   AND inserted_advances.description = CONCAT(candidates.source_marker, '. ', candidates.reason)
+  WHERE ar.id = candidates.advance_request_id
+    AND ar.salon_id = candidates.salon_id
+    AND ar.workflow_status = 'APPROVED'
+  RETURNING ar.salon_id, ar.id AS advance_request_id, ar.employee_id, ar.requested_amount
+)
+INSERT INTO employee_activity_log (salon_id, employee_id, actor_id, action, metadata)
+SELECT updated.salon_id, updated.employee_id, closeout.closed_by,
+       'FINANCE_CLOSEOUT_APPROVED_ADVANCE_RECONSTRUCTED',
+       jsonb_build_object(
+         'advance_request_id', updated.advance_request_id,
+         'amount', updated.requested_amount,
+         'cutoff_date', '2026-11-03',
+         'effect', 'Historical disbursement reconstructed from an approved legacy advance; no new money movement, receipt, acknowledgement, or signature was created'
+       )
 FROM updated
 JOIN employee_finance_closeouts closeout
   ON closeout.salon_id = updated.salon_id AND closeout.cutoff_date = (SELECT cutoff_date FROM settings);

@@ -5,8 +5,11 @@
 WITH settings AS (SELECT DATE '2026-11-03' AS cutoff_date)
 SELECT
   (SELECT COUNT(*) FROM employee_advance_requests ar
-   WHERE ar.workflow_status IN ('REQUESTED', 'APPROVED')
-     AND COALESCE(ar.business_occurred_at, ar.created_at)::date <= (SELECT cutoff_date FROM settings)) AS unissued_advances_not_cancelled,
+   WHERE ar.workflow_status = 'REQUESTED'
+     AND COALESCE(ar.business_occurred_at, ar.created_at)::date <= (SELECT cutoff_date FROM settings)) AS requested_advances_not_cancelled,
+  (SELECT COUNT(*) FROM employee_advance_requests ar
+   WHERE ar.workflow_status = 'APPROVED'
+     AND COALESCE(ar.business_occurred_at, ar.created_at)::date <= (SELECT cutoff_date FROM settings)) AS approved_advances_not_reconstructed,
   (SELECT COUNT(*) FROM employee_payments ep
    WHERE ep.workflow_status IN ('REQUESTED', 'APPROVED')
      AND COALESCE(ep.business_occurred_at, ep.created_at)::date <= (SELECT cutoff_date FROM settings)) AS unissued_employee_payments_not_cancelled,

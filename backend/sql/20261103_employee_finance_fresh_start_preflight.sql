@@ -26,7 +26,13 @@ SELECT
   workflow_status AS status,
   COUNT(*) AS records,
   COALESCE(SUM(requested_amount), 0)::numeric(14,2) AS recorded_amount,
-  COALESCE(SUM(outstanding_amount), 0)::numeric(14,2) AS amount_to_close_or_cancel
+  COALESCE(SUM(outstanding_amount), 0)::numeric(14,2) AS amount_to_close_or_cancel,
+  CASE
+    WHEN workflow_status = 'REQUESTED' THEN 'Will be cancelled as unissued'
+    WHEN workflow_status = 'APPROVED' THEN 'Will be reconstructed as a historical disbursement and salary deduction'
+    WHEN workflow_status IN ('DISBURSED', 'ACKNOWLEDGED') THEN 'Will be settled by historical salary deduction'
+    ELSE 'Preserved as existing historical status'
+  END AS closeout_action
 FROM advance_balances, settings
 WHERE occurred_at::date <= settings.cutoff_date
 GROUP BY workflow_status
