@@ -654,12 +654,28 @@ export default function EmployeeFinanceWorkspace() {
   };
 
   const currentAdvanceRequests = useMemo(
-    () => requests.filter((request) => !request.is_legacy_historical),
+    () => requests.filter((request) => !request.is_legacy_historical && !request.is_finance_closeout),
     [requests],
   );
   const legacyAdvanceRequests = useMemo(
-    () => requests.filter((request) => request.is_legacy_historical),
+    () => requests.filter((request) => request.is_legacy_historical || request.is_finance_closeout),
     [requests],
+  );
+  const currentPayments = useMemo(
+    () => payments.filter((payment) => !payment.is_finance_closeout),
+    [payments],
+  );
+  const historicPayments = useMemo(
+    () => payments.filter((payment) => payment.is_finance_closeout),
+    [payments],
+  );
+  const currentFeeObligations = useMemo(
+    () => feeObligations.filter((fee) => !fee.is_finance_closeout),
+    [feeObligations],
+  );
+  const historicFeeObligations = useMemo(
+    () => feeObligations.filter((fee) => fee.is_finance_closeout),
+    [feeObligations],
   );
 
   return (
@@ -1311,9 +1327,9 @@ export default function EmployeeFinanceWorkspace() {
         >
           {[
             ["advances", "Advance requests", currentAdvanceRequests.length],
-            ["historic-advances", "Historic advance closure", legacyAdvanceRequests.length],
-            ["payments", "Employee payments", payments.length],
-            ["fees", "Employee fees", feeObligations.length],
+            ["historic-advances", "Finance closeout history", legacyAdvanceRequests.length + historicPayments.length + historicFeeObligations.length],
+            ["payments", "Employee payments", currentPayments.length],
+            ["fees", "Employee fees", currentFeeObligations.length],
             ["receipts", "Issued receipts", receipts.length],
           ].map(([tab, label, count]) => (
             <button
@@ -1403,9 +1419,10 @@ export default function EmployeeFinanceWorkspace() {
         )}
 
         {activeTab === "historic-advances" && (
+          <>
           <WorkflowTable
-            title="Historic advance closure"
-            empty="No pre-cutover advances were imported."
+            title="Historic advance closeout"
+            empty="No historic advances were closed."
             rows={legacyAdvanceRequests}
             employees={employees}
             loading={loading}
@@ -1422,26 +1439,65 @@ export default function EmployeeFinanceWorkspace() {
                   )}
                 </td>
                 <td className="px-4 py-3">{money(request.requested_amount)}</td>
-                <td className="px-4 py-3 text-slate-600">Imported from the previous automatic-deduction workflow.</td>
+                <td className="px-4 py-3 text-slate-600">Closed in the historical finance cutover.</td>
                 <td className="px-4 py-3">
-                  <Status value={request.is_legacy_cutover_closed ? "LEGACY_SETTLED" : "PENDING_CUTOVER_CLOSURE"} />
+                  <Status value={String(request.workflow_status || "").toUpperCase() === "CANCELLED" ? "CANCELLED" : request.is_legacy_cutover_closed || request.is_finance_closeout ? "LEGACY_SETTLED" : "PENDING_CUTOVER_CLOSURE"} />
                 </td>
                 <td className="px-4 py-3 text-xs text-slate-600">{formatRecordDate(request.created_at)}</td>
                 <td className="px-4 py-3 text-xs text-slate-500">
-                  {request.is_legacy_cutover_closed
+                  {String(request.workflow_status || "").toUpperCase() === "CANCELLED"
+                    ? "Cancelled as unissued; no salary deduction was created."
+                    : request.is_legacy_cutover_closed || request.is_finance_closeout
                     ? "Read-only historical record; no action can create a new deduction."
                     : "Read-only historical record awaiting the one-time cutover closure."}
                 </td>
               </tr>
             )}
           />
+          <WorkflowTable
+            title="Historic salary resolution"
+            empty="No historic salary balances were closed."
+            rows={historicPayments}
+            employees={employees}
+            loading={loading}
+            columns={["Employee", "Amount", "Resolution", "Status", "Recorded", "Access"]}
+            render={(payment) => (
+              <tr key={payment.id} className="border-t border-slate-100">
+                <td className="px-4 py-3 font-medium text-slate-800">{payment.employee_name || "You"}</td>
+                <td className="px-4 py-3">{money(payment.requested_amount)}</td>
+                <td className="px-4 py-3 text-slate-600">Historic remaining earnings resolved at closeout.</td>
+                <td className="px-4 py-3"><Status value="LEGACY_SETTLED" /></td>
+                <td className="px-4 py-3 text-xs text-slate-600">{formatRecordDate(payment.disbursed_at || payment.created_at)}</td>
+                <td className="px-4 py-3 text-xs text-slate-500">Read-only historical record.</td>
+              </tr>
+            )}
+          />
+          <WorkflowTable
+            title="Historic fee closure"
+            empty="No historic fees were closed."
+            rows={historicFeeObligations}
+            employees={employees}
+            loading={loading}
+            columns={["Employee", "Fee", "Amount", "Status", "Recorded", "Access"]}
+            render={(fee) => (
+              <tr key={fee.id} className="border-t border-slate-100">
+                <td className="px-4 py-3 font-medium text-slate-800">{fee.employee_name || "You"}</td>
+                <td className="px-4 py-3">{displayStatus(fee.fee_type)}</td>
+                <td className="px-4 py-3">{money(fee.amount)}</td>
+                <td className="px-4 py-3"><Status value="LEGACY_SETTLED" /></td>
+                <td className="px-4 py-3 text-xs text-slate-600">{formatRecordDate(fee.created_at)}</td>
+                <td className="px-4 py-3 text-xs text-slate-500">Read-only historical record.</td>
+              </tr>
+            )}
+          />
+          </>
         )}
 
         {activeTab === "payments" && (
           <WorkflowTable
             title="Employee payments"
             empty="No payments prepared yet."
-            rows={payments}
+            rows={currentPayments}
             employees={employees}
             loading={loading}
             columns={["Employee", "Amount", "Method", "Status", "Prepared", "Actions"]}
@@ -1475,7 +1531,7 @@ export default function EmployeeFinanceWorkspace() {
                     canReview={
                       canReviewRequests && Number(payment.employee_id) !== Number(user?.id)
                     }
-                    canEmployeeAcknowledge={Number(payment.employee_id) === Number(user?.id)}
+                    canEmployeeAcknowledge={canPersonallyAcknowledge && Number(payment.employee_id) === Number(user?.id)}
                     busy={busy}
                     decide={decide}
                     disburse={disburse}
@@ -1494,12 +1550,12 @@ export default function EmployeeFinanceWorkspace() {
           <WorkflowTable
             title="Employee fee obligations"
             empty="No employee fee obligations yet. New late and tag fees appear here automatically."
-            rows={feeObligations}
+            rows={currentFeeObligations}
             employees={employees}
             loading={loading}
             columns={["Employee", "Fee", "Outstanding", "Status", "Recorded", "Actions"]}
             render={(fee) => {
-              const isEmployee = Number(fee.employee_id) === Number(user?.id);
+              const isEmployee = canPersonallyAcknowledge && Number(fee.employee_id) === Number(user?.id);
               const pending = fee.pending_payroll_deductions || [];
               return (
                 <tr key={fee.id} className="border-t border-slate-100">
@@ -1770,7 +1826,7 @@ function Actions({
 }) {
   const status = String(row.workflow_status || "").toUpperCase();
   const pendingPayrollDeductions = row.pending_payroll_deductions || [];
-  if (kind === "advance-requests" && row.is_legacy_historical) {
+  if (kind === "advance-requests" && (row.is_legacy_historical || row.is_finance_closeout)) {
     return (
       <span className="text-xs text-slate-500">
         Historical cutover record — read only.

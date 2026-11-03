@@ -1,3 +1,6 @@
+-- SUPERSEDED for production closeout by
+-- 20261103_employee_finance_fresh_start_closeout.sql.
+--
 -- Close only the advances imported from Salehish's former automatic-deduction
 -- workflow. This is a one-time historical cutover record, not a new payment,
 -- a new salary deduction, a receipt, an acknowledgement, or a signature.

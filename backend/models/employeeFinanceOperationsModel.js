@@ -99,13 +99,23 @@ const transactionIdentity = async ({ salonId, sourceType, sourceId }) => {
 // The predicate intentionally mirrors the production cutover SQL.
 const assertAdvanceIsMutable = async (client, { salonId, requestId }) => {
   const { rows } = await client.query(
-    `SELECT CASE WHEN source_advance.id IS NOT NULL
-                       AND cutover.salon_id IS NOT NULL
-                       AND source_advance.advance_date <= cutover.legacy_ends_on
-                       AND ar.reason LIKE 'Historical legacy advance #%'
-                       AND COALESCE(ar.entry_type, 'CURRENT') <> 'PAST'
-                       AND ar.manual_receipt_url IS NULL
-                 THEN TRUE ELSE FALSE END AS is_legacy_historical
+    `SELECT CASE WHEN (
+                  source_advance.id IS NOT NULL
+                  AND cutover.salon_id IS NOT NULL
+                  AND source_advance.advance_date <= cutover.legacy_ends_on
+                  AND ar.reason LIKE 'Historical legacy advance #%'
+                  AND COALESCE(ar.entry_type, 'CURRENT') <> 'PAST'
+                  AND ar.manual_receipt_url IS NULL
+                ) OR COALESCE(ar.rejection_reason, '') LIKE 'FINANCE_CLOSEOUT:%'
+                  OR EXISTS (
+                    SELECT 1
+                    FROM employee_advance_settlements closeout_settlement
+                    WHERE closeout_settlement.advance_request_id = ar.id
+                      AND closeout_settlement.salon_id = ar.salon_id
+                      AND closeout_settlement.workflow_status = 'EFFECTIVE'
+                      AND closeout_settlement.notes LIKE 'FINANCE_CLOSEOUT:%'
+                  )
+                 THEN TRUE ELSE FALSE END AS is_historical_closeout
      FROM employee_advance_requests ar
      LEFT JOIN advances source_advance
        ON source_advance.id = ar.advance_id
@@ -115,9 +125,9 @@ const assertAdvanceIsMutable = async (client, { salonId, requestId }) => {
      WHERE ar.id = $1 AND ar.salon_id = $2`,
     [requestId, salonId],
   );
-  if (rows[0]?.is_legacy_historical) {
+  if (rows[0]?.is_historical_closeout) {
     throw financeError(
-      "This is a historical advance closed at the finance cutover. It is read-only and cannot be settled or acknowledged again.",
+      "This advance belongs to a completed finance closeout. It is read-only and cannot be settled or acknowledged again.",
       409,
     );
   }
@@ -168,6 +178,11 @@ const paymentAvailability = async (client, { salonId, employeeId, periodId }) =>
          WHERE ep.salon_id = $1
            AND ep.employee_id = $2
            AND ep.workflow_status IN ('DISBURSED', 'ACKNOWLEDGED')
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = ep.salon_id
+               AND COALESCE(ep.business_occurred_at, ep.disbursed_at, ep.created_at)::date <= cutover.legacy_ends_on
+           )
            AND ($5::bigint IS NULL OR ep.financial_period_id = $5::bigint)
        ), 0)::numeric AS paid_amount,
         COALESCE((
@@ -177,6 +192,11 @@ const paymentAvailability = async (client, { salonId, employeeId, periodId }) =>
             AND asl.employee_id = $2
             AND asl.settlement_method = 'PAYROLL_DEDUCTION'
             AND asl.workflow_status = 'EFFECTIVE'
+            AND NOT EXISTS (
+              SELECT 1 FROM employee_finance_cutovers cutover
+              WHERE cutover.salon_id = asl.salon_id
+                AND asl.settled_at::date <= cutover.legacy_ends_on
+            )
             -- Do not let the one-off historical cutover closure reduce a
             -- new workflow's available earnings.
             AND NOT EXISTS (
@@ -204,6 +224,11 @@ const paymentAvailability = async (client, { salonId, employeeId, periodId }) =>
            AND efs.employee_id = $2
            AND efs.settlement_method = 'PAYROLL_DEDUCTION'
            AND efs.workflow_status = 'EFFECTIVE'
+            AND NOT EXISTS (
+              SELECT 1 FROM employee_finance_cutovers cutover
+              WHERE cutover.salon_id = efs.salon_id
+                AND efs.settled_at::date <= cutover.legacy_ends_on
+            )
        ), 0)::numeric AS fee_payroll_deductions,
        COALESCE((
          SELECT SUM(GREATEST(
@@ -225,15 +250,11 @@ const paymentAvailability = async (client, { salonId, employeeId, periodId }) =>
          WHERE ar.salon_id = $1
            AND ar.employee_id = $2
            AND ar.workflow_status IN ('DISBURSED', 'ACKNOWLEDGED')
-            -- Imported automatic advances are historical closure evidence,
-            -- never available for a new controlled-workflow deduction.
+            -- A completed finance cutover closes all earlier advances. They
+            -- cannot become available for a new controlled-workflow deduction.
             AND NOT (
               cutover.salon_id IS NOT NULL
-              AND source_advance.id IS NOT NULL
-              AND source_advance.advance_date <= cutover.legacy_ends_on
-              AND ar.reason LIKE 'Historical legacy advance #%'
-              AND COALESCE(ar.entry_type, 'CURRENT') <> 'PAST'
-              AND ar.manual_receipt_url IS NULL
+              AND COALESCE(ar.disbursed_at, ar.business_occurred_at, ar.created_at)::date <= cutover.legacy_ends_on
             )
        ), 0)::numeric AS advance_outstanding`,
     [
@@ -318,6 +339,16 @@ const listBase = `
                      AND effective.workflow_status = 'EFFECTIVE'
                  ), 0) >= ar.requested_amount
            THEN TRUE ELSE FALSE END AS is_legacy_cutover_closed
+    , CASE WHEN COALESCE(ar.rejection_reason, '') LIKE 'FINANCE_CLOSEOUT:%'
+                 OR EXISTS (
+                   SELECT 1
+                   FROM employee_advance_settlements closeout_settlement
+                   WHERE closeout_settlement.advance_request_id = ar.id
+                     AND closeout_settlement.salon_id = ar.salon_id
+                     AND closeout_settlement.workflow_status = 'EFFECTIVE'
+                     AND closeout_settlement.notes LIKE 'FINANCE_CLOSEOUT:%'
+                 )
+           THEN TRUE ELSE FALSE END AS is_finance_closeout
     , COALESCE((
       SELECT jsonb_agg(jsonb_build_object(
         'id', pending.id,
@@ -971,6 +1002,7 @@ export const acknowledgeAdvanceSettlement = async ({
 const paymentBase = `
   SELECT
     ep.*,
+    (COALESCE(ep.notes, '') LIKE 'FINANCE_CLOSEOUT:%') AS is_finance_closeout,
     employee.role AS employee_role,
     efp.name AS period_name,
     efp.start_date::text AS period_start_date,

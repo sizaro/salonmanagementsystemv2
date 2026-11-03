@@ -160,6 +160,7 @@ export const listFeeObligations = async ({ salonId, actorId, actorRole }) => {
     `SELECT o.*, TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) AS employee_name,
             COALESCE(SUM(s.amount) FILTER (WHERE s.workflow_status = 'EFFECTIVE'), 0)::numeric AS settled_amount,
             COUNT(s.id)::integer AS settlement_count,
+            COALESCE(BOOL_OR(s.workflow_status = 'EFFECTIVE' AND s.notes LIKE 'FINANCE_CLOSEOUT:%'), FALSE) AS is_finance_closeout,
             COALESCE(json_agg(json_build_object('id', s.id, 'amount', s.amount, 'receipt_number', s.receipt_number)
               ORDER BY s.created_at) FILTER (WHERE s.workflow_status = 'PENDING_EMPLOYEE_CONSENT'), '[]'::json) AS pending_payroll_deductions
        FROM employee_fee_obligations o
@@ -281,10 +282,14 @@ export const acknowledgeFeePayrollDeduction = async ({ salonId, actorId, obligat
     await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`employee-fee-deduction:${salonId}:${actorId}`]);
     const { rows: availableRows } = await client.query(
       `SELECT GREATEST(
-        COALESCE((SELECT SUM(amount) FROM employee_earnings WHERE salon_id=$1 AND employee_id=$2),0)
-        - COALESCE((SELECT SUM(requested_amount) FROM employee_payments WHERE salon_id=$1 AND employee_id=$2 AND workflow_status IN ('DISBURSED','ACKNOWLEDGED')),0)
-        - COALESCE((SELECT SUM(amount) FROM employee_advance_settlements WHERE salon_id=$1 AND employee_id=$2 AND settlement_method='PAYROLL_DEDUCTION' AND workflow_status='EFFECTIVE'),0)
-        - COALESCE((SELECT SUM(amount) FROM employee_fee_settlements WHERE salon_id=$1 AND employee_id=$2 AND settlement_method='PAYROLL_DEDUCTION' AND workflow_status='EFFECTIVE'),0), 0)::numeric AS available`,
+        COALESCE((SELECT SUM(ee.amount) FROM employee_earnings ee WHERE ee.salon_id=$1 AND ee.employee_id=$2
+          AND NOT EXISTS (SELECT 1 FROM employee_finance_cutovers c WHERE c.salon_id=ee.salon_id AND ee.earning_date <= c.legacy_ends_on)),0)
+        - COALESCE((SELECT SUM(ep.requested_amount) FROM employee_payments ep WHERE ep.salon_id=$1 AND ep.employee_id=$2 AND ep.workflow_status IN ('DISBURSED','ACKNOWLEDGED')
+          AND NOT EXISTS (SELECT 1 FROM employee_finance_cutovers c WHERE c.salon_id=ep.salon_id AND COALESCE(ep.business_occurred_at,ep.disbursed_at,ep.created_at)::date <= c.legacy_ends_on)),0)
+        - COALESCE((SELECT SUM(s.amount) FROM employee_advance_settlements s WHERE s.salon_id=$1 AND s.employee_id=$2 AND s.settlement_method='PAYROLL_DEDUCTION' AND s.workflow_status='EFFECTIVE'
+          AND NOT EXISTS (SELECT 1 FROM employee_finance_cutovers c WHERE c.salon_id=s.salon_id AND s.settled_at::date <= c.legacy_ends_on)),0)
+        - COALESCE((SELECT SUM(s.amount) FROM employee_fee_settlements s WHERE s.salon_id=$1 AND s.employee_id=$2 AND s.settlement_method='PAYROLL_DEDUCTION' AND s.workflow_status='EFFECTIVE'
+          AND NOT EXISTS (SELECT 1 FROM employee_finance_cutovers c WHERE c.salon_id=s.salon_id AND s.settled_at::date <= c.legacy_ends_on)),0), 0)::numeric AS available`,
       [salonId, actorId],
     );
     if (Number(settlement.amount) > Number(availableRows[0].available || 0)) throw error("This deduction exceeds available earnings", 409);

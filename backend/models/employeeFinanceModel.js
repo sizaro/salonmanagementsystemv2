@@ -113,6 +113,11 @@ export const getEmployeeFinanceOverview = async ({
          WHERE ep.salon_id = $1
            AND ep.employee_id = $2
            AND ep.workflow_status IN ('DISBURSED', 'ACKNOWLEDGED')
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = ep.salon_id
+               AND COALESCE(ep.business_occurred_at, ep.disbursed_at, ep.created_at)::date <= cutover.legacy_ends_on
+           )
            AND ($3::date IS NULL OR COALESCE(ep.disbursed_at, ep.created_at)::date >= $3::date)
            AND ($4::date IS NULL OR COALESCE(ep.disbursed_at, ep.created_at)::date <= $4::date)
        ), 0)::numeric AS paid_amount,
@@ -123,6 +128,11 @@ export const getEmployeeFinanceOverview = async ({
            AND asl.employee_id = $2
            AND asl.settlement_method = 'PAYROLL_DEDUCTION'
            AND asl.workflow_status = 'EFFECTIVE'
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = asl.salon_id
+               AND asl.settled_at::date <= cutover.legacy_ends_on
+           )
            AND ($3::date IS NULL OR asl.settled_at::date >= $3::date)
            AND ($4::date IS NULL OR asl.settled_at::date <= $4::date)
        ), 0)::numeric AS payroll_deductions,
@@ -133,6 +143,11 @@ export const getEmployeeFinanceOverview = async ({
            AND efs.employee_id = $2
            AND efs.settlement_method = 'PAYROLL_DEDUCTION'
            AND efs.workflow_status = 'EFFECTIVE'
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = efs.salon_id
+               AND efs.settled_at::date <= cutover.legacy_ends_on
+           )
            AND ($3::date IS NULL OR efs.settled_at::date >= $3::date)
            AND ($4::date IS NULL OR efs.settled_at::date <= $4::date)
        ), 0)::numeric AS fee_payroll_deductions,
@@ -145,6 +160,10 @@ export const getEmployeeFinanceOverview = async ({
            WHERE s.fee_obligation_id = o.id AND s.salon_id = o.salon_id AND s.workflow_status = 'EFFECTIVE'
          ) effective ON TRUE
          WHERE o.salon_id = $1 AND o.employee_id = $2 AND o.workflow_status IN ('OPEN', 'SETTLEMENT_PENDING')
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = o.salon_id AND o.fee_date <= cutover.legacy_ends_on
+           )
        ), 0)::numeric AS fees_outstanding,
        COALESCE((
          SELECT SUM(ar.requested_amount)
@@ -159,10 +178,7 @@ export const getEmployeeFinanceOverview = async ({
            AND ar.workflow_status IN ('DISBURSED', 'ACKNOWLEDGED')
            AND NOT (
              cutover.salon_id IS NOT NULL
-             AND source_advance.id IS NOT NULL
-             AND source_advance.advance_date <= cutover.legacy_ends_on
-             AND COALESCE(ar.entry_type, 'CURRENT') <> 'PAST'
-             AND ar.manual_receipt_url IS NULL
+             AND COALESCE(ar.disbursed_at, ar.business_occurred_at, ar.created_at)::date <= cutover.legacy_ends_on
            )
        ), 0)::numeric AS advances_disbursed,
        COALESCE((
@@ -171,6 +187,11 @@ export const getEmployeeFinanceOverview = async ({
          WHERE asl.salon_id = $1
            AND asl.employee_id = $2
            AND asl.workflow_status = 'EFFECTIVE'
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = asl.salon_id
+               AND asl.settled_at::date <= cutover.legacy_ends_on
+           )
        ), 0)::numeric AS advances_settled`,
     [salonId, employeeId, from, to],
   );
@@ -233,6 +254,11 @@ export const getSalonFinanceSummary = async ({ salonId }) => {
          FROM employee_payments ep
          WHERE ep.salon_id = $1
            AND ep.workflow_status IN ('DISBURSED', 'ACKNOWLEDGED')
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = ep.salon_id
+               AND COALESCE(ep.business_occurred_at, ep.disbursed_at, ep.created_at)::date <= cutover.legacy_ends_on
+           )
        ), 0)::numeric AS paid_amount,
        COALESCE((
          SELECT SUM(asl.amount)
@@ -240,6 +266,11 @@ export const getSalonFinanceSummary = async ({ salonId }) => {
          WHERE asl.salon_id = $1
            AND asl.settlement_method = 'PAYROLL_DEDUCTION'
            AND asl.workflow_status = 'EFFECTIVE'
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = asl.salon_id
+               AND asl.settled_at::date <= cutover.legacy_ends_on
+           )
        ), 0)::numeric AS payroll_deductions,
        COALESCE((
          SELECT SUM(efs.amount)
@@ -247,12 +278,22 @@ export const getSalonFinanceSummary = async ({ salonId }) => {
          WHERE efs.salon_id = $1
            AND efs.settlement_method = 'PAYROLL_DEDUCTION'
            AND efs.workflow_status = 'EFFECTIVE'
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = efs.salon_id
+               AND efs.settled_at::date <= cutover.legacy_ends_on
+           )
        ), 0)::numeric AS fee_payroll_deductions,
        COALESCE((
          SELECT COUNT(*)
          FROM employee_advance_requests ar
          WHERE ar.salon_id = $1
            AND ar.workflow_status = 'REQUESTED'
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = ar.salon_id
+               AND COALESCE(ar.business_occurred_at, ar.created_at)::date <= cutover.legacy_ends_on
+           )
        ), 0)::integer AS pending_advance_requests`,
     [salonId],
   );
@@ -312,6 +353,11 @@ export const getStaffFinanceSnapshot = async ({ salonId, date }) => {
          WHERE ep.salon_id = u.salon_id
            AND ep.employee_id = u.id
            AND ep.workflow_status IN ('DISBURSED', 'ACKNOWLEDGED')
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = ep.salon_id
+               AND COALESCE(ep.business_occurred_at, ep.disbursed_at, ep.created_at)::date <= cutover.legacy_ends_on
+           )
        ), 0)::numeric
        - COALESCE((
          SELECT SUM(asl.amount)
@@ -320,6 +366,11 @@ export const getStaffFinanceSnapshot = async ({ salonId, date }) => {
            AND asl.employee_id = u.id
            AND asl.settlement_method = 'PAYROLL_DEDUCTION'
            AND asl.workflow_status = 'EFFECTIVE'
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = asl.salon_id
+               AND asl.settled_at::date <= cutover.legacy_ends_on
+           )
        ), 0)::numeric
        - COALESCE((
          SELECT SUM(efs.amount)
@@ -328,6 +379,11 @@ export const getStaffFinanceSnapshot = async ({ salonId, date }) => {
            AND efs.employee_id = u.id
            AND efs.settlement_method = 'PAYROLL_DEDUCTION'
            AND efs.workflow_status = 'EFFECTIVE'
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = efs.salon_id
+               AND efs.settled_at::date <= cutover.legacy_ends_on
+           )
        ), 0)::numeric AS unpaid_amount,
        COALESCE((
          SELECT SUM(ar.requested_amount)
@@ -342,10 +398,7 @@ export const getStaffFinanceSnapshot = async ({ salonId, date }) => {
            AND ar.workflow_status IN ('DISBURSED', 'ACKNOWLEDGED')
            AND NOT (
              cutover.salon_id IS NOT NULL
-             AND source_advance.id IS NOT NULL
-             AND source_advance.advance_date <= cutover.legacy_ends_on
-             AND COALESCE(ar.entry_type, 'CURRENT') <> 'PAST'
-             AND ar.manual_receipt_url IS NULL
+             AND COALESCE(ar.disbursed_at, ar.business_occurred_at, ar.created_at)::date <= cutover.legacy_ends_on
            )
        ), 0)::numeric
        - COALESCE((
@@ -354,6 +407,11 @@ export const getStaffFinanceSnapshot = async ({ salonId, date }) => {
          WHERE asl.salon_id = u.salon_id
            AND asl.employee_id = u.id
            AND asl.workflow_status = 'EFFECTIVE'
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_finance_cutovers cutover
+             WHERE cutover.salon_id = asl.salon_id
+               AND asl.settled_at::date <= cutover.legacy_ends_on
+           )
        ), 0)::numeric AS advances_outstanding
      FROM users u
      WHERE u.salon_id = $1
