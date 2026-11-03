@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Navigate, Routes, Route } from "react-router-dom";
 import OwnerSidebar from "../sidebars/OwnerSidebar.jsx";
 
 // Pages
@@ -19,6 +19,7 @@ import StatisticsAnalytics from "../../pages/statistics/StatisticsAnalytics.jsx"
 import OwnerAppointments from "../../pages/owner/OwnerAppointments.jsx";
 import OwnerSalonSetup from "../../pages/owner/OwnerSalonSetup.jsx";
 import ExternalPaymentsLedger from "../../pages/payments/ExternalPaymentsLedger.jsx";
+import { externalPaymentUiEnabled } from "../../lib/paymentFeatures.js";
 
 const OwnerLayout = () => {
   return (
@@ -42,7 +43,10 @@ const OwnerLayout = () => {
           <Route path="employees" element={<EmployeeReport />} />
           <Route path="advances" element={<Advances />} />
           <Route path="finance" element={<EmployeeFinanceWorkspace />} />
-          <Route path="payments" element={<ExternalPaymentsLedger />} />
+          <Route
+            path="payments"
+            element={externalPaymentUiEnabled ? <ExternalPaymentsLedger /> : <Navigate to="../dashboard" replace />}
+          />
           <Route path="intelligence" element={<OwnerIntelligence />} />
           <Route path="statistics" element={<StatisticsAnalytics />} />
           <Route path="employees-management" element={<Employees />} />

@@ -1,5 +1,5 @@
 // src/layouts/ManagerLayout.jsx
-import { Routes, Route } from "react-router-dom";
+import { Navigate, Routes, Route } from "react-router-dom";
 import ManagerSidebar from "../sidebars/ManagerSidebar.jsx";
 import SalonOpeningGate from "../common/SalonOpeningGate.jsx";
 
@@ -19,6 +19,7 @@ import StatisticsAnalytics from "../../pages/statistics/StatisticsAnalytics.jsx"
 import StaffFinanceSnapshot from "../../pages/finance/StaffFinanceSnapshot.jsx";
 import CashierIncomeReview from "../../pages/cashier/CashierIncomeReview.jsx";
 import ExternalPaymentsLedger from "../../pages/payments/ExternalPaymentsLedger.jsx";
+import { externalPaymentUiEnabled } from "../../lib/paymentFeatures.js";
 
 const ManagerLayout = () => {
   return (
@@ -40,7 +41,10 @@ const ManagerLayout = () => {
             {/* Staff Performance */}
             <Route path="staff-performance" element={<StaffPerformance />} />
             <Route path="finance" element={<EmployeeFinanceWorkspace />} />
-            <Route path="payments" element={<ExternalPaymentsLedger />} />
+            <Route
+              path="payments"
+              element={externalPaymentUiEnabled ? <ExternalPaymentsLedger /> : <Navigate to="../dashboard" replace />}
+            />
             <Route path="staff-finance" element={<StaffFinanceSnapshot />} />
             <Route path="income-review" element={<CashierIncomeReview />} />
             <Route path="statistics" element={<StatisticsAnalytics />} />

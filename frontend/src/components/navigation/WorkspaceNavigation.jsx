@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { useData } from "../../context/DataContext.jsx";
+import { externalPaymentUiEnabled } from "../../lib/paymentFeatures.js";
 
 const navigationByRole = {
   owner: [
@@ -106,7 +107,9 @@ export default function WorkspaceNavigation({ role }) {
   const [accountOpen, setAccountOpen] = useState(false);
   const desktopRef = useRef(null);
   const mobileRef = useRef(null);
-  const items = navigationByRole[role] || [];
+  const items = (navigationByRole[role] || []).filter(
+    (item) => externalPaymentUiEnabled || !item.path.endsWith("/payments"),
+  );
   const primaryItems = items.filter((item) => item.primary).slice(0, 4);
   const moreItems = items.filter((item) => !primaryItems.includes(item));
   const desktopItems = items.slice(0, 6);

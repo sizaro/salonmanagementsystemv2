@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Navigate, Routes, Route } from "react-router-dom";
 import CashierSidebar from "../sidebars/CashierSidebar.jsx";
 import SalonOpeningGate from "../common/SalonOpeningGate.jsx";
 
@@ -10,6 +10,7 @@ import EmployeeFinanceWorkspace from "../../pages/finance/EmployeeFinanceWorkspa
 import EmployeeProfilePage from "../../pages/employees/EmployeeProfilePage.jsx";
 import StaffFinanceSnapshot from "../../pages/finance/StaffFinanceSnapshot.jsx";
 import ExternalPaymentsLedger from "../../pages/payments/ExternalPaymentsLedger.jsx";
+import { externalPaymentUiEnabled } from "../../lib/paymentFeatures.js";
 // import CashierIncomeReport from "../../pages/cashier/CashierIncomeReport.jsx";
 // import CashierExpensesReport from "../../pages/cashier/CashierExpensesReport.jsx";
 // import CashierEmployees from "../../pages/cashier/CashierEmployees.jsx";
@@ -29,7 +30,10 @@ const CashierLayout = () => {
             <Route index element={<CashierDashboard />} />
             <Route path="dashboard" element={<CashierDashboard />} />
             <Route path="staff-payments" element={<EmployeeFinanceWorkspace />} />
-            <Route path="payments" element={<ExternalPaymentsLedger />} />
+            <Route
+              path="payments"
+              element={externalPaymentUiEnabled ? <ExternalPaymentsLedger /> : <Navigate to="../dashboard" replace />}
+            />
             <Route path="staff-finance" element={<StaffFinanceSnapshot />} />
             <Route path="employees/:id" element={<EmployeeProfilePage />} />
             <Route path="income-review" element={<CashierIncomeReview />} />
